@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { blankFormFor } from '../../core/domain/permit-form-assets';
 import { firstValueFrom } from 'rxjs';
@@ -36,6 +36,11 @@ interface PreviewableDocument {
   fileType: SavedDocumentFileType;
   label: string;
 }
+
+/** The statuses at which a generated permit exists to fetch. */
+const PERMIT_STATUSES: ReadonlySet<ApplicationLifecycleStatus> = new Set<ApplicationLifecycleStatus>([
+  'Permit Generated', 'Ready for Release', 'Released', 'Completed',
+]);
 
 @Component({
   selector: 'app-application-details',
@@ -405,8 +410,18 @@ export class ApplicationDetailsPage {
         error: () => {},
       });
       this.refreshTimeline();
-      this.store.fetchPermit(this.id());
       this.refreshLetters();
+      // The permit is asked for only once one can exist, and again when the
+      // status moves (the release details change at Ready for Release). Asking
+      // on every visit got "not found" in the browser console for every
+      // application not yet at that point (6 Oct 2026 live test).
+      let fetchedFor: string | null = null;
+      effect(() => {
+        const status = this.app()?.lifecycleStatus;
+        if (status === undefined || !PERMIT_STATUSES.has(status) || status === fetchedFor) return;
+        fetchedFor = status;
+        untracked(() => this.store.fetchPermit(this.id()));
+      });
     }
     // Side-effecting on purpose (writes the store's real-checklist cache) —
     // must live in an effect(), never inside `missingRequired` itself,
