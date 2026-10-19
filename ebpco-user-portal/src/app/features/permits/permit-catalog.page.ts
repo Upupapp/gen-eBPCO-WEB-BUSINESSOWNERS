@@ -46,8 +46,9 @@ import { RequirementsModalComponent } from '../../shared/ui/requirements-modal.c
           <strong>Fire Safety Inspection Certificate (FSIC)</strong> for occupancy are issued by the Bureau of Fire
           Protection, not by the Municipality. Apply for them on
           <a [href]="bfpFsisUrl" target="_blank" rel="noopener noreferrer">BFP-FSIS (fsis.e-bfp.com)</a>
-          or at the Castilla Fire Station. When you receive it, upload it as one of the documents of your
-          Building Permit or Certificate of Occupancy application here, and our Fire Safety officer will check it.
+          or at the Castilla Fire Station. Upload the FSEC with your Building Permit application here; a
+          Certificate of Occupancy application asks for the Fire Safety Compliance and Commissioning Report
+          (FSCCR) instead. Our Fire Safety officer checks both.
         </p>
         <p class="small muted">
           Permits with nothing for the BFP to check, like a Fencing or Sign Permit, skip the Fire Safety stage.
