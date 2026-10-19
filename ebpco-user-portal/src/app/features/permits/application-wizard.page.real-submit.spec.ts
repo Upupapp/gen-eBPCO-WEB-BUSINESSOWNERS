@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ApplicationWizardPage } from './application-wizard.page';
@@ -65,6 +65,9 @@ function configure(): void {
       provideHttpClient(),
       provideHttpClientTesting(),
       { provide: API_BASE_URL, useValue: BASE },
+      // A real permit type: with none, the wizard now returns to Permit
+      // Services (the generic "Business Permit" flow was retired 2026-10-19).
+      { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({ type: 'Fencing Permit' }) } } },
     ],
   });
 }
@@ -91,8 +94,8 @@ function summaryFor(businessId: string | null): ApplicationSummary {
   return {
     id: 'app-real-1',
     referenceNumber: 'E-BPCO-2026-00500',
-    serviceDomain: 'business-permit',
-    permitType: 'Business Permit',
+    serviceDomain: 'Construction Permit',
+    permitType: 'Fencing Permit',
     applicationAction: 'New',
     businessId,
     businessName: businessId ? 'Dela Cruz Hardware & Construction Supply' : null,
@@ -124,8 +127,8 @@ describe('ApplicationWizardPage — submitReal() sends the real business id (reg
     // request, so an undrained one here would be exactly as likely to be
     // picked up as the real refresh it's meant to find.
     http.expectOne(`${BASE}/documents/me`).flush([]);
-    // The generic flow's own constructor-time checklist fetch (`GET
-    // /requirements/Business%20Permit?applicationAction=New`) — same
+    // The wizard's own constructor-time checklist fetch (`GET
+    // /requirements/Fencing%20Permit?applicationAction=New`) — same
     // reasoning as above.
     http.expectOne((r) => r.url.startsWith(`${BASE}/requirements/`)).flush({ documents: [] });
     fixture.detectChanges();
@@ -167,7 +170,7 @@ describe('ApplicationWizardPage — submitReal() sends the real business id (reg
     await submitted;
   });
 
-  it('a generic application with no business selected still sends businessId: null cleanly — not undefined, not a throw', async () => {
+  it('an application with no business selected still sends businessId: null cleanly — not undefined, not a throw', async () => {
     // The wizard's own toStep() guard ("Please select a business.") blocks a
     // citizen from ever reaching step 2 — and so `submit()` — without
     // picking a business, for BOTH the generic and permit-specific flows

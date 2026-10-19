@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ApplicationWizardPage } from './application-wizard.page';
@@ -105,6 +105,9 @@ describe('ApplicationWizardPage — a Renewal/Amendment permit number is checked
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: API_BASE_URL, useValue: BASE },
+        // Opened on a real permit type: with none, the wizard now returns to
+        // Permit Services (the generic "Business Permit" flow was retired).
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({ type: 'Building Permit' }) } } },
       ],
     });
     http = TestBed.inject(HttpTestingController);

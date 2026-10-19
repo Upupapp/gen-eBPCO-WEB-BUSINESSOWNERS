@@ -1061,7 +1061,12 @@ export class ApplicationWizardPage {
     } else {
       this.isGeneric = true;
       this.documents = this.applicationStore.requiredDocumentsFor('generic', this.applicationAction);
-      this.loadRealDocuments('generic', this.applicationAction);
+      // No permit type chosen: back to Permit Services to choose one. This
+      // used to open the generic "Business Permit" application, which eBPCO
+      // does not issue; the server refuses it since ebpco-api 065 (2026-10-19).
+      void this.router.navigate(['/permits'], {
+        queryParams: businessParam ? { businessId: businessParam } : {}, replaceUrl: true,
+      }).catch(() => false);
     }
     if (this.api.configured) {
       this.api.getMyDocuments().subscribe({

@@ -51,8 +51,8 @@ function summaryFor(overrides: Partial<ApplicationSummary> = {}): ApplicationSum
   return {
     id: 'draft-1',
     referenceNumber: 'E-BPCO-2026-00777',
-    serviceDomain: 'business-permit',
-    permitType: 'Business Permit',
+    serviceDomain: 'Construction Permit',
+    permitType: 'Fencing Permit',
     applicationAction: 'New',
     businessId: 'biz-1',
     businessName: 'Test Business',
@@ -111,6 +111,9 @@ describe('ApplicationWizardPage — save as draft', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: API_BASE_URL, useValue: BASE },
+        // A real permit type: with none, the wizard now returns to Permit
+        // Services (the generic "Business Permit" flow was retired 2026-10-19).
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({ type: 'Fencing Permit' }) } } },
       ],
     });
     http = TestBed.inject(HttpTestingController);

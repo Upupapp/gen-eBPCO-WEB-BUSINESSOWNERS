@@ -16,7 +16,6 @@ import { RequirementsModalComponent } from '../../shared/ui/requirements-modal.c
           <h1>Permit Services</h1>
           <div class="subtitle">Browse requirements before you start, or begin a new application.</div>
         </div>
-        <a routerLink="/permits/apply" [queryParams]="startParams('generic')" class="btn btn-secondary">Start Generic Application</a>
       </div>
 
       @if (businesses.usingReal() && businesses.myBusinesses().length === 0) {
@@ -193,7 +192,7 @@ export class PermitCatalogPage {
    */
   private readonly fromBusiness = inject(ActivatedRoute).snapshot.queryParamMap.get('businessId');
 
-  protected startParams(type: PermitType | 'generic'): Record<string, string> {
+  protected startParams(type: PermitType): Record<string, string> {
     return this.fromBusiness ? { type, businessId: this.fromBusiness } : { type };
   }
 
