@@ -62,6 +62,59 @@ export interface ApplicationRecord {
    */
   location?: string | null;
   form?: Readonly<Record<string, unknown>>;
+  /** Who it is for (migration 067). Absent on a local-only row, which always names a business. */
+  applyingAs?: ApplyingAs;
+}
+
+/**
+ * Who one application is for (owner request, 2026-10-21). Asked on every
+ * application, whatever the citizen chose at sign-up, so one account files
+ * both. Residential names no business; Business names one of theirs.
+ */
+export type ApplyingAs = 'residential' | 'business';
+
+/**
+ * `form.propertyOwner` on a residential application: the applicant owns the
+ * property, or names who does (the owner's written consent goes with the
+ * documents).
+ */
+export type PropertyOwner =
+  | { isApplicant: true }
+  | { isApplicant: false; name: string; relationship?: string };
+
+/**
+ * `form.applyingAs` as filed, else what the server derives (`applyingAs` on
+ * the view), else from whether a business is named — the same tie-breaker the
+ * server uses, so an application filed before this existed reads as Business.
+ */
+export function applyingAsOf(
+  form: Readonly<Record<string, unknown>> | null | undefined,
+  businessId: string | null,
+  fromServer?: ApplyingAs,
+): ApplyingAs {
+  const filed = form?.['applyingAs'];
+  if (filed === 'residential' || filed === 'business') return filed;
+  if (fromServer) return fromServer;
+  return businessId ? 'business' : 'residential';
+}
+
+/** `form.propertyOwner` when it is well-formed, else null. */
+export function propertyOwnerOf(form: Readonly<Record<string, unknown>> | null | undefined): PropertyOwner | null {
+  const owner = form?.['propertyOwner'];
+  if (typeof owner !== 'object' || owner === null) return null;
+  const record = owner as Record<string, unknown>;
+  if (record['isApplicant'] === true) return { isApplicant: true };
+  if (record['isApplicant'] !== false) return null;
+  const rawName = record['name'];
+  const rawRelationship = record['relationship'];
+  const name = typeof rawName === 'string' ? rawName : '';
+  const relationship = typeof rawRelationship === 'string' && rawRelationship.trim() !== '' ? rawRelationship : undefined;
+  return relationship === undefined ? { isApplicant: false, name } : { isApplicant: false, name, relationship };
+}
+
+/** What a list or a page shows where a business name used to be: "Residential", or the business's name. */
+export function applyingAsLabel(app: Pick<ApplicationRecord, 'applyingAs' | 'businessName'>): string {
+  return app.applyingAs === 'residential' ? 'Residential' : app.businessName;
 }
 
 export interface StatusTimelineEntry {

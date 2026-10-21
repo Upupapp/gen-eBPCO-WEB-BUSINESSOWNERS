@@ -2,12 +2,12 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import {
-  ApplicantType,
   CivilStatus,
   Sex,
   UserAccount,
   unverifiedContact,
 } from '../domain/user.model';
+import { RegisteredAs, VerificationRequest } from '../domain/account-verification';
 import { CitizenIdentityApi } from '../api/citizen-identity.api';
 import { CitizenApiClient } from '../api/citizen-api.client';
 import { CitizenTokenStore } from '../api/citizen-token-store';
@@ -96,20 +96,11 @@ export class AuthService {
   // unused, or revoked), ends the session while a tab stays open.
   private refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
-  /**
-   * `applicantType` has no server field either (see class doc). Kept as a
-   * local-only override layered onto the real profile, the same shape the
-   * old mock had, so the applicant-type picker screen keeps working within
-   * this session — it is never sent anywhere and does not survive a reload.
-   */
-  private readonly _applicantTypeOverride = signal<ApplicantType | null>(null);
-
-  readonly currentUser = computed<UserAccount | null>(() => {
-    const profile = this._profile();
-    if (!profile) return null;
-    const override = this._applicantTypeOverride();
-    return override === null ? profile : { ...profile, applicantType: override };
-  });
+  // A local-only `applicantType` override ('Individual' / 'Authorized
+  // Representative' / 'Corporate Officer') used to sit here, never sent
+  // anywhere. Replaced by the real `registeredAs` and `verification` from
+  // `GET /me` (migration 067), 2026-10-21.
+  readonly currentUser = computed<UserAccount | null>(() => this._profile());
 
   /**
    * True once a real profile has been loaded — NOT merely "a token exists".
@@ -141,9 +132,12 @@ export class AuthService {
     personal: RegisterPersonalInfo,
     contact: RegisterContactInfo,
     security: RegisterSecurityInfo,
+    /** Migration 067: what they will apply for. Omitted when not asked. */
+    registeredAs: RegisteredAs | null = null,
   ): Promise<{ ok: true } | { ok: false; error: string }> {
     try {
       await this.identity.register({
+        ...(registeredAs ? { registeredAs } : {}),
         firstName: personal.firstName,
         lastName: personal.lastName,
         email: contact.email,
@@ -217,7 +211,6 @@ export class AuthService {
    */
   dropSession(): void {
     this._profile.set(null);
-    this._applicantTypeOverride.set(null);
     this.clearRefreshTimer();
     // Revoked, not just cleared: an object URL keeps its Blob alive in memory
     // until this is called, and the next citizen to sign in on this device
@@ -411,9 +404,40 @@ export class AuthService {
     return { ok: false, error: result.message };
   }
 
-  applicantTypeSet(type: ApplicantType): void {
-    if (!this._profile()) return;
-    this._applicantTypeOverride.set(type);
+  /**
+   * `PUT /me/verification` — the valid ID the Municipality checks before this
+   * account can submit applications. The session takes the server's answer
+   * at once (so every banner and the wizard's Submit change without a
+   * reload), then re-reads `GET /me` as the record of what the office holds.
+   */
+  async submitVerification(request: VerificationRequest): Promise<{ ok: true } | { ok: false; error: string }> {
+    try {
+      const result = await firstValueFrom(this.api.submitVerification(request));
+      const current = this._profile();
+      if (current) {
+        this._profile.set({
+          ...current,
+          verification: result.verification ?? current.verification,
+          registeredAs: result.registeredAs ?? current.registeredAs,
+        });
+      }
+    } catch (error) {
+      // A photo the server could not use comes back as a 400 whose field
+      // error says why ("Upload a photo of the ID (JPEG or PNG), not a
+      // PDF."); `citizenMessage` alone would show the generic title.
+      if (error instanceof ApiError) {
+        const fieldErrors = error.problem?.fieldErrors ?? [];
+        if (fieldErrors.length > 0) return { ok: false, error: fieldErrors.map((e) => e.message).join(' ') };
+      }
+      return { ok: false, error: describeError(error) };
+    }
+    try {
+      await this.reloadProfile();
+    } catch {
+      // The upload itself succeeded and the session already shows it; a
+      // failed re-read is not worth an error on top of that.
+    }
+    return { ok: true };
   }
 }
 
@@ -446,18 +470,18 @@ function meResponseToAccount(me: MeResponse): UserAccount {
     email: me.email,
     mobileNumber: me.mobileNumber ?? '',
     landlineNumber: null,
-    applicantType: null,
+    registeredAs: me.registeredAs ?? null,
     street: me.street ?? '',
     barangay: me.barangay ?? '',
     city: me.city ?? '',
     province: me.province ?? '',
     postalCode: me.postalCode ?? '',
     hasPhoto: me.hasPhoto,
-    // No server field for this either. Derived from email verification as
-    // the closest real signal, rather than invented: an unverified email
-    // reads as "pending", a verified one as "verified". This is an
-    // approximation, not a server-stated fact — do not treat it as one.
-    accountStatus: me.emailVerifiedAt ? 'verified' : 'pending',
+    // The Municipality's own verification of the account (migration 067),
+    // as the server states it. This replaced an `accountStatus` guessed from
+    // whether the email was confirmed — that is a different fact, still
+    // kept separately just below as `emailVerification`.
+    verification: me.verification ?? null,
     emailVerification: me.emailVerifiedAt
       ? { status: 'Verified', method: 'Email Verification Link', verifiedAt: me.emailVerifiedAt }
       : unverifiedContact(),

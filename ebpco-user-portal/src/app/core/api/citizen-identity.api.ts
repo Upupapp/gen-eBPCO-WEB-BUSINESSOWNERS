@@ -6,6 +6,7 @@ import { API_BASE_URL, ApiNotConfiguredError } from './api-config';
 import { ApiError, problemFrom } from './problem';
 import { CitizenTokenStore } from './citizen-token-store';
 import { MeResponse } from './citizen-profile';
+import { RegisteredAs } from '../domain/account-verification';
 
 /**
  * Signing in, registering, and finding out who signed in — the citizen
@@ -47,6 +48,8 @@ export interface RegisterInput {
   city?: string;
   province?: string;
   postalCode?: string;
+  /** Migration 067: what they will apply for. A starting point only; every application asks again. */
+  registeredAs?: RegisteredAs;
 }
 
 @Injectable({ providedIn: 'root' })

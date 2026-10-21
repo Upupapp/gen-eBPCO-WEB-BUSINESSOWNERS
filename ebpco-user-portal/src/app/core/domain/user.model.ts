@@ -1,3 +1,5 @@
+import { AccountVerification, RegisteredAs } from './account-verification';
+
 // Reconciles Admin's Applicant (core/domain/applicant.model.ts) with
 // mobile's UserModel (ebpco-mobile/lib/core/models/user_model.dart) into
 // the one account shape this portal owns and authenticates directly —
@@ -5,7 +7,8 @@
 // Email only. The LGU records a mobile number and does not verify it — there
 // is no SMS provider and no intention to add one — so a "Mobile OTP" method
 // and a mobile verification state were removed (2026-09-20) rather than left
-// as badges nothing could ever change.
+// as badges nothing could ever change. (Account verification, the
+// Municipality checking a valid ID, is a different thing: `verification` below.)
 export type VerificationMethod = 'Email Verification Link';
 export type VerificationStatus = 'Unverified' | 'Pending Verification' | 'Verified' | 'Verification Failed';
 
@@ -19,8 +22,6 @@ export function unverifiedContact(): ContactVerification {
   return { status: 'Unverified', method: null, verifiedAt: null };
 }
 
-export type ApplicantType = 'Individual' | 'Authorized Representative' | 'Corporate Officer';
-export type AccountStatus = 'verified' | 'pending' | 'suspended';
 export type CivilStatus = 'Single' | 'Married' | 'Widowed' | 'Separated' | 'Divorced';
 export type Sex = 'Male' | 'Female' | 'Prefer not to say';
 
@@ -36,7 +37,8 @@ export interface UserAccount {
   email: string;
   mobileNumber: string;
   landlineNumber: string | null;
-  applicantType: ApplicantType | null;
+  /** What they said at sign-up they will apply for; null for an account from before it was asked. Never restricts anything. */
+  registeredAs: RegisteredAs | null;
   street: string;
   barangay: string;
   city: string;
@@ -44,7 +46,13 @@ export interface UserAccount {
   postalCode: string;
   /** Whether `GET /me/photo` has bytes — never the bytes/URL themselves. See `AuthService.photoUrl` for the real, fetched image. */
   hasPhoto: boolean;
-  accountStatus: AccountStatus;
+  /**
+   * The Municipality's verification of this account (migration 067), which
+   * decides whether it may submit applications. Null when the server sent
+   * none (one from before that migration). Not the same thing as
+   * `emailVerification` below, which only says the email address is theirs.
+   */
+  verification: AccountVerification | null;
   emailVerification: ContactVerification;
   registeredSince: string;
 }

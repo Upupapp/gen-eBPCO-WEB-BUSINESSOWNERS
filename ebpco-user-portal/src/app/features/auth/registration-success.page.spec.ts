@@ -1,21 +1,29 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { RegistrationSuccessPage } from './registration-success.page';
+import { AuthService } from '../../core/session/auth.service';
+import { AccountVerificationStatus } from '../../core/domain/account-verification';
 
 /**
  * Guards F-16: this screen told a new citizen to "verify your email and mobile
  * number from your Profile before submitting a permit application".
  *
- * The Profile screen has no verification action — only two read-only badges.
- * Nothing can send a verification email or an OTP. And the verified/pending
- * status gates nothing anywhere in the app, so it was not even a real
- * precondition. A dead instruction pointing at a control that does not exist.
+ * The Profile screen had no verification action then — only two read-only
+ * badges. Nothing could send a verification email or an OTP. A dead
+ * instruction pointing at a control that did not exist.
+ *
+ * Since migration 067 (2026-10-21) the Municipality verifies an account from a
+ * valid ID before it can submit, and Profile > Account verification is a real
+ * control. Sign-up signs in and sends the ID itself; this page says what
+ * actually happened, read from the session.
  */
 describe('RegistrationSuccessPage (F-16: no instruction without a control)', () => {
-  function render() {
+  /** `null`: not signed in. Otherwise signed in, with that verification status. */
+  function render(status: AccountVerificationStatus | null = null) {
+    const user = status === null ? null : { verification: { status, submittedAt: null, decidedAt: null, note: null, idType: null } };
     TestBed.configureTestingModule({
       imports: [RegistrationSuccessPage],
-      providers: [provideRouter([])],
+      providers: [provideRouter([]), { provide: AuthService, useValue: { currentUser: () => user } }],
     });
     const fixture = TestBed.createComponent(RegistrationSuccessPage);
     fixture.detectChanges();
@@ -23,8 +31,11 @@ describe('RegistrationSuccessPage (F-16: no instruction without a control)', () 
   }
   afterEach(() => TestBed.resetTestingModule());
 
-  it('does not send the citizen to Profile to verify anything', () => {
-    const text = (render().nativeElement as HTMLElement).textContent ?? '';
+  const textOf = (status: AccountVerificationStatus | null = null) =>
+    (render(status).nativeElement as HTMLElement).textContent ?? '';
+
+  it('does not send the citizen to Profile to verify their email or mobile number', () => {
+    const text = textOf();
     expect(text).not.toContain('verify your email and mobile number');
     expect(text).not.toContain('before submitting a permit application');
   });
@@ -36,7 +47,7 @@ describe('RegistrationSuccessPage (F-16: no instruction without a control)', () 
     // must not send anyone looking for a step that does not exist. Since
     // 2026-09-27 no one reaches this page without confirming the code, so it
     // no longer hedges with "If you confirmed".
-    const text = (render().nativeElement as HTMLElement).textContent ?? '';
+    const text = textOf();
     expect(text).toContain('Your email address is verified');
     expect(text).not.toContain('If you confirmed');
     expect(text).toContain('mobile number is kept on file and is not verified');
@@ -52,9 +63,33 @@ describe('RegistrationSuccessPage (F-16: no instruction without a control)', () 
     // the account isn't real -- is gone; what remains to guard is the other
     // half, that creating an account is not the same as an office having
     // reviewed anything.
-    const text = (render().nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('account has been created');
-    expect(text).not.toContain('reviewed');
-    expect(text).not.toContain('approved');
+    for (const status of [null, 'pending'] as const) {
+      const text = textOf(status);
+      expect(text).toContain('account has been created');
+      expect(text).not.toContain('reviewed');
+      expect(text).not.toContain('approved');
+      TestBed.resetTestingModule();
+    }
+  });
+
+  it('once the ID was sent: waiting for verification, and the citizen will be notified', () => {
+    const text = textOf('pending');
+    expect(text).toContain('waiting for verification');
+    expect(text).toContain('You\'ll be notified when the Municipality verifies your account');
+    expect(text).not.toContain('Profile > Account verification');
+    expect(text).toContain('Go to Dashboard');
+  });
+
+  it('when the sign-in or the upload did not go through: still created, and where to upload the ID', () => {
+    for (const status of [null, 'unsubmitted'] as const) {
+      const text = textOf(status);
+      expect(text).toContain('account has been created');
+      expect(text).toContain('Profile > Account verification');
+      expect(text).toContain('You\'ll be notified when the Municipality verifies your account');
+      TestBed.resetTestingModule();
+    }
+    expect(textOf()).toContain('Continue to Log In');
+    TestBed.resetTestingModule();
+    expect(textOf('unsubmitted')).toContain('Upload My ID');
   });
 });

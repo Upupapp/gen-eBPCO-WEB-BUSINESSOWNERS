@@ -18,12 +18,16 @@ import { CapitalizeNameDirective } from '../../core/utils/capitalize-name.direct
 import { LegalDocument, LegalModalComponent } from '../../shared/ui/legal-modal.component';
 import { ConfirmModalComponent } from '../../shared/ui/confirm-modal.component';
 import { CASTILLA_BARANGAYS } from '../../core/domain/ph-reference-data';
+import {
+  AccountVerificationStatus, rejectedHeadline, verificationStatusLabel,
+} from '../../core/domain/account-verification';
+import { ValidIdDraft, ValidIdFieldsComponent } from '../../shared/ui/valid-id-fields.component';
 
 type Tab = 'profile' | 'password' | 'notifications' | 'privacy' | 'legal';
 
 @Component({
   selector: 'app-profile',
-  imports: [FormsModule, CapitalizeNameDirective, LegalModalComponent, ConfirmModalComponent],
+  imports: [FormsModule, CapitalizeNameDirective, LegalModalComponent, ConfirmModalComponent, ValidIdFieldsComponent],
   templateUrl: './profile.page.html',
   styleUrl: './profile.page.scss',
 })
@@ -168,6 +172,54 @@ export class ProfilePage {
     this.verifyCodeSent.set(false);
     this.verifyCode = '';
     this.toast.success('Your email address is verified.');
+  }
+
+  // ── Account verification — PUT /me/verification (migration 067) ────────
+  //
+  // The Municipality verifies an account from one valid ID before it can
+  // submit applications. Sign-up sends it; this is where it is sent when that
+  // did not happen, sent again after the office did not accept it, or
+  // replaced while it waits. `AuthService.submitVerification` re-reads
+  // `GET /me`, so the chip here and every banner change at once.
+  protected readonly idDraft = new ValidIdDraft();
+  protected readonly idSending = signal(false);
+  protected readonly idError = signal<string | null>(null);
+  /** While waiting for verification, the form stays behind "Send a different ID": nothing more is needed. */
+  protected readonly replaceIdOpen = signal(false);
+  protected readonly verificationStatusLabel = verificationStatusLabel;
+  protected readonly rejectedHeadline = rejectedHeadline;
+
+  protected verificationBadge(status: AccountVerificationStatus): string {
+    switch (status) {
+      case 'verified': return 'badge-green';
+      case 'pending': return 'badge-blue';
+      case 'rejected': return 'badge-red';
+      default: return 'badge-amber';
+    }
+  }
+
+  protected async sendId(): Promise<void> {
+    const problem = this.idDraft.problem();
+    if (problem) {
+      this.idError.set(problem);
+      return;
+    }
+    this.idSending.set(true);
+    this.idError.set(null);
+    try {
+      const result = await this.auth.submitVerification(await this.idDraft.toRequest());
+      if (!result.ok) {
+        this.idError.set(result.error);
+        return;
+      }
+      this.idDraft.reset();
+      this.replaceIdOpen.set(false);
+      this.toast.success('Your ID was sent. You’ll be notified when the Municipality verifies your account.');
+    } catch {
+      this.idError.set('Your ID photo could not be read. Choose it again.');
+    } finally {
+      this.idSending.set(false);
+    }
   }
 
   currentPassword = '';

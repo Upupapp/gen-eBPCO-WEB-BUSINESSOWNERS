@@ -20,7 +20,7 @@ import { toContractShape } from './demo-document.adapter';
 import { ApplicationDocumentResponse, InstructionLetter, TimelineEntryResponse } from '../../core/api/citizen-api.models';
 import { duplicateOf } from '../../core/api/problem';
 import { BackLinkComponent } from '../../shared/ui/back-link.component';
-import { ApplicationRecord } from '../../core/domain/application.model';
+import { ApplicationRecord, applyingAsLabel, propertyOwnerOf } from '../../core/domain/application.model';
 
 /** Same extension-sniffing fallback as my-documents.page.ts / application-wizard.page.ts. */
 function fileTypeFromName(name: string): SavedDocumentFileType {
@@ -52,7 +52,7 @@ const PERMIT_STATUSES: ReadonlySet<ApplicationLifecycleStatus> = new Set<Applica
         <div class="page-header">
           <div>
             <h1>{{ a.permitType }}</h1>
-            <div class="subtitle">{{ a.applicationNumber }} · {{ a.businessName }} · {{ a.applicationAction }}</div>
+            <div class="subtitle">{{ a.applicationNumber }} · {{ applyingAsLabel(a) }} · {{ a.applicationAction }}</div>
             @if (a.relatedPermitNumber) {
               <div class="small muted">
                 {{ a.applicationAction === 'Renewal' ? 'Renewing' : 'Amending' }} permit
@@ -322,6 +322,8 @@ export class ApplicationDetailsPage {
 
   protected readonly applicantStatusOf = applicantStatusOf;
   protected readonly applicantStatusLabel = applicantStatusLabel;
+  /** "Residential", or the business's name (migration 067). */
+  protected readonly applyingAsLabel = applyingAsLabel;
   protected readonly formatDate = formatDate;
   protected readonly formatDateTime = formatDateTime;
   protected readonly pesos = pesos;
@@ -529,8 +531,15 @@ export class ApplicationDetailsPage {
   protected projectDetails(a: ApplicationRecord): { label: string; value: string }[] | null {
     const form = a.form ?? {};
     const text = (key: string): string => (typeof form[key] === 'string' ? (form[key] as string).trim() : '');
+    // A residential application names the lot owner when the applicant is not
+    // the owner (migration 067); nothing is shown when they own it themselves.
+    const owner = a.applyingAs === 'residential' ? propertyOwnerOf(form) : null;
+    const ownerText = owner !== null && owner.isApplicant === false && owner.name.trim()
+      ? `${owner.name.trim()}${owner.relationship ? ` (${owner.relationship.trim()})` : ''}`
+      : '';
     const rows = [
-      { label: 'Project / Business Address', value: (a.location ?? '').trim() },
+      { label: 'Property Owner', value: ownerText },
+      { label: 'Project / Property Address', value: (a.location ?? '').trim() },
       { label: 'Scope of Work / Purpose', value: text('scopeOfWork') },
       { label: 'Professional in Charge', value: text('professionalName') },
       { label: 'PRC License No.', value: text('prcNumber') },

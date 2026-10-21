@@ -36,7 +36,24 @@ export class FakeCitizenIdentityApi {
     civilStatus: 'Married',
     nationality: 'Filipino',
     hasPhoto: false,
+    // Migration 067. A business owner (the demo's Dela Cruz Hardware), so
+    // the wizard opens on "Applying as: Business"; verified, like every
+    // account that existed before verification did.
+    registeredAs: 'business',
+    verification: {
+      status: 'verified', submittedAt: null, decidedAt: '2026-01-15T00:00:00.000Z', note: null, idType: null,
+    },
   };
+
+  /** Tests: an account the Municipality has not verified yet. */
+  setVerification(status: 'unsubmitted' | 'pending' | 'verified' | 'rejected', note: string | null = null): void {
+    this.account.verification = { status, submittedAt: null, decidedAt: null, note, idType: null };
+  }
+
+  /** Tests: what the citizen chose at sign-up. */
+  setRegisteredAs(registeredAs: 'residential' | 'business' | 'both' | null): void {
+    this.account.registeredAs = registeredAs;
+  }
 
   async signIn(email: string, password: string): Promise<MeResponse> {
     if (email === this.account.email && password === 'Password1') return { ...this.account };

@@ -53,3 +53,28 @@ describe('MyApplicationsPage filters', () => {
     expect(text).not.toContain('Expired');
   });
 });
+
+/**
+ * One account files both residential and business applications (owner
+ * request, 2026-10-21). Where the list showed only a business name, a
+ * residential application, which names none, reads "Residential".
+ */
+describe('MyApplicationsPage: Applying as', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('shows "Residential" for a residential application, and the business name for a business one', () => {
+    const rows = [
+      { id: 'r', lifecycleStatus: 'Submitted', applicationNumber: 'BP-1', permitType: 'Building Permit', businessName: '', applyingAs: 'residential' },
+      { id: 'b', lifecycleStatus: 'Submitted', applicationNumber: 'SP-2', permitType: 'Sign Permit', businessName: 'Dela Cruz Hardware', applyingAs: 'business' },
+    ] as ApplicationRecord[];
+    TestBed.configureTestingModule({
+      imports: [MyApplicationsPage],
+      providers: [provideRouter([]), { provide: ApplicationStore, useValue: { myApplications: () => rows } }],
+    });
+    const fixture = TestBed.createComponent(MyApplicationsPage);
+    fixture.detectChanges();
+    const cells = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('tbody tr'))
+      .map((tr) => tr.querySelectorAll('td')[2]?.textContent?.trim());
+    expect(cells).toEqual(['Residential', 'Dela Cruz Hardware']);
+  });
+});

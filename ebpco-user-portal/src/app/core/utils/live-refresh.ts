@@ -51,12 +51,18 @@ export class LiveRefresh {
     });
   }
 
-  /** Refetches both stores, unless signed out, unconfigured, or done moments ago. */
+  /** Refetches both stores (and an unverified account), unless signed out, unconfigured, or done moments ago. */
   refresh(now: number = Date.now()): void {
     if (!this.auth.isAuthenticated() || !this.api.configured) return;
     if (now - this.lastRefreshAt < LIVE_REFRESH_MIN_GAP_MS) return;
     this.lastRefreshAt = now;
     void this.applications.refreshMine();
     void this.notifications.refreshMine();
+    // While the Municipality has not verified the account yet (migration
+    // 067), the account is re-read too, so the verification banners and the
+    // wizard's Submit change the moment an officer decides — not at the next
+    // reload. A verified account has nothing left to wait for.
+    const status = this.auth.currentUser()?.verification?.status;
+    if (status !== undefined && status !== 'verified') void this.auth.reloadProfile().catch(() => undefined);
   }
 }

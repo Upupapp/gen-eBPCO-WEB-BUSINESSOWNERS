@@ -7,6 +7,7 @@ import { AuthService } from '../../core/session/auth.service';
 import { requirementsFor } from '../../core/domain/requirements-catalog';
 import { agencyHeaderFor, documentTitleFor } from '../../core/domain/generated-document.helpers';
 import { fullName } from '../../core/domain/user.model';
+import { applyingAsLabel } from '../../core/domain/application.model';
 import { Assessment, pesos } from '../../core/domain/assessment.model';
 import { formatDate } from '../../core/utils/ids';
 import { MUNICIPAL_ENGINEER } from '../../core/domain/lgu-contact';
@@ -104,7 +105,7 @@ interface QrCell {
                 </div>
                 <div>
                   <dt>Business / Project</dt>
-                  <dd>{{ a.businessName || 'Not provided' }}</dd>
+                  <dd>{{ applyingAsLabel(a) || 'Not provided' }}</dd>
                 </div>
                 <div>
                   <dt>Contact Number</dt>
@@ -309,6 +310,8 @@ export class PermitDocumentPage {
 
   protected readonly formatDate = formatDate;
   protected readonly pesos = pesos;
+  /** "Residential", or the business's name, under Business / Project (migration 067). */
+  protected readonly applyingAsLabel = applyingAsLabel;
   protected readonly generatedOn = new Date().toLocaleString('en-PH', {
     year: 'numeric',
     month: 'long',

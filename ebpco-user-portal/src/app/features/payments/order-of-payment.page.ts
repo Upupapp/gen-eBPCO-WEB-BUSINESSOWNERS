@@ -8,6 +8,7 @@ import { ApplicationSummary } from '../../core/api/citizen-api.models';
 import { requirementsFor } from '../../core/domain/requirements-catalog';
 import { agencyHeaderFor } from '../../core/domain/generated-document.helpers';
 import { fullName } from '../../core/domain/user.model';
+import { applyingAsLabel } from '../../core/domain/application.model';
 import { pesos } from '../../core/domain/assessment.model';
 import { formatDate } from '../../core/utils/ids';
 import { BackLinkComponent } from '../../shared/ui/back-link.component';
@@ -78,7 +79,7 @@ const FEE_LINES: ReadonlyArray<{ code: keyof Order['fees']; name: string }> = [
               <h2>Payor</h2>
               <dl class="doc-generated-fields">
                 <div><dt>Name</dt><dd>{{ applicantName() }}</dd></div>
-                <div><dt>Business / Project</dt><dd>{{ a.businessName || 'Not provided' }}</dd></div>
+                <div><dt>Business / Project</dt><dd>{{ applyingAsLabel(a) || 'Not provided' }}</dd></div>
                 <div><dt>Transaction</dt><dd>{{ a.applicationAction }}</dd></div>
                 <div>
                   <dt>Property</dt>
@@ -137,6 +138,8 @@ export class OrderOfPaymentPage {
 
   protected readonly formatDate = formatDate;
   protected readonly pesos = pesos;
+  /** "Residential", or the business's name, under Business / Project (migration 067). */
+  protected readonly applyingAsLabel = applyingAsLabel;
   protected readonly generatedOn = new Date().toLocaleString('en-PH', {
     year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
   });

@@ -38,6 +38,7 @@ import {
   UploadDocumentResult,
 } from './citizen-api.models';
 import { MeResponse, ProfileRectification, RectificationResult } from './citizen-profile';
+import { VerificationRequest, VerificationResult } from '../domain/account-verification';
 
 /**
  * Client for the citizen endpoints.
@@ -268,6 +269,20 @@ export class CitizenApiClient {
     if (this.baseUrl === null) return throwError(() => new ApiNotConfiguredError());
     return this.http
       .put<{ contentType: string }>(`${this.baseUrl}/me/photo`, { fileName, contentBase64 })
+      .pipe(catchError((e) => throwError(() => this.toApiError(e))));
+  }
+
+  /**
+   * `PUT /me/verification` (migration 067) — the valid ID the Municipality
+   * checks before this account can submit applications. PUT: one ID is kept,
+   * and sending again replaces it (or resends one that was not accepted).
+   * Same base64 convention as `uploadPhoto`. 409 once the account is already
+   * verified; 400 naming the photo when it is not a usable JPEG or PNG.
+   */
+  submitVerification(body: VerificationRequest): Observable<VerificationResult> {
+    if (this.baseUrl === null) return throwError(() => new ApiNotConfiguredError());
+    return this.http
+      .put<VerificationResult>(`${this.baseUrl}/me/verification`, body)
       .pipe(catchError((e) => throwError(() => this.toApiError(e))));
   }
 

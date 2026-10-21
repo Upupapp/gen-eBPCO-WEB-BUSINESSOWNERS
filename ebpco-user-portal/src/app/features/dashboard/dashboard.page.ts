@@ -5,8 +5,10 @@ import { BusinessStore } from '../../core/stores/business.store';
 import { NotificationStore } from '../../core/stores/notification.store';
 import { AuthService } from '../../core/session/auth.service';
 import { StatusPillComponent } from '../../shared/ui/status-pill.component';
+import { VerificationBannerComponent } from '../../shared/ui/verification-banner.component';
 import { applicantStatusLabel, applicantStatusOf, isTerminalStatus } from '../../core/domain/status.model';
 import { fullName } from '../../core/domain/user.model';
+import { applyingAsLabel } from '../../core/domain/application.model';
 import { formatDate } from '../../core/utils/ids';
 import { permitVisual } from '../../core/domain/permit-visual';
 
@@ -42,7 +44,7 @@ interface DashboardKpi {
 
 @Component({
   selector: 'app-dashboard',
-  imports: [RouterLink, StatusPillComponent],
+  imports: [RouterLink, StatusPillComponent, VerificationBannerComponent],
   templateUrl: './dashboard.page.html',
   styleUrl: './dashboard.page.scss',
 })
@@ -54,6 +56,8 @@ export class DashboardPage {
 
   protected readonly formatDate = formatDate;
   protected readonly icons = ICONS;
+  /** "Residential", or the business's name, where a row used to show only the business. */
+  protected readonly applyingAsLabel = applyingAsLabel;
 
   firstName(): string {
     const u = this.auth.currentUser();

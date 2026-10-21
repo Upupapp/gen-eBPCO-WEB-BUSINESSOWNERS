@@ -9,6 +9,7 @@ import { PaymentTransaction } from '../../core/domain/payment.model';
 import { requirementsFor } from '../../core/domain/requirements-catalog';
 import { agencyHeaderFor } from '../../core/domain/generated-document.helpers';
 import { fullName } from '../../core/domain/user.model';
+import { applyingAsLabel } from '../../core/domain/application.model';
 import { pesos } from '../../core/domain/assessment.model';
 import { formatDate, formatDateTime } from '../../core/utils/ids';
 import { BackLinkComponent } from '../../shared/ui/back-link.component';
@@ -117,7 +118,7 @@ const FEE_LINES: ReadonlyArray<{ code: keyof NonNullable<ApplicationSummary['pay
                 </div>
                 <div>
                   <dt>Business / Project</dt>
-                  <dd>{{ a.businessName || 'Not provided' }}</dd>
+                  <dd>{{ applyingAsLabel(a) || 'Not provided' }}</dd>
                 </div>
               </dl>
             </section>
@@ -268,6 +269,8 @@ export class PaymentReceiptPage {
   protected readonly formatDate = formatDate;
   protected readonly formatDateTime = formatDateTime;
   protected readonly pesos = pesos;
+  /** "Residential", or the business's name, under Business / Project (migration 067). */
+  protected readonly applyingAsLabel = applyingAsLabel;
   protected readonly generatedOn = new Date().toLocaleString('en-PH', {
     year: 'numeric',
     month: 'long',

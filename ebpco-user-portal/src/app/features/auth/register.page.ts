@@ -5,32 +5,69 @@ import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/session/auth.service';
 import { CitizenIdentityApi } from '../../core/api/citizen-identity.api';
 import { CivilStatus, Sex } from '../../core/domain/user.model';
+import { RegisteredAs } from '../../core/domain/account-verification';
 import { CapitalizeNameDirective } from '../../core/utils/capitalize-name.directive';
 import { CASTILLA_BARANGAYS, NATIONALITIES } from '../../core/domain/ph-reference-data';
 import { firstPasswordRejectionMessage, passwordChecks } from '../../core/domain/password-policy';
 import { LegalDocument, LegalModalComponent } from '../../shared/ui/legal-modal.component';
+import { ValidIdDraft, ValidIdFieldsComponent } from '../../shared/ui/valid-id-fields.component';
 
-type Step = 1 | 2 | 3;
+/**
+ * Sign Up → Select Applicant Type → Enter Required Information → Create
+ * Account (owner request, 2026-10-21): 1 Applicant type, 2 Personal,
+ * 3 Contact, 4 Valid ID, 5 Security.
+ */
+type Step = 1 | 2 | 3 | 4 | 5;
+
+/** Step 1's three cards. What they choose never restricts anything: every application asks again. */
+const APPLICANT_TYPES: readonly { value: RegisteredAs; title: string; description: string }[] = [
+  { value: 'residential', title: 'Residential / Private Individual', description: 'For your home or other private property.' },
+  { value: 'business', title: 'Business', description: 'For a business or commercial establishment.' },
+  { value: 'both', title: 'Both', description: 'You’ll apply for both.' },
+];
 
 @Component({
   selector: 'app-register',
-  imports: [FormsModule, RouterLink, CapitalizeNameDirective, NgTemplateOutlet, LegalModalComponent],
+  imports: [FormsModule, RouterLink, CapitalizeNameDirective, NgTemplateOutlet, LegalModalComponent, ValidIdFieldsComponent],
   template: `
     <div style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;">
       <div class="card auth-card anim-pop-in" style="width:100%; max-width:520px;">
         <div style="text-align:center; margin-bottom:12px;">
           <h2>Create Your Account</h2>
-          <p class="muted small">Step {{ step() }} of 3</p>
+          <p class="muted small">Step {{ step() }} of 5</p>
         </div>
         <div class="steps" style="justify-content:center;">
-          <div class="step-item" [class.active]="step() === 1" [class.done]="step() > 1"><span class="dot">1</span> Personal</div>
+          <div class="step-item" [class.active]="step() === 1" [class.done]="step() > 1"><span class="dot">1</span> Applicant</div>
           <div class="step-sep"></div>
-          <div class="step-item" [class.active]="step() === 2" [class.done]="step() > 2"><span class="dot">2</span> Contact</div>
+          <div class="step-item" [class.active]="step() === 2" [class.done]="step() > 2"><span class="dot">2</span> Personal</div>
           <div class="step-sep"></div>
-          <div class="step-item" [class.active]="step() === 3"><span class="dot">3</span> Security</div>
+          <div class="step-item" [class.active]="step() === 3" [class.done]="step() > 3"><span class="dot">3</span> Contact</div>
+          <div class="step-sep"></div>
+          <div class="step-item" [class.active]="step() === 4" [class.done]="step() > 4"><span class="dot">4</span> Valid ID</div>
+          <div class="step-sep"></div>
+          <div class="step-item" [class.active]="step() === 5"><span class="dot">5</span> Security</div>
         </div>
 
         @if (step() === 1) {
+          <fieldset class="choice-cards">
+            <legend>What will you apply for?<span class="required">*</span></legend>
+            @for (option of applicantTypes; track option.value) {
+              <label class="choice-card" [class.selected]="registeredAs === option.value">
+                <input type="radio" name="register-applicant-type" [value]="option.value"
+                  [(ngModel)]="registeredAs" (ngModelChange)="error.set(null)" />
+                <span class="choice-card-text">
+                  <strong>{{ option.title }}</strong>
+                  <span>{{ option.description }}</span>
+                </span>
+              </label>
+            }
+          </fieldset>
+          <p class="small muted">This only sets up your account. Every application asks again, so one account covers both.</p>
+          @if (error()) { <div class="field error">{{ error() }}</div> }
+          <button class="btn btn-primary btn-block" (click)="toPersonal()">Continue</button>
+        }
+
+        @if (step() === 2) {
           <div class="form-row">
             <div class="field"><label for="register-first-name-1">First Name<span class="required">*</span></label><input id="register-first-name-1" class="input" [(ngModel)]="firstName" appCapitalizeName /></div>
             <div class="field"><label for="register-middle-name-2">Middle Name</label><input id="register-middle-name-2" class="input" [(ngModel)]="middleName" appCapitalizeName /></div>
@@ -73,10 +110,13 @@ type Step = 1 | 2 | 3;
             </div>
           </div>
           @if (error()) { <div class="field error">{{ error() }}</div> }
-          <button class="btn btn-primary btn-block" (click)="toStep2()">Continue</button>
+          <div style="display:flex; gap:10px;">
+            <button class="btn btn-secondary" style="flex:1" (click)="step.set(1)">Back</button>
+            <button class="btn btn-primary" style="flex:2" (click)="toContact()">Continue</button>
+          </div>
         }
 
-        @if (step() === 2) {
+        @if (step() === 3) {
           <div class="field">
             <label for="register-email-address-8">Email Address<span class="required">*</span></label>
             <div style="display:flex; gap:8px; align-items:center;">
@@ -155,12 +195,24 @@ type Step = 1 | 2 | 3;
           </div>
           @if (error()) { <div class="field error">{{ error() }}</div> }
           <div style="display:flex; gap:10px;">
-            <button class="btn btn-secondary" style="flex:1" (click)="step.set(1)">Back</button>
-            <button class="btn btn-primary" style="flex:2" (click)="toStep3()">Continue</button>
+            <button class="btn btn-secondary" style="flex:1" (click)="step.set(2)">Back</button>
+            <button class="btn btn-primary" style="flex:2" (click)="toValidId()">Continue</button>
           </div>
         }
 
-        @if (step() === 3) {
+        @if (step() === 4) {
+          <p class="small muted" style="margin-top:0;">
+            The Municipality checks your ID before you can submit applications. You can prepare applications while you wait.
+          </p>
+          <app-valid-id-fields [draft]="idDraft" prefix="register-id" />
+          @if (error()) { <div class="field error">{{ error() }}</div> }
+          <div style="display:flex; gap:10px;">
+            <button class="btn btn-secondary" style="flex:1" (click)="step.set(3)">Back</button>
+            <button class="btn btn-primary" style="flex:2" (click)="toSecurity()">Continue</button>
+          </div>
+        }
+
+        @if (step() === 5) {
           <div class="field">
             <label for="register-password-15">Password<span class="required">*</span></label>
             <div class="password-field">
@@ -199,7 +251,7 @@ type Step = 1 | 2 | 3;
           </label>
           @if (error()) { <div class="field error">{{ error() }}</div> }
           <div style="display:flex; gap:10px;">
-            <button class="btn btn-secondary" style="flex:1" [disabled]="submitting()" (click)="step.set(2)">Back</button>
+            <button class="btn btn-secondary" style="flex:1" [disabled]="submitting()" (click)="step.set(4)">Back</button>
             <button class="btn btn-primary" style="flex:2" [disabled]="submitting()" (click)="submit()">
               {{ submitting() ? 'Creating Account' : 'Create Account' }}
             </button>
@@ -244,8 +296,13 @@ export class RegisterPage {
 
   readonly nationalities = NATIONALITIES;
   readonly barangays = CASTILLA_BARANGAYS;
+  protected readonly applicantTypes = APPLICANT_TYPES;
 
-  // Step 1
+  // Step 1 — sent as `registeredAs`. A starting point only: it sets which
+  // "Applying as" a new application opens on, and nothing else.
+  registeredAs: RegisteredAs | null = null;
+
+  // Step 2
   firstName = '';
   middleName = '';
   lastName = '';
@@ -256,7 +313,7 @@ export class RegisterPage {
   /** Only sent when `nationality === 'Other'` — see the dropdown's own fallback field. */
   otherNationality = '';
 
-  // Step 2
+  // Step 3
   email = '';
   mobileNumber = '';
   street = '';
@@ -284,7 +341,7 @@ export class RegisterPage {
     }
   }
 
-  // ---- Email verification (Step 2, before an account exists) ------------
+  // ---- Email verification (Step 3, before an account exists) ------------
   // Sends and checks a real 6-digit code via /auth/register/email/request
   // and /auth/register/email/confirm — see RegistrationVerificationService
   // on the server. Confirming here does not itself create anything; the
@@ -330,7 +387,7 @@ export class RegisterPage {
         this.codeNotice.set(result.detail);
       } else {
         // 'not-sent' (no provider configured) or 'failed' (a real one that
-        // just failed). Verification is required (see toStep3), so the
+        // just failed). Verification is required (see toValidId), so the
         // citizen is told to try again rather than offered a way around it.
         this.codeSent.set(false);
         this.skipVerification.set(
@@ -371,7 +428,7 @@ export class RegisterPage {
 
   /**
    * Digits only, capped at 11 — matches the `09XXXXXXXXX` format this form
-   * actually accepts (see the regex check in `toStep3`). Sanitized on every
+   * actually accepts (see the regex check in `toValidId`). Sanitized on every
    * keystroke rather than only on submit, same as a normal sign-up form's
    * phone field.
    *
@@ -403,7 +460,12 @@ export class RegisterPage {
     input.value = this.postalCode;
   }
 
-  // Step 3
+  // Step 4 — the valid ID, sent right after the account is created (see
+  // sendIdAfterSignUp). Held here, not in the step's own fields, because a
+  // step that is not on screen is not rendered.
+  readonly idDraft = new ValidIdDraft();
+
+  // Step 5
   password = '';
   confirmPassword = '';
   acceptedTerms = false;
@@ -418,7 +480,16 @@ export class RegisterPage {
     return passwordChecks(this.password, { email: this.email, firstName: this.firstName, lastName: this.lastName });
   }
 
-  toStep2(): void {
+  toPersonal(): void {
+    if (this.registeredAs === null) {
+      this.error.set('Choose what you will apply for.');
+      return;
+    }
+    this.error.set(null);
+    this.step.set(2);
+  }
+
+  toContact(): void {
     if (!this.firstName || !this.lastName || !this.dateOfBirth || !this.sex || !this.civilStatus || !this.nationality) {
       this.error.set('Please complete all required fields.');
       return;
@@ -433,7 +504,7 @@ export class RegisterPage {
       return;
     }
     this.error.set(null);
-    this.step.set(2);
+    this.step.set(3);
   }
 
   private ageFrom(dob: string): number {
@@ -447,11 +518,11 @@ export class RegisterPage {
   }
 
   /** Same shape the server itself enforces (`z.string().email()`, auth.controller.ts) — this
-   *  is a UX shortcut so a typo is caught on this step instead of after Step 3's password
+   *  is a UX shortcut so a typo is caught on this step instead of after Step 5's password
    *  fields, not the actual guarantee. The server re-validates regardless. */
   private static readonly EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  toStep3(): void {
+  toValidId(): void {
     this.emailError.set(null);
     this.mobileError.set(null);
     // Named per field rather than one blanket message — a citizen looking at
@@ -498,7 +569,18 @@ export class RegisterPage {
       return;
     }
     this.error.set(null);
-    this.step.set(3);
+    this.step.set(4);
+  }
+
+  /** The ID type, its number and a photo of the front are required; the back is optional. */
+  toSecurity(): void {
+    const problem = this.idDraft.problem();
+    if (problem) {
+      this.error.set(problem);
+      return;
+    }
+    this.error.set(null);
+    this.step.set(5);
   }
 
   readonly submitting = signal(false);
@@ -541,14 +623,35 @@ export class RegisterPage {
           postalCode: this.postalCode,
         },
         { password: this.password },
+        this.registeredAs,
       );
       if (!result.ok) {
         this.error.set(result.error);
         return;
       }
+      await this.sendIdAfterSignUp();
       this.router.navigate(['/registration-success']);
     } finally {
       this.submitting.set(false);
+    }
+  }
+
+  /**
+   * Signs in with the email and password just chosen, then sends the valid
+   * ID (`PUT /me/verification` needs a signed-in account). Neither failure
+   * is shown as an error here: the account exists either way, and the
+   * success page reads what actually happened from the session — signed in
+   * with the ID waiting for verification, or told to sign in and upload it
+   * under Profile. A sign-in that fails reads the same whatever the reason,
+   * so nothing says whether this email was already registered.
+   */
+  private async sendIdAfterSignUp(): Promise<void> {
+    try {
+      const signedIn = await this.auth.login(this.email, this.password);
+      if (!signedIn.ok) return;
+      await this.auth.submitVerification(await this.idDraft.toRequest());
+    } catch {
+      // See above: the success page says what to do next.
     }
   }
 }

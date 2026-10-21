@@ -142,8 +142,9 @@ describe('ApplicationWizardPage — submitReal() sends the real business id (reg
 
   it('carries the real, selected business id on a real filing — not the hardcoded null the bug shipped', async () => {
     const REAL_BUSINESS_ID = '9f2c9b1e-7e2a-4b8e-8f2a-1a2b3c4d5e6f';
-    // What choosing a real business in step 1's <select> would have left
-    // `this.businessId` holding — see the class doc on `businessId`/`toStep`.
+    // What choosing "Applying as: Business" and a real business in step 1's
+    // <select> would have left behind — see the class doc on `businessId`/`toStep`.
+    page.applyingAs = 'business';
     page.businessId = REAL_BUSINESS_ID;
     page.projectAddress = '123 Rizal Street, Barangay Poblacion';
     page.scopeOfWork = 'New retail construction';
@@ -171,14 +172,11 @@ describe('ApplicationWizardPage — submitReal() sends the real business id (reg
   });
 
   it('an application with no business selected still sends businessId: null cleanly — not undefined, not a throw', async () => {
-    // The wizard's own toStep() guard ("Please select a business.") blocks a
-    // citizen from ever reaching step 2 — and so `submit()` — without
-    // picking a business, for BOTH the generic and permit-specific flows
-    // (the guard does not branch on `isGeneric`). So this is not reachable
-    // through the wizard's own UI. It IS reachable at submitReal()'s own
-    // boundary: nothing inside submitReal() re-checks businessId, so a bare
-    // call with none selected must still serialize cleanly rather than throw
-    // or have `businessId` silently vanish from the JSON body as `undefined`.
+    // Since 2026-10-21 this is the ordinary Residential case (see the test
+    // below); a Business application is still held at step 1 by toStep()'s
+    // "Please select a business." Either way, a bare call with none selected
+    // must serialize cleanly rather than throw or have `businessId` silently
+    // vanish from the JSON body as `undefined`.
     expect(page.businessId).toBeNull();
     page.projectAddress = '123 Rizal Street';
     page.scopeOfWork = 'New retail construction';
@@ -191,6 +189,39 @@ describe('ApplicationWizardPage — submitReal() sends the real business id (reg
     const body = req.request.body as SubmitApplicationRequest;
     expect('businessId' in body).toBe(true);
     expect(body.businessId).toBeNull();
+    req.flush(summaryFor(null), { status: 201, statusText: 'Created' });
+
+    const refresh = await waitForRequest(http);
+    refresh.flush({ data: [], nextCursor: null } satisfies ApplicationListResponse);
+
+    await submitted;
+  });
+
+  it('a Residential filing sends no business — even one picked before switching — and says who it is for in form', async () => {
+    page.applyingAs = 'business';
+    page.businessId = '9f2c9b1e-7e2a-4b8e-8f2a-1a2b3c4d5e6f';
+    page.applyingAs = 'residential';
+    page.ownsProperty = true;
+    page.projectAddress = 'Purok 2, Barangay Poblacion';
+    page.scopeOfWork = 'House extension';
+    page.professionalName = 'Engr. Ana Reyes';
+    page.prcNumber = '0012345';
+    page.understandRequirements = true;
+    page.agreeTerms = true;
+
+    const submitted = page.submit();
+
+    const req = http.expectOne(`${BASE}/applications`);
+    const body = req.request.body as SubmitApplicationRequest;
+    expect(body.businessId).toBeNull();
+    // The existing answers keep their keys; the new two sit beside them.
+    expect(body.form).toEqual({
+      scopeOfWork: 'House extension',
+      professionalName: 'Engr. Ana Reyes',
+      prcNumber: '0012345',
+      applyingAs: 'residential',
+      propertyOwner: { isApplicant: true },
+    });
     req.flush(summaryFor(null), { status: 201, statusText: 'Created' });
 
     const refresh = await waitForRequest(http);

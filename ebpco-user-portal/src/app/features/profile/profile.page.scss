@@ -127,6 +127,26 @@
   min-width: 0;
 }
 
+// Account verification (migration 067): above the tabs, where the banners on
+// the dashboard, Permit Services and the wizard send a citizen.
+.profile-verification {
+  margin-bottom: 16px;
+  scroll-margin-top: 80px;
+
+  p { margin: 0 0 10px; }
+}
+
+.profile-verification-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+
+  h3 { margin: 0; }
+}
+
 .profile-tabs {
   display: flex;
   gap: 8px;

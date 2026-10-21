@@ -65,6 +65,10 @@ const ICONS = {
       } @else if (store.myBusinesses().length === 0) {
         <div class="card empty-state">
           You haven't registered a business yet.
+          <p class="small muted" style="margin:6px 0 0;">
+            You only need one to apply as a Business. For your home or other private property, apply as
+            Residential / Private Individual.
+          </p>
           <div style="margin-top:12px;"><a routerLink="/businesses/register" class="btn btn-primary">Register Your First Business</a></div>
         </div>
       } @else {

@@ -3,7 +3,7 @@ import { RouterLink } from '@angular/router';
 import { ApplicationStore } from '../../core/stores/application.store';
 import { StatusPillComponent } from '../../shared/ui/status-pill.component';
 import { ApplicationLifecycleStatus, applicantStatusLabel, applicantStatusOf } from '../../core/domain/status.model';
-import { ApplicationRecord } from '../../core/domain/application.model';
+import { ApplicationRecord, applyingAsLabel } from '../../core/domain/application.model';
 import { formatDate } from '../../core/utils/ids';
 
 interface ApplicationFilter {
@@ -63,13 +63,14 @@ const FILTERS: readonly ApplicationFilter[] = [
       } @else {
         <div class="card" style="padding:0;">
           <table class="table">
-            <thead><tr><th>Application No.</th><th>Permit Type</th><th>Business</th><th>Status</th><th>Submitted</th><th></th></tr></thead>
+            <thead><tr><th>Application No.</th><th>Permit Type</th><th>Applying as</th><th>Status</th><th>Submitted</th><th></th></tr></thead>
             <tbody>
               @for (app of filtered(); track app.id) {
                 <tr>
                   <td>{{ app.applicationNumber }}</td>
                   <td>{{ app.permitType }}</td>
-                  <td>{{ app.businessName }}</td>
+                  <!-- "Residential", or the business's name (migration 067). -->
+                  <td>{{ applyingAsLabel(app) }}</td>
                   <td><app-status-pill [label]="applicantStatusLabel(app.lifecycleStatus)" /></td>
                   <td>
                     @if (app.lifecycleStatus === 'Draft') {
@@ -99,6 +100,7 @@ export class MyApplicationsPage {
   protected readonly formatDate = formatDate;
   protected readonly applicantStatusOf = applicantStatusOf;
   protected readonly applicantStatusLabel = applicantStatusLabel;
+  protected readonly applyingAsLabel = applyingAsLabel;
   readonly filter = signal<string>('All');
 
   protected visibleFilters(): readonly ApplicationFilter[] {

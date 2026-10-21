@@ -5,6 +5,9 @@ import { provideRouter } from '@angular/router';
 import { PermitCatalogPage } from './permit-catalog.page';
 import { PERMIT_TYPE_GROUPS, PermitType } from '../../core/domain/permit.model';
 import { ALL_BLANK_FORMS, blankFormFor } from '../../core/domain/permit-form-assets';
+import { AuthService } from '../../core/session/auth.service';
+import { CitizenIdentityApi } from '../../core/api/citizen-identity.api';
+import { FakeCitizenIdentityApi } from '../../core/testing/fake-citizen-identity-api';
 
 /**
  * Blank forms (2026-10-01): offered only where a requirement asks the citizen
@@ -82,5 +85,51 @@ describe('Permit Services: the FSEC and FSIC come from the BFP', () => {
     const link = page.querySelector<HTMLAnchorElement>('.bfp-notice a');
     expect(link?.href).toBe('https://fsis.e-bfp.com/');
     expect(link?.rel).toContain('noopener');
+  });
+});
+
+/**
+ * A business is no longer needed to apply (owner request, 2026-10-21): every
+ * application asks "Applying as: Residential / Private Individual or
+ * Business". What can hold a citizen back now is an account the Municipality
+ * has not verified yet (migration 067), and Permit Services says so.
+ */
+describe('Permit Services: no business needed, and the account verification banner', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  async function render(status: 'unsubmitted' | 'pending' | 'verified' | 'rejected', note: string | null = null): Promise<string> {
+    TestBed.configureTestingModule({
+      imports: [PermitCatalogPage],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: CitizenIdentityApi, useClass: FakeCitizenIdentityApi },
+      ],
+    });
+    (TestBed.inject(CitizenIdentityApi) as unknown as FakeCitizenIdentityApi).setVerification(status, note);
+    await TestBed.inject(AuthService).login('juan.delacruz@example.com', 'Password1');
+    const fixture = TestBed.createComponent(PermitCatalogPage);
+    fixture.detectChanges();
+    return (fixture.nativeElement as HTMLElement).textContent ?? '';
+  }
+
+  it('never asks for a business before applying, and says nothing to a verified account', async () => {
+    const text = await render('verified');
+    expect(text).not.toMatch(/register a business/i);
+    expect(text).not.toContain('Verify your account');
+    expect(text).not.toContain('being verified');
+  });
+
+  it('tells an account with no ID yet to verify it, and one waiting that it can prepare applications now', async () => {
+    expect(await render('unsubmitted')).toContain('Verify your account to submit applications');
+    TestBed.resetTestingModule();
+    expect(await render('pending')).toContain('You can prepare applications now and submit once it is verified');
+  });
+
+  it('gives the reason an ID was not accepted, and a way to upload again', async () => {
+    const text = await render('rejected', 'The ID has expired');
+    expect(text).toContain('Your ID was not accepted: The ID has expired.');
+    expect(text).toContain('Upload again');
   });
 });

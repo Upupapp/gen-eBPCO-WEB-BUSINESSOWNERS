@@ -9,6 +9,7 @@ import { CitizenIdentityApi } from '../../core/api/citizen-identity.api';
 import { API_BASE_URL } from '../../core/api/api-config';
 import { NotificationPreferencesResponse } from '../../core/api/citizen-api.models';
 import { FakeCitizenIdentityApi } from '../../core/testing/fake-citizen-identity-api';
+import { ValidIdDraft } from '../../shared/ui/valid-id-fields.component';
 
 const BASE = 'https://api.example.gov.ph';
 
@@ -327,5 +328,98 @@ describe('ProfilePage (verify my email)', () => {
     await stable();
     expect(el.textContent).toContain('Email: Verified');
     expect(button(el, 'Verify my email')).toBeUndefined();
+  });
+});
+
+/**
+ * Account verification (migration 067, 2026-10-21): the Municipality verifies
+ * an account from one valid ID before it can submit applications. Profile >
+ * Account verification is where the ID is sent when sign-up could not send
+ * it, and sent again when the office did not accept it.
+ */
+describe('ProfilePage (account verification)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  async function setup(status: 'unsubmitted' | 'pending' | 'verified' | 'rejected', note: string | null = null) {
+    configureWithBackend();
+    const fake = TestBed.inject(CitizenIdentityApi) as unknown as FakeCitizenIdentityApi;
+    fake.setVerification(status, note);
+    const { fixture } = await signInAndCreate();
+    return { fixture, fake, el: fixture.nativeElement as HTMLElement };
+  }
+  const section = (el: HTMLElement) => el.querySelector('#account-verification') as HTMLElement | null;
+
+  async function waitForRequest(http: HttpTestingController) {
+    for (let i = 0; i < 50; i++) {
+      const found = http.match(() => true);
+      if (found.length) return found[0];
+      await new Promise((r) => setTimeout(r, 0));
+    }
+    throw new Error('no request was issued');
+  }
+
+  it('a verified account shows Verified, and no upload form', async () => {
+    const { el } = await setup('verified');
+    expect(section(el)?.textContent).toContain('Verified');
+    expect(section(el)?.querySelector('input[type="file"]')).toBeNull();
+  });
+
+  it('an account with no ID yet shows "No ID yet" and the upload form', async () => {
+    const { el } = await setup('unsubmitted');
+    expect(section(el)?.textContent).toContain('No ID yet');
+    expect(section(el)?.querySelectorAll('input[type="file"]').length).toBe(2);
+    expect(section(el)?.textContent).toContain('Send ID for verification');
+  });
+
+  it('an ID that was not accepted shows the officer’s reason, word for word, and the form to upload again', async () => {
+    const { el } = await setup('rejected', 'The photo is too blurry to read the ID number');
+    expect(section(el)?.textContent).toContain('ID not accepted');
+    expect(section(el)?.textContent).toContain('Your ID was not accepted: The photo is too blurry to read the ID number.');
+    expect(section(el)?.querySelectorAll('input[type="file"]').length).toBe(2);
+  });
+
+  it('sends the ID as PUT /me/verification, then shows it waiting for verification', async () => {
+    const { fixture, fake, el } = await setup('unsubmitted');
+    const http = TestBed.inject(HttpTestingController);
+    const page = fixture.componentInstance as unknown as {
+      idDraft: ValidIdDraft;
+      sendId(): Promise<void>;
+    };
+    page.idDraft.idType.set("Driver's License");
+    page.idDraft.idNumber.set(' N01-23-456789 ');
+    await page.idDraft.choose('front', new File([new Uint8Array([255, 216, 255, 1])], 'front.jpg', { type: 'image/jpeg' }));
+
+    const sending = page.sendId();
+    const put = await waitForRequest(http);
+    expect(put.request.method).toBe('PUT');
+    expect(put.request.url).toBe(`${BASE}/me/verification`);
+    expect(put.request.body).toEqual({
+      idType: "Driver's License",
+      idNumber: 'N01-23-456789',
+      front: { fileName: 'front.jpg', contentBase64: btoa(String.fromCharCode(255, 216, 255, 1)) },
+      back: null,
+    });
+    // What the server now holds, which the page re-reads through GET /me.
+    fake.setVerification('pending');
+    put.flush({
+      registeredAs: 'business',
+      verification: { status: 'pending', submittedAt: '2026-10-21T01:00:00.000Z', decidedAt: null, note: null, idType: "Driver's License" },
+    });
+    await sending;
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(section(el)?.textContent).toContain('Waiting for verification');
+    expect(section(el)?.querySelector('input[type="file"]')).toBeNull();
+    http.verify();
+  });
+
+  it('does not send anything until the ID type, number and front photo are given', async () => {
+    const { fixture } = await setup('unsubmitted');
+    const http = TestBed.inject(HttpTestingController);
+    const page = fixture.componentInstance as unknown as { sendId(): Promise<void>; idError(): string | null };
+    await page.sendId();
+    expect(page.idError()).toContain('type of ID');
+    http.expectNone(`${BASE}/me/verification`);
   });
 });

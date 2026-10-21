@@ -1,3 +1,5 @@
+import { AccountVerification, RegisteredAs } from '../domain/account-verification';
+
 /**
  * The citizen's own profile — `GET /me` and `PATCH /me`.
  *
@@ -53,6 +55,13 @@ export interface MeResponse extends CitizenProfile {
   mobileVerifiedAt: string | null;
   /** Whether `GET /me/photo` has bytes to return — not the bytes themselves. See that route's own doc comment for why. */
   hasPhoto: boolean;
+  /**
+   * Migration 067. What the citizen said at sign-up they will apply for, and
+   * the Municipality's verification of the account. Absent from an older
+   * server; null on `registeredAs` for an account from before it was asked.
+   */
+  registeredAs?: RegisteredAs | null;
+  verification?: AccountVerification | null;
 }
 
 /** What PATCH /me answers with: the new profile, plus what the change cost. */

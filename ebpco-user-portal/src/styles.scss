@@ -388,6 +388,26 @@ select.input {
 .checkbox-row { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--gray-700); }
 .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
 
+// Radio cards: one choice among a few, each with a line saying what it means —
+// sign-up's applicant type, the wizard's "Applying as" and "Do you own the
+// property?". A fieldset, so its legend names the question for a screen reader.
+.choice-cards { display: grid; gap: 10px; margin: 0 0 12px; padding: 0; border: 0; min-width: 0; }
+.choice-cards.choice-cards--row { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.choice-cards legend { font-size: 13px; font-weight: 600; color: var(--gray-700); margin-bottom: 8px; padding: 0; }
+.choice-cards legend .required { color: var(--danger-500); font-size: 11px; font-weight: 700; }
+.choice-cards .choice-card {
+  display: flex; align-items: flex-start; gap: 10px; margin: 0; padding: 12px 14px; cursor: pointer;
+  border: 1px solid var(--border-medium); border-radius: var(--radius-md); background: var(--surface);
+  font-weight: 400;
+  transition: border-color var(--ease-base), background var(--ease-base);
+}
+.choice-cards .choice-card:hover { border-color: var(--primary-500); }
+.choice-cards .choice-card.selected { border-color: var(--primary-500); background: var(--primary-50); }
+.choice-cards .choice-card:focus-within { outline: 2px solid var(--primary-500); outline-offset: 2px; }
+.choice-cards .choice-card input { margin: 3px 0 0; accent-color: var(--primary-500); }
+.choice-card-text { display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: var(--gray-600); }
+.choice-card-text strong { font-size: 14px; color: var(--gray-900); }
+
 // Touch targets.
 //
 // `.btn` renders 36px tall and `.btn-sm` about 30px. That clears WCAG 2.2

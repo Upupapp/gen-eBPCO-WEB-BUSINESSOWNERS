@@ -21,6 +21,9 @@
       </div>
     </section>
 
+    <!-- Account verification (migration 067): nothing for a verified account. -->
+    <app-verification-banner />
+
     <section class="kpi-grid">
       @for (item of kpis; track item.label) {
         <div class="kpi-card" [class]="'theme-' + item.theme">
@@ -95,7 +98,7 @@
                 </div>
                 <div class="application-details">
                   <div class="application-title">{{ app.permitType }}</div>
-                  <div class="application-meta">{{ app.applicationNumber }} &middot; {{ app.businessName }}</div>
+                  <div class="application-meta">{{ app.applicationNumber }} &middot; {{ applyingAsLabel(app) }}</div>
                   <div class="application-date">Submitted on {{ formatDate(app.dateSubmitted) }}</div>
                 </div>
                 <app-status-pill [label]="statusLabel(app.lifecycleStatus)" />

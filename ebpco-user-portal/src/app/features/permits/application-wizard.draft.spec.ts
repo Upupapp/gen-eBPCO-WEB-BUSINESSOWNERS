@@ -10,7 +10,11 @@ import { ApplicationDocumentResponse, ApplicationSummary } from '../../core/api/
 
 /** Just enough of the component's surface to drive it from a test — mirrors application-wizard.page.spec.ts's own cast pattern for reaching protected members. */
 interface Testable {
+  applyingAs: 'residential' | 'business' | null;
   businessId: string | null;
+  ownsProperty: boolean | null;
+  ownerName: string;
+  ownerRelationship: string;
   projectAddress: string;
   scopeOfWork: string;
   prcNumber: string;
@@ -126,6 +130,7 @@ describe('ApplicationWizardPage — save as draft', () => {
 
   it('autosaves a Draft on the first step advance, then PATCHes the same id on the next', async () => {
     const { page } = configureFresh();
+    page.applyingAs = 'business';
     page.businessId = 'biz-1';
     page.projectAddress = '123 Rizal Street';
     page.scopeOfWork = 'New retail construction';
@@ -211,6 +216,8 @@ describe('ApplicationWizardPage — save as draft', () => {
 
     expect(page.draftId()).toBe('draft-1');
     expect(page.businessId).toBe('biz-1');
+    // Saved before "Applying as" existed, naming a business: reopens as Business.
+    expect(page.applyingAs).toBe('business');
     expect(page.isGeneric).toBe(false);
     expect(page.permitType).toBe('Fencing Permit');
     expect(page.applicationAction).toBe('Renewal');
@@ -260,8 +267,51 @@ describe('ApplicationWizardPage — save as draft', () => {
     await waitUntil(() => page.step() === 3);
   });
 
+  it('resuming a Residential draft restores "Applying as" and the property owner, with no business', async () => {
+    TestBed.configureTestingModule({
+      imports: [ApplicationWizardPage],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: API_BASE_URL, useValue: BASE },
+        { provide: ActivatedRoute, useValue: {
+            snapshot: { queryParamMap: convertToParamMap({ draft: 'draft-1' }) } } },
+      ],
+    });
+    http = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(ApplicationWizardPage);
+    const appReq = http.expectOne(`${BASE}/applications/draft-1`);
+    const docsReq = http.expectOne(`${BASE}/applications/draft-1/documents`);
+    http.expectOne(`${BASE}/documents/me`).flush([]);
+
+    appReq.flush(summaryFor({
+      businessId: null, businessName: null, applyingAs: 'residential',
+      permitType: 'Fencing Permit', location: '45 Bonifacio Ave',
+      form: {
+        scopeOfWork: 'Replace boundary fence', applyingAs: 'residential',
+        propertyOwner: { isApplicant: false, name: 'Maria Santos', relationship: 'mother' },
+      },
+    }));
+    docsReq.flush([]);
+    (await waitForRequest(http)).flush({
+      documents: [{ code: 'lot-plan', label: 'Lot Plan', description: '', required: true }],
+    });
+    fixture.detectChanges();
+    const page = testable(fixture.componentInstance);
+
+    expect(page.applyingAs).toBe('residential');
+    expect(page.businessId).toBeNull();
+    expect(page.ownsProperty).toBe(false);
+    expect(page.ownerName).toBe('Maria Santos');
+    expect(page.ownerRelationship).toBe('mother');
+    // Step 1 is done without a business; the documents are what is left.
+    await waitUntil(() => page.step() === 3);
+  });
+
   it('finalizing an already-autosaved draft PATCHes then POSTs .../submit — never a second POST /applications', async () => {
     const { page } = configureFresh();
+    page.applyingAs = 'business';
     page.businessId = 'biz-1';
     page.projectAddress = '123 Rizal Street';
     page.scopeOfWork = 'New retail construction';

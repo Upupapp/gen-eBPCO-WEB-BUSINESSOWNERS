@@ -13,8 +13,10 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     // A new screen opens at its top, not at however far down the last one was
-    // scrolled; Back returns to where the citizen was.
-    provideRouter(routes, withInMemoryScrolling({ scrollPositionRestoration: 'enabled' })),
+    // scrolled; Back returns to where the citizen was. A link with a fragment
+    // (Profile's #account-verification, from the verification banners) opens
+    // at that section instead.
+    provideRouter(routes, withInMemoryScrolling({ scrollPositionRestoration: 'enabled', anchorScrolling: 'enabled' })),
     // API_BASE_URL is read at runtime from public/config.js (see
     // api-config.ts) — '' in local dev and production alike, meaning
     // same-origin, forwarded by proxy.conf.json in dev and by the host

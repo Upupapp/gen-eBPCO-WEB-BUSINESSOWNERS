@@ -15,7 +15,7 @@ const STEPS: ProcessStep[] = [
   {
     label: 'Draft',
     title: 'Register & start your application',
-    description: 'Create your account, register your business, and choose the permit type you need. You can save your application as a draft and finish it later.',
+    description: 'Create your account with a photo of a valid ID, which the Municipality checks before you can submit. Choose the permit type you need, for your home or other private property, or for a business you registered. You can save your application as a draft and finish it later.',
   },
   {
     label: 'Submitted',

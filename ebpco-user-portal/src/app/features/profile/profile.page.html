@@ -42,6 +42,9 @@
         -->
         <div class="profile-side-badges">
           <span class="badge" [class]="u.emailVerification.status === 'Verified' ? 'badge-green' : 'badge-amber'">Email: {{ u.emailVerification.status }}</span>
+          @if (u.verification; as v) {
+            <span class="badge" [class]="verificationBadge(v.status)">Account: {{ verificationStatusLabel(v.status) }}</span>
+          }
         </div>
         <p class="small muted profile-side-note">
           @if (u.emailVerification.status === 'Verified') {
@@ -81,6 +84,59 @@
       </div>
 
       <div class="profile-main">
+        <!--
+          Account verification (migration 067). The Municipality verifies an
+          account from one valid ID before it can submit applications. Sign-up
+          sends it; this is where it is sent when that did not happen, sent
+          again after the office did not accept it, or replaced while it waits.
+          Not shown when the server sends no verification state (a server from
+          before that migration).
+        -->
+        @if (u.verification; as v) {
+          <section class="card profile-verification" id="account-verification" aria-labelledby="account-verification-title">
+            <div class="profile-verification-head">
+              <h3 id="account-verification-title">Account verification</h3>
+              <span class="badge" [class]="verificationBadge(v.status)">{{ verificationStatusLabel(v.status) }}</span>
+            </div>
+            @switch (v.status) {
+              @case ('verified') {
+                <p class="small muted">The Municipality verified your account. You can submit applications.</p>
+              }
+              @case ('pending') {
+                <p class="small">
+                  The Municipality is checking your ID. You can prepare applications now and submit once it is
+                  verified. You’ll be notified when it is.
+                </p>
+              }
+              @case ('rejected') {
+                <p class="small" style="color:var(--danger-text);">
+                  <strong>{{ rejectedHeadline(v.note) }}</strong> Upload a valid ID again below.
+                </p>
+              }
+              @default {
+                <p class="small">
+                  The Municipality checks your ID before you can submit applications. You can prepare
+                  applications while you wait.
+                </p>
+              }
+            }
+            @if (v.idType) {
+              <p class="small muted">ID sent: {{ v.idType }}@if (v.submittedAt) { on {{ formatDateTime(v.submittedAt) }}}</p>
+            }
+            @if (v.status !== 'verified') {
+              @if (v.status === 'pending' && !replaceIdOpen()) {
+                <button type="button" class="btn btn-secondary btn-sm" (click)="replaceIdOpen.set(true)">Send a different ID</button>
+              } @else {
+                <app-valid-id-fields [draft]="idDraft" prefix="profile-id" [disabled]="idSending()" />
+                @if (idError(); as err) { <div class="field error">{{ err }}</div> }
+                <button type="button" class="btn btn-primary" [disabled]="idSending()" (click)="sendId()">
+                  {{ idSending() ? 'Sending…' : 'Send ID for verification' }}
+                </button>
+              }
+            }
+          </section>
+        }
+
         <div class="profile-tabs">
           <button class="btn btn-sm" [class.btn-primary]="tab() === 'profile'" [class.btn-secondary]="tab() !== 'profile'" (click)="selectTab('profile')">Edit Profile</button>
           <button class="btn btn-sm" [class.btn-primary]="tab() === 'password'" [class.btn-secondary]="tab() !== 'password'" (click)="selectTab('password')">Change Password</button>

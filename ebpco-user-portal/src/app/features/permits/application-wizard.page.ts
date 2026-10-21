@@ -9,10 +9,15 @@ import {
 } from '../../core/domain/permit.model';
 import { RequirementDocument } from '../../core/domain/requirements-catalog';
 import {
+  ApplyingAs,
+  PropertyOwner,
   actionNeedsExistingPermit,
   actionReferenceIsComplete,
   existingPermitPrompt,
+  propertyOwnerOf,
 } from '../../core/domain/application.model';
+import { submitBlockedMessage } from '../../core/domain/account-verification';
+import { AuthService } from '../../core/session/auth.service';
 import { SavedDocument, SavedDocumentFileType } from '../../core/domain/document.model';
 import { SubmitApplicationRequest } from '../../core/api/citizen-api.models';
 import { formatDate } from '../../core/utils/ids';
@@ -28,6 +33,7 @@ import { ApiError, duplicateOf } from '../../core/api/problem';
 import { CapitalizeNameDirective } from '../../core/utils/capitalize-name.directive';
 import { LegalDocument, LegalModalComponent } from '../../shared/ui/legal-modal.component';
 import { DocumentPreviewComponent } from '../../shared/ui/document-preview.component';
+import { VerificationBannerComponent } from '../../shared/ui/verification-banner.component';
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -116,7 +122,7 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
  */
 @Component({
   selector: 'app-application-wizard',
-  imports: [FormsModule, RouterLink, CapitalizeNameDirective, LegalModalComponent, DocumentPreviewComponent],
+  imports: [FormsModule, RouterLink, CapitalizeNameDirective, LegalModalComponent, DocumentPreviewComponent, VerificationBannerComponent],
   // The blank form on a document row that is a form, set apart like the
   // mobile app's: a tinted box with room around it, the form's own name, and
   // View and Download.
@@ -232,8 +238,11 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
         }
       </div>
 
+      <!-- Account verification (migration 067): prepare and save freely; Submit waits for it. -->
+      <app-verification-banner />
+
       <div class="steps">
-        <div class="step-item" [class.active]="step() === 1" [class.done]="step() > 1"><span class="dot">1</span> Business &amp; Type</div>
+        <div class="step-item" [class.active]="step() === 1" [class.done]="step() > 1"><span class="dot">1</span> Applicant &amp; Type</div>
         <div class="step-sep"></div>
         <div class="step-item" [class.active]="step() === 2" [class.done]="step() > 2"><span class="dot">2</span> Details</div>
         <div class="step-sep"></div>
@@ -244,6 +253,38 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
 
       @if (step() === 1) {
         <div class="card">
+          <!--
+            Asked on every application, whatever the citizen chose at sign-up
+            (owner request, 2026-10-21), so one account files both. It opens
+            on what they chose then (Residential or Business); "Both", or an
+            account from before it was asked, opens with nothing chosen.
+          -->
+          <fieldset class="choice-cards choice-cards--row">
+            <legend>Applying as<span class="required">*</span></legend>
+            <label class="choice-card" [class.selected]="applyingAs === 'residential'">
+              <input type="radio" name="application-wizard-applying-as" value="residential"
+                [(ngModel)]="applyingAs" (ngModelChange)="onApplyingAsChange()" />
+              <span class="choice-card-text">
+                <strong>Residential / Private Individual</strong>
+                <span>For your home or other private property. No business needed.</span>
+              </span>
+            </label>
+            <label class="choice-card" [class.selected]="applyingAs === 'business'">
+              <input type="radio" name="application-wizard-applying-as" value="business"
+                [(ngModel)]="applyingAs" (ngModelChange)="onApplyingAsChange()" />
+              <span class="choice-card-text">
+                <strong>Business</strong>
+                <span>For a business or commercial establishment you registered.</span>
+              </span>
+            </label>
+          </fieldset>
+          @if (applyingAs === 'residential' && permitType === 'Sign Permit') {
+            <p class="small muted" style="margin:-4px 0 12px;">
+              Sign permits are usually for a business sign. Choose Business if this sign is for your business.
+            </p>
+          }
+
+          @if (applyingAs === 'business') {
           <div class="field">
             <label for="application-wizard-business-1">Business<span class="required">*</span></label>
             <select id="application-wizard-business-1" class="input" [(ngModel)]="businessId" (ngModelChange)="invalidatePermitCheck()">
@@ -263,12 +304,51 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
                 -->
                 <div class="hint">Loading your businesses…</div>
               } @else if (businesses.myBusinesses().length === 0) {
-                <div class="hint">No businesses yet — <a routerLink="/businesses/register">register one first</a>.</div>
+                <div class="hint">
+                  No businesses yet. <a routerLink="/businesses/register">Register a business</a>, or apply as
+                  Residential / Private Individual if this is for your home or other private property.
+                </div>
               } @else {
                 <div class="hint">None of your businesses are active — reactivate one to apply for a permit.</div>
               }
+            } @else {
+              <div class="hint">Not listed? <a routerLink="/businesses/register">Register a business</a>.</div>
             }
           </div>
+          } @else if (applyingAs === 'residential') {
+            <!--
+              No business at all. What the Municipality needs instead is whose
+              property it is: the applicant's own, or someone else's they apply
+              for (form.propertyOwner, migration 067).
+            -->
+            <fieldset class="choice-cards choice-cards--row">
+              <legend>Do you own the property?<span class="required">*</span></legend>
+              <label class="choice-card" [class.selected]="ownsProperty === true">
+                <input type="radio" name="application-wizard-owns-property" [value]="true"
+                  [(ngModel)]="ownsProperty" (ngModelChange)="error.set(null)" />
+                <span class="choice-card-text"><strong>Yes</strong><span>It is mine.</span></span>
+              </label>
+              <label class="choice-card" [class.selected]="ownsProperty === false">
+                <input type="radio" name="application-wizard-owns-property" [value]="false"
+                  [(ngModel)]="ownsProperty" (ngModelChange)="error.set(null)" />
+                <span class="choice-card-text"><strong>No</strong><span>I am applying for the owner.</span></span>
+              </label>
+            </fieldset>
+            @if (ownsProperty === false) {
+              <div class="form-row">
+                <div class="field">
+                  <label for="application-wizard-owner-name">Owner's full name<span class="required">*</span></label>
+                  <input id="application-wizard-owner-name" class="input" [(ngModel)]="ownerName" appCapitalizeName />
+                </div>
+                <div class="field">
+                  <label for="application-wizard-owner-relationship">Your relationship to the owner</label>
+                  <input id="application-wizard-owner-relationship" class="input" [(ngModel)]="ownerRelationship"
+                    placeholder="e.g. parent, spouse, lessor" />
+                </div>
+              </div>
+              <p class="small muted" style="margin:-8px 0 14px;">Upload the owner's written consent or authorization with your documents.</p>
+            }
+          }
           <div class="field">
             <label for="application-wizard-application-type-2">Application Type<span class="required">*</span></label>
             <select id="application-wizard-application-type-2" class="input" [(ngModel)]="applicationAction" (ngModelChange)="onApplicationActionChange()">
@@ -318,7 +398,7 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
                   </div>
                 } @else {
                   <div id="application-wizard-related-permit-message" class="hint">
-                    Checked against the permits eBPCO issued to you for the selected business before you can continue.
+                    Checked against the permits eBPCO issued to you{{ applyingAs === 'business' ? ' for the selected business' : '' }} before you can continue.
                   </div>
                 }
               }
@@ -395,7 +475,7 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
       @if (step() === 2) {
         <div class="card">
           <div class="card-title">Project / Application Details</div>
-          <div class="field"><label for="application-wizard-project-business-address-3">Project / Business Address<span class="required">*</span></label><input id="application-wizard-project-business-address-3" class="input" [(ngModel)]="projectAddress" placeholder="Street, Barangay, City" /></div>
+          <div class="field"><label for="application-wizard-project-business-address-3">Project / Property Address<span class="required">*</span></label><input id="application-wizard-project-business-address-3" class="input" [(ngModel)]="projectAddress" placeholder="Street, Barangay, City" /></div>
           <div class="field"><label for="application-wizard-scope-of-work-4">Scope of Work / Purpose<span class="required">*</span></label><textarea id="application-wizard-scope-of-work-4" class="input" rows="3" [(ngModel)]="scopeOfWork" placeholder="Briefly describe the work or purpose of this application"></textarea></div>
           <div class="form-row">
             <div class="field"><label for="application-wizard-professional-in-charge-5">Professional in Charge (if any)</label><input id="application-wizard-professional-in-charge-5" class="input" [(ngModel)]="professionalName" placeholder="Engineer / Architect name" appCapitalizeName /></div>
@@ -602,7 +682,12 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
           <div class="card-title">Review &amp; Declaration</div>
           <table class="table">
             <tbody>
-              <tr><td class="muted">Business</td><td>{{ selectedBusinessName() }}</td></tr>
+              <tr><td class="muted">Applying as</td><td>{{ applyingAs === 'residential' ? 'Residential / Private Individual' : 'Business' }}</td></tr>
+              @if (applyingAs === 'residential') {
+                <tr><td class="muted">Property Owner</td><td>{{ propertyOwnerSummary() }}</td></tr>
+              } @else {
+                <tr><td class="muted">Business</td><td>{{ selectedBusinessName() }}</td></tr>
+              }
               <tr><td class="muted">Permit Type</td><td>{{ isGeneric ? 'New Business Permit (Generic)' : permitType }}</td></tr>
               <tr><td class="muted">Application Type</td><td>{{ applicationAction }}</td></tr>
               @if (needsExistingPermit() && relatedPermitNumber) {
@@ -627,7 +712,7 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
           </div>
           <table class="table">
             <tbody>
-              <tr><td class="muted">Project / Business Address</td><td>{{ projectAddress || '—' }}</td></tr>
+              <tr><td class="muted">Project / Property Address</td><td>{{ projectAddress || '—' }}</td></tr>
               <tr><td class="muted">Scope of Work / Purpose</td><td style="white-space:pre-line;">{{ scopeOfWork || '—' }}</td></tr>
               <tr><td class="muted">Professional in Charge</td><td>{{ professionalName || 'None named' }}</td></tr>
               <tr><td class="muted">PRC License No.</td><td>{{ prcNumber || 'None given' }}</td></tr>
@@ -652,9 +737,24 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
             <app-legal-modal [document]="doc" (close)="openLegalModal.set(null)" />
           }
           @if (error()) { <div class="field error">{{ error() }}</div> }
-          <div style="display:flex; gap:10px;">
+          <!--
+            An account the Municipality has not verified cannot submit yet
+            (migration 067): it is told why instead of being sent to a refusal,
+            and Save as Draft keeps everything to submit once it is verified.
+            The server refuses the filing regardless.
+          -->
+          @if (submitBlocked(); as why) {
+            <div class="card" style="background:var(--warning-100); border:none; margin:0 0 12px;">
+              <p class="small" style="color:var(--warning-text); margin:0 0 4px;">{{ why }}</p>
+              <a routerLink="/profile" fragment="account-verification" class="small">Go to Account verification</a>
+            </div>
+          }
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
             <button class="btn btn-secondary" [disabled]="submitting()" (click)="step.set(3)">Back</button>
-            <button class="btn btn-primary" [disabled]="submitting() || uploadingRequirementId() !== null" (click)="submit()">
+            @if (submitBlocked() && api.configured) {
+              <button class="btn btn-secondary" [disabled]="saveStatus() === 'saving'" (click)="saveAndExit()">Save as Draft</button>
+            }
+            <button class="btn btn-primary" [disabled]="submitting() || uploadingRequirementId() !== null || submitBlocked() !== null" (click)="submit()">
               {{ submitting() ? 'Submitting…' : 'Submit Application' }}
             </button>
           </div>
@@ -693,6 +793,7 @@ export class ApplicationWizardPage {
   }
   private readonly applicationStore = inject(ApplicationStore);
   private readonly documentLibrary = inject(DocumentLibraryStore);
+  private readonly auth = inject(AuthService);
   private readonly toast = inject(ToastService);
   protected readonly api = inject(CitizenApiClient);
   private readonly uploadLimits = inject(UploadLimitsService);
@@ -796,7 +897,24 @@ export class ApplicationWizardPage {
     return settled;
   }
 
+  /**
+   * Who this application is for (owner request, 2026-10-21): asked on every
+   * application, so one account files both. Null until chosen — see the
+   * constructor for what it opens on. Sent as `form.applyingAs`.
+   */
+  applyingAs: ApplyingAs | null = null;
+  /**
+   * The business, for a Business application only. Kept while the citizen
+   * switches to Residential and back, but never sent for a Residential one
+   * (`filingBusinessId()`): the server refuses a residential application
+   * that names a business.
+   */
   businessId: string | null = null;
+  /** Residential only: whether the applicant owns the property. Null until answered. */
+  ownsProperty: boolean | null = null;
+  /** Residential, when the applicant does not own it: the owner, sent as `form.propertyOwner`. */
+  ownerName = '';
+  ownerRelationship = '';
   applicationAction: ApplicationAction = 'New';
   relatedPermitNumber: string | null = null;
   /**
@@ -843,9 +961,21 @@ export class ApplicationWizardPage {
    * a permit type) is chosen, this re-evaluates with no click required.
    */
   protected matchingRenewablePermits() {
+    const businessId = this.filingBusinessId();
     return this.renewablePermits().filter((p) =>
-      (this.businessId === null || p.businessId === this.businessId)
+      (businessId === null || p.businessId === businessId)
       && (this.isGeneric || p.permitType === this.permitType));
+  }
+
+  /** The business this application is filed under: none for a Residential one, whatever was picked before switching. */
+  protected filingBusinessId(): string | null {
+    return this.applyingAs === 'residential' ? null : this.businessId;
+  }
+
+  /** Switching between Residential and Business changes what a typed permit number must match. */
+  protected onApplyingAsChange(): void {
+    this.error.set(null);
+    this.invalidatePermitCheck();
   }
   /** Anything that changes what the typed number must match makes the last check stale. */
   protected invalidatePermitCheck(): void {
@@ -886,7 +1016,9 @@ export class ApplicationWizardPage {
       if (!this.api.configured) {
         const local = this.matchingRenewablePermits().find((p) => p.permitNumber.toUpperCase() === typed);
         if (!local) {
-          this.permitNumberError.set(`Permit number "${typed}" does not exist under your account for the selected business.`);
+          this.permitNumberError.set(
+            `Permit number "${typed}" does not exist under your account${this.filingBusinessId() ? ' for the selected business' : ''}.`,
+          );
           return;
         }
         this.acceptVerifiedPermit({ permitNumber: local.permitNumber, permitType: local.permitType, businessName: local.businessName });
@@ -894,7 +1026,7 @@ export class ApplicationWizardPage {
         const result = await firstValueFrom(this.api.checkRenewalPermit({
           permitNumber: typed,
           permitType: this.isGeneric ? null : this.permitType,
-          businessId: this.businessId,
+          businessId: this.filingBusinessId(),
         }));
         if (!result.valid) {
           this.permitNumberError.set(result.message);
@@ -1046,6 +1178,14 @@ export class ApplicationWizardPage {
     const typeParam = this.route.snapshot.queryParamMap.get('type');
     const businessParam = this.route.snapshot.queryParamMap.get('businessId');
     if (businessParam) this.businessId = businessParam;
+    // "Applying as" opens on what the citizen chose at sign-up: Residential
+    // or Business; "Both" (or an account from before it was asked) opens with
+    // nothing chosen, so they choose. Coming from a business's own "Apply for
+    // Permit" means Business. A resumed draft replaces this with its own.
+    const registeredAs = this.auth.currentUser()?.registeredAs ?? null;
+    this.applyingAs = businessParam ? 'business'
+      : registeredAs === 'residential' || registeredAs === 'business' ? registeredAs
+      : null;
     if (draftParam && this.api.configured) {
       // Resume replaces every field below once it answers -- see its own
       // doc comment. Still need SOME starting checklist in the meantime so
@@ -1099,6 +1239,18 @@ export class ApplicationWizardPage {
     const { application, documents } = result;
     this.draftId.set(id);
     this.businessId = application.businessId;
+    // As saved (form.applyingAs); a draft saved before "Applying as" existed
+    // named a business, so it reopens as Business. One saved before anything
+    // was chosen reopens with nothing chosen, rather than the server's
+    // "no business, so Residential" reading of it.
+    const filedAs = application.form?.['applyingAs'];
+    this.applyingAs = filedAs === 'residential' || filedAs === 'business' ? filedAs
+      : application.businessId !== null ? 'business'
+      : null;
+    const owner = propertyOwnerOf(application.form);
+    this.ownsProperty = owner === null ? null : owner.isApplicant;
+    this.ownerName = owner !== null && owner.isApplicant === false ? owner.name : '';
+    this.ownerRelationship = owner !== null && owner.isApplicant === false ? owner.relationship ?? '' : '';
     this.applicationAction = (application.applicationAction as ApplicationAction) ?? 'New';
     this.relatedPermitNumber = application.renewsPermitNumber;
     this.priorPermitClaim = application.priorPermitClaim;
@@ -1170,8 +1322,10 @@ export class ApplicationWizardPage {
     return {
       // An unknown business (the list not loaded yet) does not hold the
       // citizen back; one known to be inactive does, as toStep(2) would.
-      applicantDone: this.businessId !== null
-        && (business === undefined || business.status === 'Active')
+      // Residential needs no business, only the property owner answered.
+      applicantDone: (this.applyingAs === 'business'
+          ? this.businessId !== null && (business === undefined || business.status === 'Active')
+          : this.applyingAs === 'residential' && this.propertyOwnerProblem() === null)
         && actionReferenceIsComplete(this.applicationAction, this.relatedPermitNumber, this.priorPermitClaim)
         && (!proof || !!this.attached[proof.id]),
       detailsDone: !!this.projectAddress.trim() && !!this.scopeOfWork.trim(),
@@ -1186,6 +1340,40 @@ export class ApplicationWizardPage {
 
   selectedBusinessName(): string {
     return this.businesses.myBusinesses().find((b) => b.id === this.businessId)?.name ?? '';
+  }
+
+  /** Residential: why the owner question is not answered yet, or null. */
+  protected propertyOwnerProblem(): string | null {
+    if (this.ownsProperty === null) return 'Please say whether you own the property.';
+    if (this.ownsProperty === false && !this.ownerName.trim()) return "Please enter the property owner's full name.";
+    return null;
+  }
+
+  /** `form.propertyOwner`, for a Residential application once the question is answered; null otherwise. */
+  private propertyOwner(): PropertyOwner | null {
+    if (this.applyingAs !== 'residential' || this.ownsProperty === null) return null;
+    if (this.ownsProperty) return { isApplicant: true };
+    const relationship = this.ownerRelationship.trim();
+    return relationship
+      ? { isApplicant: false, name: this.ownerName.trim(), relationship }
+      : { isApplicant: false, name: this.ownerName.trim() };
+  }
+
+  /** The Review step's Property Owner line. */
+  protected propertyOwnerSummary(): string {
+    const owner = this.propertyOwner();
+    if (owner === null) return '—';
+    if (owner.isApplicant === true) return 'You (the applicant)';
+    return owner.relationship ? `${owner.name} (${owner.relationship})` : owner.name;
+  }
+
+  /**
+   * Why this account cannot submit yet (migration 067), or null when it can.
+   * Read from the session: null as well when signed out or when the server
+   * sent no verification state, leaving the server's own answer to decide.
+   */
+  protected submitBlocked(): string | null {
+    return submitBlockedMessage(this.auth.currentUser()?.verification);
   }
 
   attachedCount(): number {
@@ -1499,7 +1687,13 @@ export class ApplicationWizardPage {
   }
 
   toStep(next: Step): void {
-    if (next === 2 && !this.businessId) {
+    // Residential or Business, chosen on every application (owner request,
+    // 2026-10-21). Only a Business application needs a business.
+    if (next === 2 && this.applyingAs === null) {
+      this.error.set('Please choose whether you are applying as Residential / Private Individual or as a Business.');
+      return;
+    }
+    if (next === 2 && this.applyingAs === 'business' && !this.businessId) {
       this.error.set('Please select a business.');
       return;
     }
@@ -1507,10 +1701,17 @@ export class ApplicationWizardPage {
     // catches ?businessId=<id> naming one directly (e.g. a stale link),
     // since a resumed draft or a hand-typed URL never goes through the
     // dropdown at all.
-    if (next === 2 && this.businessId
+    if (next === 2 && this.applyingAs === 'business' && this.businessId
       && this.businesses.businessById(this.businessId)?.status !== 'Active') {
       this.error.set('This business is inactive. Reactivate it before applying for a permit.');
       return;
+    }
+    if (next === 2 && this.applyingAs === 'residential') {
+      const ownerProblem = this.propertyOwnerProblem();
+      if (ownerProblem) {
+        this.error.set(ownerProblem);
+        return;
+      }
     }
     // A Renewal or Amendment that names no permit is not a lesser application,
     // it is an unanswerable one: the office is told an existing permit is
@@ -1578,26 +1779,34 @@ export class ApplicationWizardPage {
     if (next >= 3) this.carryOverDocuments();
     // Fire-and-forget, on navigation only — never on keystroke. By the time
     // `next` is 2 or more, Step 1's own checks above already established the
-    // real minimum a Draft row needs (a business, and a complete reference
-    // if this is a Renewal/Amendment), so there is always something worth
-    // saving from here on.
+    // real minimum a Draft row needs (who it is for — a business, or the
+    // property owner — and a complete reference if this is a
+    // Renewal/Amendment), so there is always something worth saving from
+    // here on.
     if (next >= 2) void this.autoSave();
     this.step.set(next);
   }
 
   /** What both autosave and the final filing send — the one place their shapes are kept from drifting apart. */
   private buildRequest(): Omit<SubmitApplicationRequest, 'documentIds' | 'saveAsDraft'> {
+    const propertyOwner = this.propertyOwner();
     return {
       permitType: this.isGeneric ? 'Business Permit' : this.permitType!,
       applicationAction: this.applicationAction,
       renewsPermitNumber: this.relatedPermitNumber,
       priorPermitClaim: this.priorPermitClaim,
-      businessId: this.businessId,
+      // Always null for Residential, even if a business was picked before
+      // switching: the server refuses a residential application naming one.
+      businessId: this.filingBusinessId(),
       location: this.projectAddress || null,
       form: {
         scopeOfWork: this.scopeOfWork,
         professionalName: this.professionalName || null,
         prcNumber: this.prcNumber || null,
+        // Migration 067. Left out until chosen/answered rather than sent as
+        // null: the server reads an absent applyingAs from the business.
+        ...(this.applyingAs !== null ? { applyingAs: this.applyingAs } : {}),
+        ...(propertyOwner !== null ? { propertyOwner } : {}),
       },
     };
   }
@@ -1642,6 +1851,15 @@ export class ApplicationWizardPage {
   }
 
   async submit(): Promise<void> {
+    // Not verified yet (migration 067): say why, and keep the draft saved,
+    // rather than sending a filing the server refuses. The server's own 422
+    // (shown as is by submitReal) stays the backstop for anything this misses.
+    const blocked = this.submitBlocked();
+    if (blocked !== null) {
+      this.error.set(blocked);
+      void this.autoSave();
+      return;
+    }
     if (!this.understandRequirements || !this.agreeTerms) {
       this.error.set('Please check both declarations to continue.');
       return;
@@ -1652,10 +1870,14 @@ export class ApplicationWizardPage {
       return;
     }
 
-    const business = this.businesses.myBusinesses().find((b) => b.id === this.businessId)!;
+    // Demo only. A Residential application names no business.
+    const business = this.applyingAs === 'residential'
+      ? undefined
+      : this.businesses.myBusinesses().find((b) => b.id === this.businessId);
     const record = this.applicationStore.createDraft({
-      businessId: business.id,
-      businessName: business.name,
+      businessId: business?.id ?? '',
+      businessName: business?.name ?? '',
+      applyingAs: this.applyingAs ?? 'business',
       permitType: this.isGeneric ? 'Business Permit' : this.permitType!,
       applicationAction: this.applicationAction,
       relatedPermitNumber: this.relatedPermitNumber,
@@ -1694,7 +1916,7 @@ export class ApplicationWizardPage {
   /**
    * Files for real, against `POST /applications`.
    *
-   * `businessId` goes out as `this.businessId` — a real server UUID.
+   * `businessId` goes out as the selected business — a real server UUID.
    * Businesses ARE wired to the backend now (`BusinessStore.myBusinesses()`
    * reads from `GET /businesses` the moment a citizen is signed in against a
    * configured API), so the dropdown at step 1 already offers only real
@@ -1703,7 +1925,9 @@ export class ApplicationWizardPage {
    * business linked at filing is how staff's own Businesses page ever
    * learns which applications belong to it — sending null here silently
    * broke that join for every real filing, even one made against a real,
-   * just-registered business.
+   * just-registered business. Null is right only for a Residential
+   * application (migration 067), which names no business at all — see
+   * `filingBusinessId()`.
    *
    * `documentIds` carries exactly the requirements whose upload actually
    * completed (`uploadedDocumentIds` — real server ids, not merely
@@ -1740,14 +1964,14 @@ export class ApplicationWizardPage {
         );
         if (!synced.ok) { this.error.set(synced.error); return; }
         const finalized = await this.applicationStore.submitDraftReal(draftId);
-        if (!finalized.ok) { this.error.set(finalized.error); return; }
+        if (!finalized.ok) { this.refused(finalized.error); return; }
         applicationId = draftId;
       } else {
         // Autosave never landed (offline for a moment, or a transient
         // error) — fall back to filing directly, exactly as before this
         // feature existed, rather than blocking the citizen on a retry.
         const result = await this.applicationStore.fileReal({ ...request, documentIds: Object.values(ids) });
-        if (!result.ok) { this.error.set(result.error); return; }
+        if (!result.ok) { this.refused(result.error); return; }
         applicationId = result.id;
       }
 
@@ -1761,6 +1985,17 @@ export class ApplicationWizardPage {
     } finally {
       this.submitting.set(false);
     }
+  }
+
+  /**
+   * A filing the server refused, shown in its own words — for an account not
+   * verified yet (422, migration 067) that is a full sentence saying what to
+   * do. The session's copy of the account is then re-read, so the
+   * verification banner shows what the server knows even if this tab did not.
+   */
+  private refused(message: string): void {
+    this.error.set(message);
+    if (this.auth.isAuthenticated()) void this.auth.reloadProfile().catch(() => undefined);
   }
 }
 

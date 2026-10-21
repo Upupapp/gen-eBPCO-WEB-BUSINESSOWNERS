@@ -20,6 +20,7 @@ import { ApplicationSummary, RenewalCheckResponse, SubmitApplicationRequest } fr
 
 /** Just enough of the component's surface to drive it — same cast pattern as the draft spec. */
 interface Testable {
+  applyingAs: 'residential' | 'business' | null;
   businessId: string | null;
   isGeneric: boolean;
   permitType: string | null;
@@ -116,6 +117,8 @@ describe('ApplicationWizardPage — a Renewal/Amendment permit number is checked
     http.expectOne((r) => r.url.startsWith(`${BASE}/requirements/`)).flush({ documents: [] });
     fixture.detectChanges();
     page = fixture.componentInstance as unknown as Testable;
+    // Signed out here, so "Applying as" has no sign-up choice to open on.
+    page.applyingAs = 'business';
     page.businessId = 'biz-1';
     page.isGeneric = false;
     page.permitType = 'Building Permit';

@@ -6,7 +6,11 @@
  * through Back. The mobile app decides the same way (`draft_resume.dart`).
  */
 export interface DraftProgress {
-  /** A business is chosen (and not known to be inactive), and a Renewal or Amendment names its permit. */
+  /**
+   * "Applying as" is chosen, with its own answer — a business (not known to
+   * be inactive), or for Residential whose property it is — and a Renewal or
+   * Amendment names its permit.
+   */
   applicantDone: boolean;
   /** The project address and scope of work are filled in. */
   detailsDone: boolean;

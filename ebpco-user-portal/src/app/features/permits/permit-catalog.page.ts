@@ -2,13 +2,13 @@ import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { BFP_FSIS_URL, PERMIT_TYPE_GROUPS, PermitType } from '../../core/domain/permit.model';
 import { REQUIREMENTS_CATALOG } from '../../core/domain/requirements-catalog';
-import { BusinessStore } from '../../core/stores/business.store';
 import { permitVisual } from '../../core/domain/permit-visual';
 import { RequirementsModalComponent } from '../../shared/ui/requirements-modal.component';
+import { VerificationBannerComponent } from '../../shared/ui/verification-banner.component';
 
 @Component({
   selector: 'app-permit-catalog',
-  imports: [RouterLink, RequirementsModalComponent],
+  imports: [RouterLink, RequirementsModalComponent, VerificationBannerComponent],
   template: `
     <div class="page">
       <div class="page-header">
@@ -18,20 +18,14 @@ import { RequirementsModalComponent } from '../../shared/ui/requirements-modal.c
         </div>
       </div>
 
-      @if (businesses.usingReal() && businesses.myBusinesses().length === 0) {
-        <!--
-          Gated on usingReal(), not just an empty list: myBusinesses() reads
-          an empty list the instant this page mounts, before BusinessStore's
-          own refreshMine() HTTP call has resolved — a citizen who already
-          had a business saw this banner flash on screen right after
-          registering one (found live 2026-09-25).
-        -->
-        <div class="card" style="background:var(--warning-100); border:none; margin-bottom:16px;">
-          <p class="small" style="color:var(--warning-text); margin:0;">
-            You need to <a routerLink="/businesses/register">register a business</a> before you can apply for a permit.
-          </p>
-        </div>
-      }
+      <!--
+        A business is no longer needed to apply (owner request, 2026-10-21):
+        every application asks "Applying as: Residential / Private Individual
+        or Business". The banner that said "You need to register a business
+        before you can apply for a permit" is gone; what can hold a citizen
+        back now is an account the Municipality has not verified yet.
+      -->
+      <app-verification-banner />
 
       <!--
         The FSEC and the FSIC used to be permit types here. The BFP issues both
@@ -179,7 +173,6 @@ import { RequirementsModalComponent } from '../../shared/ui/requirements-modal.c
 })
 export class PermitCatalogPage {
   protected readonly permitVisual = permitVisual;
-  protected readonly businesses = inject(BusinessStore);
   private readonly router = inject(Router);
 
   protected readonly groups = PERMIT_TYPE_GROUPS;

@@ -148,6 +148,12 @@ export interface ApplicationSummary {
   applicationAction: string;
   businessId: string | null;
   businessName: string | null;
+  /**
+   * Migration 067: who the application is for. The server derives it from
+   * `form.applyingAs`, else from whether a business is named. Absent from an
+   * older server.
+   */
+  applyingAs?: 'residential' | 'business';
   location: string | null;
   /** The permit this Renewal/Amendment renews, when it's a real one already on file. Null for New, and also null on the unverified claim path — see priorPermitClaim. */
   renewsPermitNumber: string | null;
@@ -389,7 +395,7 @@ export interface SubmitApplicationRequest {
   renewsPermitNumber?: string | null;
   /** The permit this renews/amends, when it predates eBPCO and so is not on file. Self-reported, never verified — requires a `prior-permit-proof` document attached. */
   priorPermitClaim?: string | null;
-  /** A real business UUID. Null until businesses are wired for real (connection plan Stage 8). */
+  /** A real business UUID, or null for a residential application (`form.applyingAs: 'residential'`). */
   businessId?: string | null;
   location?: string | null;
   /** Real, already-uploaded document ids. Empty until document upload is wired (Stage 6). */

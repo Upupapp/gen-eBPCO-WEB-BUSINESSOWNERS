@@ -2,7 +2,9 @@ import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../session/auth.service';
 import { NotificationStore } from './notification.store';
-import { ApplicationRecord, StatusTimelineEntry, actionReferenceIsComplete } from '../domain/application.model';
+import {
+  ApplicationRecord, ApplyingAs, StatusTimelineEntry, actionReferenceIsComplete, applyingAsOf,
+} from '../domain/application.model';
 import { ApplicationAction, GeneratedPermit, PermitType, PublishedPermitType } from '../domain/permit.model';
 import {
   ApplicationLifecycleStatus,
@@ -30,8 +32,11 @@ import {
 import { ApiError } from '../api/problem';
 
 export interface CreateApplicationInput {
+  /** '' (with businessName '') for a residential application, which names no business. */
   businessId: string;
   businessName: string;
+  /** Who it is for. Omitted means Business, as every local row was before migration 067. */
+  applyingAs?: ApplyingAs;
   permitType: PublishedPermitType;
   applicationAction: ApplicationAction;
   /** The permit being renewed or amended. Null for a 'New' application; required otherwise unless `priorPermitClaim` is set instead. */
@@ -100,6 +105,7 @@ function fromServerSummary(row: ApplicationSummary, applicantId: string): Applic
     expiryDate: null,
     location: row.location ?? null,
     form: row.form ?? {},
+    applyingAs: applyingAsOf(row.form, row.businessId, row.applyingAs),
   };
 }
 
@@ -695,6 +701,7 @@ export class ApplicationStore {
       permitNumber: null,
       issuedDate: null,
       expiryDate: null,
+      applyingAs: input.applyingAs ?? 'business',
     };
     this.applications.update((list) => [record, ...list]);
     return record;
