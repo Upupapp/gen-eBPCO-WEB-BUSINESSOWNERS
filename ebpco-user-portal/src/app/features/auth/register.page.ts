@@ -36,7 +36,7 @@ const APPLICANT_TYPES: readonly { value: RegisteredAs; title: string; descriptio
           <h2>Create Your Account</h2>
           <p class="muted small">Step {{ step() }} of 5</p>
         </div>
-        <div class="steps" style="justify-content:center;">
+        <div class="steps compact" style="justify-content:center;">
           <div class="step-item" [class.active]="step() === 1" [class.done]="step() > 1"><span class="dot">1</span> Applicant</div>
           <div class="step-sep"></div>
           <div class="step-item" [class.active]="step() === 2" [class.done]="step() > 2"><span class="dot">2</span> Personal</div>

@@ -539,6 +539,10 @@ table.table tr:last-child td { border-bottom: none; }
 .step-item.active .dot { background: var(--primary-500); color: #fff; }
 .step-item.done .dot { background: var(--success-500); color: #fff; }
 .step-sep { width: 20px; height: 1px; background: var(--border-medium); }
+/* Five steps in a sign-up card (migration 067): tighter, and a label never leaves its number. */
+.steps.compact { gap: 3px; }
+.steps.compact .step-item { white-space: nowrap; gap: 5px; }
+.steps.compact .step-sep { width: 12px; }
 
 // ---------------------------------------------------------------------------
 // Generated permit document — formal, restrained, printable A4 layout.

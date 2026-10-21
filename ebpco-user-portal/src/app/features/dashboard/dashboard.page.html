@@ -99,7 +99,7 @@
                 <div class="application-details">
                   <div class="application-title">{{ app.permitType }}</div>
                   <div class="application-meta">{{ app.applicationNumber }} &middot; {{ applyingAsLabel(app) }}</div>
-                  <div class="application-date">Submitted on {{ formatDate(app.dateSubmitted) }}</div>
+                  <div class="application-date">{{ app.lifecycleStatus === 'Draft' ? 'Draft, not yet submitted' : 'Submitted on ' + formatDate(app.dateSubmitted) }}</div>
                 </div>
                 <app-status-pill [label]="statusLabel(app.lifecycleStatus)" />
               </a>
