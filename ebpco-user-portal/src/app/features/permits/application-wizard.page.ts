@@ -19,9 +19,10 @@ import {
 import { submitBlockedMessage } from '../../core/domain/account-verification';
 import { BOTH_APPLICANT_KINDS, applicantKindNotOpenMessage, applicantKindsFrom, usualUseNote } from '../../core/domain/applicant-kinds';
 import { PermitTypesStore } from '../../core/stores/permit-types.store';
+import { EarlierRecordsStore } from '../../core/stores/earlier-records.store';
 import { AuthService } from '../../core/session/auth.service';
 import { SavedDocument, SavedDocumentFileType } from '../../core/domain/document.model';
-import { PermitRequirementsResponse, SubmitApplicationRequest } from '../../core/api/citizen-api.models';
+import { EarlierPermit, PermitRequirementsResponse, SubmitApplicationRequest } from '../../core/api/citizen-api.models';
 import { formatDate } from '../../core/utils/ids';
 import { BusinessStore } from '../../core/stores/business.store';
 import { ApplicationStore } from '../../core/stores/application.store';
@@ -129,6 +130,8 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
   // mobile app's: a tinted box with room around it, the form's own name, and
   // View and Download.
   styles: [`
+    /* The citizen's permits issued before eBPCO, one click to fill the number (migration 069). */
+    .earlier-picks { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
     .blank-form-link {
       display: flex; flex-direction: column; gap: 2px;
       margin: 10px 0 2px; padding: 10px 12px;
@@ -412,12 +415,30 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
                     Checked against the permits eBPCO issued to you{{ applyingAs === 'business' ? ' for the selected business' : '' }} before you can continue.
                   </div>
                 }
+                @if (earlierPicks().length > 0) {
+                  <!--
+                    The permits the Municipality issued this citizen before eBPCO,
+                    matched to the account by an officer (GET /me/earlier-permits),
+                    of this permit type. A pick only fills the number; Continue
+                    still has the server check it, like a typed one.
+                  -->
+                  <div class="earlier-picks" role="group" aria-labelledby="application-wizard-earlier-picks-label">
+                    <span id="application-wizard-earlier-picks-label" class="small muted">Your permits issued before eBPCO:</span>
+                    @for (p of earlierPicks(); track p.id) {
+                      <button type="button" class="btn btn-sm earlier-pick"
+                        [class.btn-primary]="isEarlierPicked(p)" [class.btn-secondary]="!isEarlierPicked(p)"
+                        [attr.aria-pressed]="isEarlierPicked(p)"
+                        [title]="earlierPickTitle(p)"
+                        (click)="pickEarlierPermit(p)">{{ p.permitNumber }}</button>
+                    }
+                  </div>
+                }
               }
               <label class="checkbox-row" style="margin-top:10px;">
                 <input type="checkbox" [(ngModel)]="paperPermit" (ngModelChange)="onPaperPermitChange()" />
                 <span>
                   My permit was issued on paper before eBPCO
-                  <span class="hint" style="display:block; margin-top:2px;">It will not be found in the system. You will need to upload a copy of it.</span>
+                  <span class="hint" style="display:block; margin-top:2px;">Only when it is not on your account. You will need to upload a copy of it.</span>
                 </span>
               </label>
               @if (paperPermit) {
@@ -810,6 +831,7 @@ export class ApplicationWizardPage {
   protected readonly api = inject(CitizenApiClient);
   private readonly uploadLimits = inject(UploadLimitsService);
   private readonly permitTypes = inject(PermitTypesStore);
+  private readonly earlierRecords = inject(EarlierRecordsStore);
   readonly submitting = signal(false);
   /** Which legal document the Review step's overlay is showing, if any. */
   readonly openLegalModal = signal<LegalDocument | null>(null);
@@ -1016,6 +1038,31 @@ export class ApplicationWizardPage {
   /** The business this application is filed under: none for a Residential one, whatever was picked before switching. */
   protected filingBusinessId(): string | null {
     return this.applyingAs === 'residential' ? null : this.businessId;
+  }
+
+  /**
+   * The citizen's permits issued before eBPCO (migration 069) that this
+   * Renewal/Amendment could be about: the same permit type once one is known.
+   * Not narrowed by business: `GET /me/earlier-permits` does not say which
+   * business a permit was for, so the server's check on Continue says so.
+   */
+  protected earlierPicks(): EarlierPermit[] {
+    return this.earlierRecords.permits().filter((p) => this.isGeneric || p.permitType === this.permitType);
+  }
+
+  protected isEarlierPicked(p: EarlierPermit): boolean {
+    return this.permitNumberInput.trim().toUpperCase() === p.permitNumber.toUpperCase();
+  }
+
+  protected earlierPickTitle(p: EarlierPermit): string {
+    return [p.permitType, p.businessName, `issued ${formatDate(p.dateIssued)}`]
+      .filter((part): part is string => !!part).join(' · ');
+  }
+
+  /** Fills the number exactly as the register writes it; checked on Continue like a typed one. */
+  protected pickEarlierPermit(p: EarlierPermit): void {
+    this.permitNumberInput = p.permitNumber;
+    this.invalidatePermitCheck();
   }
 
   /**
@@ -1274,6 +1321,15 @@ export class ApplicationWizardPage {
     const typeParam = this.route.snapshot.queryParamMap.get('type');
     const businessParam = this.route.snapshot.queryParamMap.get('businessId');
     if (businessParam) this.businessId = businessParam;
+    // "Renew" on a permit issued before eBPCO (My Applications, migration
+    // 069) opens a Renewal of that permit's type with its number filled in,
+    // before the checklist below is asked for. Continue still has the server
+    // check the number, exactly like a typed one. A resumed draft keeps its own.
+    const actionParam = this.route.snapshot.queryParamMap.get('action');
+    if (!draftParam && (actionParam === 'Renewal' || actionParam === 'Amendment')) {
+      this.applicationAction = actionParam;
+      this.permitNumberInput = this.route.snapshot.queryParamMap.get('permitNumber')?.trim() ?? '';
+    }
     // "Applying as" opens on what the citizen chose at sign-up: Residential
     // or Business; "Both" (or an account from before it was asked) opens with
     // nothing chosen, so they choose. Coming from a business's own "Apply for

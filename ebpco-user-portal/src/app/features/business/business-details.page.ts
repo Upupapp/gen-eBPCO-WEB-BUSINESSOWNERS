@@ -7,6 +7,7 @@ import { applicantStatusLabel, applicantStatusOf } from '../../core/domain/statu
 import { formatDate } from '../../core/utils/ids';
 import { ToastService } from '../../shared/ui/toast.service';
 import { BackLinkComponent } from '../../shared/ui/back-link.component';
+import { BEFORE_EBPCO_LABEL } from '../../core/domain/earlier-records';
 
 @Component({
   selector: 'app-business-details',
@@ -55,6 +56,10 @@ import { BackLinkComponent } from '../../shared/ui/back-link.component';
           <div class="card-title">Business Address</div>
           <p>{{ b.street }}, Barangay {{ b.barangay }}, {{ b.city }}, {{ b.province }}</p>
           <span class="badge" [class]="b.status === 'Active' ? 'badge-green' : 'badge-gray'">{{ b.status }}</span>
+          @if (b.importedBeforeEbpco) {
+            <span class="badge badge-gold business-before-ebpco" style="margin-left:6px;"
+                  title="Registered in the Municipality's registry before eBPCO">{{ beforeEbpco }}</span>
+          }
         </div>
 
         <div class="card">
@@ -97,6 +102,7 @@ export class BusinessDetailsPage {
   private readonly toast = inject(ToastService);
 
   protected readonly formatDate = formatDate;
+  protected readonly beforeEbpco = BEFORE_EBPCO_LABEL;
   protected readonly applicantStatusOf = applicantStatusOf;
   protected readonly applicantStatusLabel = applicantStatusLabel;
 

@@ -92,19 +92,31 @@ type LookupState = 'idle' | 'loading' | 'found' | 'not-found' | 'unavailable';
                     <dd style="margin:0; font-weight:700; font-size:14px;">{{ formatDate(r.expiresOn) }}</dd>
                   </div>
                 }
-                <div style="display:flex; justify-content:space-between; gap:12px;">
-                  <dt class="small muted">Released to the holder</dt>
-                  <dd style="margin:0; font-weight:700; font-size:14px;">{{ r.released ? (r.releasedAt ? formatDate(r.releasedAt) : 'Yes') : 'Not yet' }}</dd>
-                </div>
+                @if (!r.issuedBeforeEbpco) {
+                  <div style="display:flex; justify-content:space-between; gap:12px;">
+                    <dt class="small muted">Released to the holder</dt>
+                    <dd style="margin:0; font-weight:700; font-size:14px;">{{ r.released ? (r.releasedAt ? formatDate(r.releasedAt) : 'Yes') : 'Not yet' }}</dd>
+                  </div>
+                }
               </dl>
+              @if (r.issuedBeforeEbpco) {
+                <!--
+                  A paper permit carried in from the Municipality's register
+                  (migration 069): eBPCO never released it, so this says where
+                  it was found instead of when it was released.
+                -->
+                <p class="verify-before-ebpco" style="margin:12px 0 0; font-weight:700; font-size:14px;">
+                  Issued before eBPCO — found in the Municipality's register
+                </p>
+              }
             }
           }
           @case ('not-found') {
             <p class="muted" style="font-weight:600;">No permit with this number is on record.</p>
             <p class="small muted" style="margin-top:8px; text-align:left;">
               <strong>This does not by itself mean the permit is invalid.</strong> Check the number against the
-              paper permit, and confirm with the office below — permits issued on paper before eBPCO are not in
-              this system.
+              paper permit, and confirm with the office below — not every permit issued on paper before eBPCO is
+              in this system yet.
             </p>
           }
           @case ('unavailable') {

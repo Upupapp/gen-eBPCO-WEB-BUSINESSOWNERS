@@ -193,3 +193,47 @@ describe('Resubmission size ceiling', () => {
     TestBed.resetTestingModule();
   });
 });
+
+/**
+ * Records before eBPCO (migration 069): the citizen's routes, and a paper
+ * permit number on the public check, which may hold "/" or spaces.
+ */
+describe('CitizenApiClient: records before eBPCO', () => {
+  let api: CitizenApiClient;
+  let http: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting(), { provide: API_BASE_URL, useValue: BASE }],
+    });
+    api = TestBed.inject(CitizenApiClient);
+    http = TestBed.inject(HttpTestingController);
+  });
+  afterEach(() => { http.verify(); TestBed.resetTestingModule(); });
+
+  it('reads the earlier permits and the requests from /me', () => {
+    let permits: unknown;
+    let claims: unknown;
+    api.listEarlierPermits().subscribe((r) => (permits = r.data));
+    api.listRecordClaims().subscribe((r) => (claims = r.data));
+    http.expectOne({ method: 'GET', url: `${BASE}/me/earlier-permits` }).flush({ data: [] });
+    http.expectOne({ method: 'GET', url: `${BASE}/me/record-claims` }).flush({ data: [] });
+    expect(permits).toEqual([]);
+    expect(claims).toEqual([]);
+  });
+
+  it('sends a claim as given, with no Idempotency-Key', () => {
+    const body = { permitNumber: 'CO 2020/0033', dateIssued: null, orNumber: '7781234' };
+    api.claimEarlierPermit(body).subscribe();
+    const req = http.expectOne({ method: 'POST', url: `${BASE}/me/record-claims` });
+    expect(req.request.body).toEqual(body);
+    expect(req.request.headers.has('Idempotency-Key')).toBe(false);
+    req.flush({ claim: { id: 'c1', ...body, status: 'pending', note: null, createdAt: '2026-10-23T00:00:00.000Z', decidedAt: null } },
+      { status: 201, statusText: 'Created' });
+  });
+
+  it('encodes a register number with a slash and spaces on the public check', () => {
+    api.verifyPermit('CO 2020/0033').subscribe();
+    http.expectOne(`${BASE}/public/permits/CO%202020%2F0033`).flush({});
+  });
+});

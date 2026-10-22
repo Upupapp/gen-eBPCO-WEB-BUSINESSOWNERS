@@ -82,6 +82,23 @@ describe('VerifyPermitPage', () => {
     expect(text).not.toContain('Valid');
   });
 
+  it('says a permit from before eBPCO was found in the register, instead of when it was released (migration 069)', () => {
+    const { text, calls } = render('CO 2020/0033', () => of({
+      ...ISSUED, permitNumber: 'CO 2020/0033', permitType: 'Certificate of Occupancy',
+      released: true, releasedAt: null, issuedBeforeEbpco: true,
+    }));
+    expect(calls).toEqual(['CO 2020/0033']);
+    expect(text).toContain("Issued before eBPCO — found in the Municipality's register");
+    expect(text).not.toContain('Released to the holder');
+    expect(text).not.toContain('Valid');
+  });
+
+  it('still shows the release for a permit eBPCO issued', () => {
+    const { text } = render('FP-2026-000003', () => of({ ...ISSUED, issuedBeforeEbpco: false }));
+    expect(text).toContain('Released to the holder');
+    expect(text).not.toContain('Issued before eBPCO');
+  });
+
   it('gives the real MEO contact on every path', () => {
     for (const answer of [() => of(ISSUED), () => throwError(() => ({ status: 404 }))]) {
       const { text } = render('FP-2026-000003', answer as () => Observable<PublicPermitRecord>);

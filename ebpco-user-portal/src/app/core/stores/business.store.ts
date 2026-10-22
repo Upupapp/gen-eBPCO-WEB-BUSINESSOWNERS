@@ -65,6 +65,7 @@ function fromServerBusiness(row: BusinessSummary, ownerApplicantId: string): Bus
     registrationNumber: row.registrationNumber,
     dateRegistered: row.dateRegistered,
     status: row.status as Business['status'],
+    importedBeforeEbpco: row.importedBeforeEbpco === true,
   };
 }
 

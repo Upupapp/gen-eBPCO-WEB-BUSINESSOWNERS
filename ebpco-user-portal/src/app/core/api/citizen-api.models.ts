@@ -57,6 +57,13 @@ export interface PublicPermitRecord {
   /** As printed on the permit, since server migration 064 (QA TC-04); null on a permit issued without them. Absent from an older server. */
   expiresOn?: string | null;
   approvingOffice?: string | null;
+  /**
+   * Issued on paper before eBPCO and carried in from the Municipality's
+   * register (migration 069). Such a permit also reads `released: true`, but
+   * eBPCO never released it, so the page says where it was found instead.
+   * Absent from an older server.
+   */
+  issuedBeforeEbpco?: boolean;
 }
 
 export interface PermitResponse {
@@ -257,6 +264,12 @@ export interface SubmitBusinessRequest {
 export interface BusinessSummary extends SubmitBusinessRequest {
   id: string;
   status: string;
+  /**
+   * In the Municipality's business registry before eBPCO, imported from it
+   * and matched to this account by an officer (migration 069). Absent from an
+   * older server.
+   */
+  importedBeforeEbpco?: boolean;
 }
 
 /**
@@ -573,4 +586,62 @@ export interface ResubmitResult {
    * applicant is entitled to know the LGU removed them. **Show this.**
    */
   removedMetadata: string[];
+}
+
+/**
+ * `GET /me/earlier-permits` (migration 069): a permit the Municipality issued
+ * on paper before eBPCO, from its register, once an officer has matched it to
+ * this account. Finished history: nothing to track, download or print.
+ */
+export interface EarlierPermit {
+  id: string;
+  /** eBPCO's own reference for the record, `PRE-<year>-<NNNNNN>`. */
+  referenceNumber: string;
+  permitType: string;
+  /** The number on the paper permit, as the register writes it (may hold `/`, `.` or spaces). */
+  permitNumber: string;
+  /** YYYY-MM-DD. */
+  dateIssued: string;
+  /** YYYY-MM-DD, or null when the register gives none. */
+  validUntil: string | null;
+  location: string | null;
+  scopeOfWork: string | null;
+  businessName: string | null;
+  issuedBy: string | null;
+  /** The register's own page or logbook reference. */
+  registerRef: string | null;
+}
+
+export interface EarlierPermitListResponse {
+  data: EarlierPermit[];
+}
+
+/** `GET`/`POST /me/record-claims` — "this permit from before eBPCO is mine", decided by an officer. */
+export interface RecordClaim {
+  id: string;
+  permitNumber: string;
+  /** YYYY-MM-DD, as the citizen gave it. */
+  dateIssued: string | null;
+  orNumber: string | null;
+  status: 'pending' | 'confirmed' | 'rejected';
+  /** The officer's note; when declined, the reason. */
+  note: string | null;
+  createdAt: string;
+  decidedAt: string | null;
+}
+
+export interface RecordClaimListResponse {
+  data: RecordClaim[];
+}
+
+/** The date issued OR the OR number must come with the permit number (the server answers 400 otherwise). */
+export interface RecordClaimRequest {
+  permitNumber: string;
+  /** YYYY-MM-DD. */
+  dateIssued: string | null;
+  orNumber: string | null;
+}
+
+export interface RecordClaimResult {
+  claim: RecordClaim;
 }

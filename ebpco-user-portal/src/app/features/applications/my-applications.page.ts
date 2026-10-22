@@ -5,6 +5,7 @@ import { StatusPillComponent } from '../../shared/ui/status-pill.component';
 import { ApplicationLifecycleStatus, applicantStatusLabel, applicantStatusOf } from '../../core/domain/status.model';
 import { ApplicationRecord, applyingAsLabel } from '../../core/domain/application.model';
 import { formatDate } from '../../core/utils/ids';
+import { EarlierPermitsComponent } from './earlier-permits.component';
 
 interface ApplicationFilter {
   label: string;
@@ -38,7 +39,7 @@ const FILTERS: readonly ApplicationFilter[] = [
 
 @Component({
   selector: 'app-my-applications',
-  imports: [RouterLink, StatusPillComponent],
+  imports: [RouterLink, StatusPillComponent, EarlierPermitsComponent],
   template: `
     <div class="page">
       <div class="page-header">
@@ -92,6 +93,13 @@ const FILTERS: readonly ApplicationFilter[] = [
           </table>
         </div>
       }
+
+      <!--
+        Permits issued on paper before eBPCO (migration 069): register records,
+        not filings, so they sit apart from the list above and never in its
+        counts (the server leaves them out of GET /applications).
+      -->
+      <app-earlier-permits />
     </div>
   `,
 })

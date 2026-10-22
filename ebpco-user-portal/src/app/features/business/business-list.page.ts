@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { BusinessStore } from '../../core/stores/business.store';
 import { BusinessCategory } from '../../core/domain/business.model';
 import { formatDate } from '../../core/utils/ids';
+import { BEFORE_EBPCO_LABEL } from '../../core/domain/earlier-records';
 
 /** Small outline-icon path set, drawn in the Lucide visual style (24x24, round caps/joins) — same convention as the dashboard's ICONS, so this page doesn't need an extra icon-library dependency (lucide-angular doesn't support this app's Angular version yet). */
 const ICONS = {
@@ -85,6 +86,10 @@ const ICONS = {
                   <div class="business-card__identity">
                     <h3 class="business-card__name">{{ b.name }}</h3>
                     <div class="muted small business-card__type">{{ b.category }}</div>
+                    @if (b.importedBeforeEbpco) {
+                      <!-- In the Municipality's registry before eBPCO, matched to this account (migration 069). -->
+                      <span class="badge badge-gold business-before-ebpco" title="Registered in the Municipality's registry before eBPCO">{{ beforeEbpco }}</span>
+                    }
                   </div>
                   <span class="badge business-status" [class]="b.status === 'Active' ? 'badge-green' : 'badge-gray'">{{ b.status }}</span>
                 </div>
@@ -191,6 +196,9 @@ const ICONS = {
     .business-card__type {
       margin: 5px 0 0;
     }
+    .business-before-ebpco {
+      margin-top: 7px;
+    }
 
     .badge.business-status {
       padding: 3px 11px;
@@ -245,6 +253,7 @@ export class BusinessListPage {
   protected readonly store = inject(BusinessStore);
   protected readonly formatDate = formatDate;
   protected readonly icons = ICONS;
+  protected readonly beforeEbpco = BEFORE_EBPCO_LABEL;
 
   businessIcon(category: BusinessCategory): readonly string[] {
     switch (category) {

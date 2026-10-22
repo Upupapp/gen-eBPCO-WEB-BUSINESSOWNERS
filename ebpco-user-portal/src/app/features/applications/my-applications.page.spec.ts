@@ -4,6 +4,17 @@ import { MyApplicationsPage } from './my-applications.page';
 import { ApplicationStore } from '../../core/stores/application.store';
 import { ApplicationRecord } from '../../core/domain/application.model';
 import { ApplicationLifecycleStatus } from '../../core/domain/status.model';
+import { EarlierRecordsStore } from '../../core/stores/earlier-records.store';
+import { BusinessStore } from '../../core/stores/business.store';
+import { EarlierPermit } from '../../core/api/citizen-api.models';
+
+/** The "Issued before eBPCO" section's stores (migration 069), with nothing in them unless a test says so. */
+function earlierRecords(permits: EarlierPermit[] = []) {
+  return [
+    { provide: EarlierRecordsStore, useValue: { permits: () => permits, claims: () => [], revisit: () => {} } },
+    { provide: BusinessStore, useValue: { myBusinesses: () => [] } },
+  ];
+}
 
 /**
  * QA TC-35 (2026-10-03): a returned, withdrawn or finished application could
@@ -20,7 +31,7 @@ describe('MyApplicationsPage filters', () => {
   function render() {
     TestBed.configureTestingModule({
       imports: [MyApplicationsPage],
-      providers: [provideRouter([]), { provide: ApplicationStore, useValue: { myApplications: () => ROWS } }],
+      providers: [provideRouter([]), { provide: ApplicationStore, useValue: { myApplications: () => ROWS } }, ...earlierRecords()],
     });
     const fixture = TestBed.createComponent(MyApplicationsPage);
     fixture.detectChanges();
@@ -69,12 +80,45 @@ describe('MyApplicationsPage: Applying as', () => {
     ] as ApplicationRecord[];
     TestBed.configureTestingModule({
       imports: [MyApplicationsPage],
-      providers: [provideRouter([]), { provide: ApplicationStore, useValue: { myApplications: () => rows } }],
+      providers: [provideRouter([]), { provide: ApplicationStore, useValue: { myApplications: () => rows } }, ...earlierRecords()],
     });
     const fixture = TestBed.createComponent(MyApplicationsPage);
     fixture.detectChanges();
     const cells = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('tbody tr'))
       .map((tr) => tr.querySelectorAll('td')[2]?.textContent?.trim());
     expect(cells).toEqual(['Residential', 'Dela Cruz Hardware']);
+  });
+});
+
+/**
+ * Permits issued on paper before eBPCO (migration 069) are register records,
+ * not filings: listed apart under their own label, and counted in no tab.
+ */
+describe('MyApplicationsPage: Issued before eBPCO', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('lists them apart from the applications and leaves every count alone', () => {
+    const rows = [
+      { id: 'a', lifecycleStatus: 'Completed', applicationNumber: 'BP-1', permitType: 'Building Permit', businessName: '' },
+    ] as ApplicationRecord[];
+    const earlier: EarlierPermit = {
+      id: 'p1', referenceNumber: 'PRE-2019-000001', permitType: 'Building Permit', permitNumber: 'BP-2019-0412',
+      dateIssued: '2019-04-12', validUntil: null, location: null, scopeOfWork: null, businessName: null,
+      issuedBy: null, registerRef: null,
+    };
+    TestBed.configureTestingModule({
+      imports: [MyApplicationsPage],
+      providers: [provideRouter([]), { provide: ApplicationStore, useValue: { myApplications: () => rows } }, ...earlierRecords([earlier])],
+    });
+    const fixture = TestBed.createComponent(MyApplicationsPage);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.querySelectorAll('tbody tr')).toHaveLength(1);
+    expect(el.querySelector('tbody')?.textContent).not.toContain('BP-2019-0412');
+    expect(el.querySelector('.earlier-card .earlier-card__number')?.textContent).toContain('BP-2019-0412');
+    const tabs = Array.from(el.querySelectorAll('button[aria-pressed]')).map((b) => b.textContent?.replace(/\s+/g, ' ').trim());
+    expect(tabs).toContain('All (1)');
+    expect(tabs).toContain('Completed (1)');
   });
 });

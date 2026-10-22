@@ -35,4 +35,10 @@ export interface Business {
   registrationNumber: string;
   dateRegistered: string;
   status: BusinessStatus;
+  /**
+   * In the Municipality's business registry before eBPCO and matched to this
+   * account by an officer (ebpco-api migration 069). Shown as "Issued before
+   * eBPCO"; the citizen files for it like any other business.
+   */
+  importedBeforeEbpco?: boolean;
 }

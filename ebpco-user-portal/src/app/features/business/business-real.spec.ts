@@ -4,6 +4,8 @@ import { BusinessStore } from '../../core/stores/business.store';
 import { CitizenApiClient } from '../../core/api/citizen-api.client';
 import { ApiError } from '../../core/api/problem';
 import { BusinessSummary } from '../../core/api/citizen-api.models';
+import { provideRouter } from '@angular/router';
+import { BusinessListPage } from './business-list.page';
 
 /**
  * `BusinessStore.updateReal`/`deactivateReal`/`reactivateReal` — the real
@@ -110,5 +112,44 @@ describe('BusinessStore — real edit/deactivate/reactivate', () => {
 
     expect(result.ok).toBe(true);
     expect(store.businessById('biz-real-1')?.status).toBe('Active');
+  });
+});
+
+/**
+ * A business in the Municipality's registry before eBPCO, matched to the
+ * account by an officer (migration 069), carries the "Issued before eBPCO"
+ * badge on My Businesses. Nothing else about it changes.
+ */
+describe('My Businesses: Issued before eBPCO', () => {
+  const OLD: BusinessSummary = {
+    id: 'biz-old', name: 'Dela Cruz Hardware', category: 'Retail',
+    street: 'Rizal St.', barangay: 'Poblacion', city: 'Castilla', province: 'Sorsogon',
+    registrationNumber: 'BN-2015-11', dateRegistered: '2015-01-05', status: 'Active', importedBeforeEbpco: true,
+  };
+  const NEW: BusinessSummary = { ...OLD, id: 'biz-new', name: 'Cafe', importedBeforeEbpco: false };
+
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('keeps the mark from GET /businesses', async () => {
+    TestBed.configureTestingModule({
+      providers: [{ provide: CitizenApiClient, useValue: { configured: true, listBusinesses: () => of({ data: [OLD, NEW] }) } }],
+    });
+    const store = TestBed.inject(BusinessStore);
+    await store.refreshMine();
+    expect(store.businessById('biz-old')?.importedBeforeEbpco).toBe(true);
+    expect(store.businessById('biz-new')?.importedBeforeEbpco).toBe(false);
+  });
+
+  it('shows the badge on that business only', () => {
+    const businesses = [OLD, NEW].map((b) => ({ ...b, ownerApplicantId: 'a' }));
+    TestBed.configureTestingModule({
+      imports: [BusinessListPage],
+      providers: [provideRouter([]), { provide: BusinessStore, useValue: { usingReal: () => true, myBusinesses: () => businesses } }],
+    });
+    const fixture = TestBed.createComponent(BusinessListPage);
+    fixture.detectChanges();
+    const cards = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.business-card'));
+    expect(cards[0].querySelector('.business-before-ebpco')?.textContent).toContain('Issued before eBPCO');
+    expect(cards[1].querySelector('.business-before-ebpco')).toBeNull();
   });
 });

@@ -12,6 +12,7 @@ import {
   BusinessListResponse,
   BusinessSummary,
   DraftPatchRequest,
+  EarlierPermitListResponse,
   ErasureReceipt,
   ExportContentResult,
   ExportRequestResult,
@@ -25,6 +26,9 @@ import {
   PaymentHistoryEntry,
   PermitRequirementsResponse,
   PermitTypesResponse,
+  RecordClaimListResponse,
+  RecordClaimRequest,
+  RecordClaimResult,
   RenewalCheckResponse,
   PermitResponse,
   RequirementsChecklistResponse,
@@ -246,6 +250,34 @@ export class CitizenApiClient {
     if (query.permitType !== null) params.set('permitType', query.permitType);
     if (query.businessId !== null) params.set('businessId', query.businessId);
     return this.get<RenewalCheckResponse>(`/applications/renewal-check?${params.toString()}`);
+  }
+
+  /**
+   * `GET /me/earlier-permits` (migration 069) — the permits the Municipality
+   * issued this citizen on paper before eBPCO, once an officer matched them to
+   * the account. Never among `GET /applications`, which are filings.
+   */
+  listEarlierPermits(): Observable<EarlierPermitListResponse> {
+    return this.get<EarlierPermitListResponse>('/me/earlier-permits');
+  }
+
+  /** `GET /me/record-claims` — this citizen's "this earlier permit is mine" requests, newest first. */
+  listRecordClaims(): Observable<RecordClaimListResponse> {
+    return this.get<RecordClaimListResponse>('/me/record-claims');
+  }
+
+  /**
+   * `POST /me/record-claims` — 201 `{ claim }`, the same answer whether or not
+   * the number is in the register (it never tells anyone which permits the
+   * Municipality holds). 409 when already claimed and waiting, 429 at ten
+   * waiting, 400 without the date issued or the OR number. No
+   * Idempotency-Key: a resend of a waiting claim is refused 409, not doubled.
+   */
+  claimEarlierPermit(body: RecordClaimRequest): Observable<RecordClaimResult> {
+    if (this.baseUrl === null) return throwError(() => new ApiNotConfiguredError());
+    return this.http
+      .post<RecordClaimResult>(`${this.baseUrl}/me/record-claims`, body)
+      .pipe(catchError((e) => throwError(() => this.toApiError(e))));
   }
 
   /**
