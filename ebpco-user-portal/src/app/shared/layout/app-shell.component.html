@@ -122,7 +122,14 @@
     </button>
   </aside>
 
-  <div class="ds-main">
+  <!--
+    overflow: hidden (for the decorative blobs) still makes this box a scroll
+    container, so focusing or scrolling to something inside it could shift the
+    whole page up by itself, with no scrollbar to undo it -- the title and step
+    bar of the next page then opened off the top. The page scrolls on the
+    window; this box never does.
+  -->
+  <div class="ds-main" (scroll)="unscroll($event)">
     <div class="ds-topbar">
       <a class="ds-topbar-user" routerLink="/profile" routerLinkActive="active" aria-label="View profile and settings">
         <span class="ds-topbar-name">{{ userName() }}</span>

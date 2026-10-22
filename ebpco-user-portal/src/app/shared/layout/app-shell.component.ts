@@ -41,6 +41,12 @@ export class AppShellComponent {
   protected closeNav(): void { this.navOpen.set(false); }
   protected toggleSidebarCollapse(): void { this.sidebarCollapsed.update((v) => !v); }
 
+  /** Puts the main column back where it belongs: see the comment on `.ds-main` in the template. */
+  protected unscroll(event: Event): void {
+    const main = event.target as HTMLElement;
+    if (main.scrollTop !== 0 || main.scrollLeft !== 0) main.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }
+
   @HostListener('document:keydown.escape')
   protected onEscape(): void { this.closeNav(); }
 
