@@ -11,6 +11,11 @@ export interface RequirementDocument {
   label: string;
   required: boolean;
   description?: string;
+  /**
+   * Asked only of this kind of applicant (migration 068): today just the
+   * business's optional signing authority. Absent means everyone.
+   */
+  applicantKind?: 'residential' | 'business';
 }
 
 export type SourceVerificationStatus = 'CASTILLA_OFFICIAL_FORM_VERIFIED' | 'PENDING_CASTILLA_VERIFICATION';

@@ -3,6 +3,8 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { BFP_FSIS_URL, PERMIT_TYPE_GROUPS, PermitType } from '../../core/domain/permit.model';
 import { REQUIREMENTS_CATALOG } from '../../core/domain/requirements-catalog';
 import { permitVisual } from '../../core/domain/permit-visual';
+import { applicantKindsChip, usualUseNote } from '../../core/domain/applicant-kinds';
+import { PermitTypesStore } from '../../core/stores/permit-types.store';
 import { RequirementsModalComponent } from '../../shared/ui/requirements-modal.component';
 import { VerificationBannerComponent } from '../../shared/ui/verification-banner.component';
 
@@ -54,6 +56,7 @@ import { VerificationBannerComponent } from '../../shared/ui/verification-banner
         <div class="permit-grid">
           @for (type of group.types; track type) {
             @let visual = permitVisual(type);
+            @let kinds = permitTypes.kindsFor(type);
             <div class="card card-fill permit-card">
               <div class="permit-card__header">
                 <div class="permit-card__icon" [style.background]="visual.bg" [style.color]="visual.fg">
@@ -61,10 +64,23 @@ import { VerificationBannerComponent } from '../../shared/ui/verification-banner
                     @for (d of visual.icon; track d) { <path [attr.d]="d" /> }
                   </svg>
                 </div>
+                <!--
+                  Who may apply (migration 068): every type is open to homes and
+                  businesses unless the Municipality restricted it.
+                -->
+                <span
+                  class="badge permit-status permit-card__kinds"
+                  [class.badge-gray]="kinds.length > 1"
+                  [class.badge-blue]="kinds.length === 1 && kinds[0] === 'business'"
+                  [class.badge-green]="kinds.length === 1 && kinds[0] === 'residential'"
+                >{{ applicantKindsChip(kinds) }}</span>
               </div>
               <div class="permit-card__identity">
                 <h4 class="permit-card__name">{{ type }}</h4>
                 <p class="small muted permit-card__subtitle">{{ office(type) }} &middot; {{ documentCount(type) }} documents</p>
+                @if (usualUseNote(type); as note) {
+                  <p class="small permit-card__note">{{ note }}</p>
+                }
               </div>
 
               <hr class="permit-card__divider" />
@@ -146,6 +162,7 @@ import { VerificationBannerComponent } from '../../shared/ui/verification-banner
     .permit-card__identity { min-width: 0; }
     .permit-card__name { margin: 0; }
     .permit-card__subtitle { margin: 5px 0 0; }
+    .permit-card__note { margin: 8px 0 0; color: var(--gray-600); }
 
     .badge.permit-status {
       padding: 3px 11px;
@@ -173,7 +190,11 @@ import { VerificationBannerComponent } from '../../shared/ui/verification-banner
 })
 export class PermitCatalogPage {
   protected readonly permitVisual = permitVisual;
+  protected readonly applicantKindsChip = applicantKindsChip;
+  protected readonly usualUseNote = usualUseNote;
   private readonly router = inject(Router);
+  /** Who may apply for each type; both for every type until (or unless) the server says otherwise. */
+  protected readonly permitTypes = inject(PermitTypesStore);
 
   protected readonly groups = PERMIT_TYPE_GROUPS;
   protected readonly bfpFsisUrl = BFP_FSIS_URL;
@@ -185,6 +206,10 @@ export class PermitCatalogPage {
    * already chosen (QA TC-30, 2026-10-03). It used to be dropped here.
    */
   private readonly fromBusiness = inject(ActivatedRoute).snapshot.queryParamMap.get('businessId');
+
+  constructor() {
+    this.permitTypes.load();
+  }
 
   protected startParams(type: PermitType): Record<string, string> {
     return this.fromBusiness ? { type, businessId: this.fromBusiness } : { type };

@@ -17,9 +17,11 @@ import {
   propertyOwnerOf,
 } from '../../core/domain/application.model';
 import { submitBlockedMessage } from '../../core/domain/account-verification';
+import { BOTH_APPLICANT_KINDS, applicantKindNotOpenMessage, applicantKindsFrom, usualUseNote } from '../../core/domain/applicant-kinds';
+import { PermitTypesStore } from '../../core/stores/permit-types.store';
 import { AuthService } from '../../core/session/auth.service';
 import { SavedDocument, SavedDocumentFileType } from '../../core/domain/document.model';
-import { SubmitApplicationRequest } from '../../core/api/citizen-api.models';
+import { PermitRequirementsResponse, SubmitApplicationRequest } from '../../core/api/citizen-api.models';
 import { formatDate } from '../../core/utils/ids';
 import { BusinessStore } from '../../core/stores/business.store';
 import { ApplicationStore } from '../../core/stores/application.store';
@@ -135,6 +137,9 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
     .blank-form-link strong { color: var(--primary-600, #a5182a); }
     .blank-form-link a { font-weight: 600; }
     .review-head { display: flex; justify-content: space-between; align-items: center; margin: 18px 0 6px; }
+    /* An "Applying as" choice the Municipality does not accept for this permit type (migration 068). */
+    .choice-cards .choice-card.choice-card--closed { cursor: not-allowed; opacity: .65; background: var(--gray-50); }
+    .choice-cards .choice-card.choice-card--closed:hover { border-color: var(--border-medium); }
 
     /* Documents step: one card per document (see the template's own comment). */
     .docs-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
@@ -258,30 +263,36 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
             (owner request, 2026-10-21), so one account files both. It opens
             on what they chose then (Residential or Business); "Both", or an
             account from before it was asked, opens with nothing chosen.
+            Every permit type is open to both unless the Municipality
+            restricted it (migration 068): a kind it does not accept is
+            disabled with the reason, and the only open one is chosen.
           -->
           <fieldset class="choice-cards choice-cards--row">
             <legend>Applying as<span class="required">*</span></legend>
-            <label class="choice-card" [class.selected]="applyingAs === 'residential'">
+            <label class="choice-card" [class.selected]="applyingAs === 'residential'"
+              [class.choice-card--closed]="!isKindOpen('residential')">
               <input type="radio" name="application-wizard-applying-as" value="residential"
+                [disabled]="!isKindOpen('residential')"
                 [(ngModel)]="applyingAs" (ngModelChange)="onApplyingAsChange()" />
               <span class="choice-card-text">
                 <strong>Residential / Private Individual</strong>
-                <span>For your home or other private property. No business needed.</span>
+                <span>{{ isKindOpen('residential') ? 'For your home or other private property. No business needed.' : kindNotOpenMessage('residential') }}</span>
               </span>
             </label>
-            <label class="choice-card" [class.selected]="applyingAs === 'business'">
+            <label class="choice-card" [class.selected]="applyingAs === 'business'"
+              [class.choice-card--closed]="!isKindOpen('business')">
               <input type="radio" name="application-wizard-applying-as" value="business"
+                [disabled]="!isKindOpen('business')"
                 [(ngModel)]="applyingAs" (ngModelChange)="onApplyingAsChange()" />
               <span class="choice-card-text">
                 <strong>Business</strong>
-                <span>For a business or commercial establishment you registered.</span>
+                <span>{{ isKindOpen('business') ? 'For a business or commercial establishment you registered.' : kindNotOpenMessage('business') }}</span>
               </span>
             </label>
           </fieldset>
-          @if (applyingAs === 'residential' && permitType === 'Sign Permit') {
-            <p class="small muted" style="margin:-4px 0 12px;">
-              Sign permits are usually for a business sign. Choose Business if this sign is for your business.
-            </p>
+          <!-- Who usually applies, for the few types where that helps (guidance only, never a restriction). -->
+          @if (usualUse(); as note) {
+            <p class="small muted" style="margin:-4px 0 12px;">{{ note }}</p>
           }
 
           @if (applyingAs === 'business') {
@@ -797,6 +808,7 @@ export class ApplicationWizardPage {
   private readonly toast = inject(ToastService);
   protected readonly api = inject(CitizenApiClient);
   private readonly uploadLimits = inject(UploadLimitsService);
+  private readonly permitTypes = inject(PermitTypesStore);
   readonly submitting = signal(false);
   /** Which legal document the Review step's overlay is showing, if any. */
   readonly openLegalModal = signal<LegalDocument | null>(null);
@@ -866,35 +878,68 @@ export class ApplicationWizardPage {
     // caller that has to wait for it: resumeDraft(), deciding which step to open on.
     let settle!: () => void;
     const settled = new Promise<void>((resolve) => { settle = resolve; });
-    this.api.getRequirementsForPermitType(key, applicationAction).subscribe({
+    // Only the latest ask may replace the checklist: switching "Applying as"
+    // back and forth sends one per switch, and an earlier answer arriving
+    // last would show the other kind's documents.
+    const request = ++this.checklistRequest;
+    // `applyingAs` (migration 068): a Business application's checklist also
+    // has the optional "Authority to sign for the business" row.
+    this.api.getRequirementsForPermitType(key, applicationAction, this.applyingAs ?? undefined).subscribe({
       next: (result) => {
-        if (result.documents.length === 0) return;
-        const previousDocs = this.documents;
-        const nextDocs: RequirementDocument[] = result.documents.map((d) => ({
-          id: d.code,
-          label: d.label,
-          required: d.required,
-          description: d.description || undefined,
-        }));
-        // Re-key anything already attached/reused under the static
-        // catalog's id, by label, so swapping in the real ids doesn't drop
-        // a file the citizen already picked. Both catalogs were seeded
-        // from the same source, so labels line up even where ids might
-        // not once a staff member republishes this permit type's checklist.
-        const reattached: Record<string, Slot> = {};
-        for (const [oldId, slot] of Object.entries(this.attached)) {
-          const oldDoc = previousDocs.find((d) => d.id === oldId);
-          const match = oldDoc ? nextDocs.find((d) => d.label === oldDoc.label) : undefined;
-          reattached[match ? match.id : oldId] = slot;
+        // Who may apply for this type comes back with the checklist; absent
+        // (an older server) leaves it open to both.
+        if (permitType !== 'generic' && result.applicantKinds !== undefined) {
+          this.permitTypes.remember(permitType, applicantKindsFrom(result.applicantKinds));
         }
-        this.attached = reattached;
-        this.documents = nextDocs;
-        this.usingRealRequirementCodes = true;
+        if (request !== this.checklistRequest) return;
+        const switched = this.preselectOnlyOpenKind();
+        if (result.documents.length > 0) this.useRealDocuments(result.documents);
+        // "Applying as" just moved to the only kind this type is open to, so
+        // the checklist above was for the other one: ask again.
+        if (switched && !this.isGeneric && this.permitType) {
+          void this.loadRealDocuments(this.permitType, this.applicationAction);
+        }
       },
       error: () => settle(),
       complete: () => settle(),
     });
     return settled;
+  }
+
+  /** Counts `loadRealDocuments` calls, so only the latest answer is used. */
+  private checklistRequest = 0;
+
+  private useRealDocuments(documents: PermitRequirementsResponse['documents']): void {
+    const previousDocs = this.documents;
+    const nextDocs: RequirementDocument[] = documents.map((d) => ({
+      id: d.code,
+      label: d.label,
+      required: d.required,
+      description: d.description || undefined,
+      ...(d.applicantKind ? { applicantKind: d.applicantKind } : {}),
+    }));
+    // Re-key anything already attached/reused under the static
+    // catalog's id, by label, so swapping in the real ids doesn't drop
+    // a file the citizen already picked. Both catalogs were seeded
+    // from the same source, so labels line up even where ids might
+    // not once a staff member republishes this permit type's checklist.
+    const reattached: Record<string, Slot> = {};
+    for (const [oldId, slot] of Object.entries(this.attached)) {
+      const oldDoc = previousDocs.find((d) => d.id === oldId);
+      const match = oldDoc ? nextDocs.find((d) => d.label === oldDoc.label) : undefined;
+      // A document asked only of one kind of applicant (the business's
+      // signing authority) goes when the other kind is chosen, rather than
+      // being filed with an application that does not ask for it.
+      if (!match && oldDoc?.applicantKind !== undefined) {
+        delete this.slotHashes[oldId];
+        this.uploadedDocumentIds.update(({ [oldId]: _drop, ...rest }) => rest);
+        continue;
+      }
+      reattached[match ? match.id : oldId] = slot;
+    }
+    this.attached = reattached;
+    this.documents = nextDocs;
+    this.usingRealRequirementCodes = true;
   }
 
   /**
@@ -972,10 +1017,51 @@ export class ApplicationWizardPage {
     return this.applyingAs === 'residential' ? null : this.businessId;
   }
 
-  /** Switching between Residential and Business changes what a typed permit number must match. */
+  /**
+   * Switching between Residential and Business changes what a typed permit
+   * number must match, and the checklist: a Business application also has
+   * the optional "Authority to sign for the business" (migration 068).
+   */
   protected onApplyingAsChange(): void {
     this.error.set(null);
     this.invalidatePermitCheck();
+    if (!this.isGeneric && this.permitType) void this.loadRealDocuments(this.permitType, this.applicationAction);
+  }
+
+  /**
+   * Who may apply for the chosen type (migration 068): both unless the
+   * Municipality restricted it. From the store, which the checklist answer
+   * also updates, so a signal read the template follows.
+   */
+  protected applicantKinds(): readonly ApplyingAs[] {
+    return this.isGeneric || !this.permitType ? BOTH_APPLICANT_KINDS : this.permitTypes.kindsFor(this.permitType);
+  }
+
+  protected isKindOpen(kind: ApplyingAs): boolean {
+    return this.applicantKinds().includes(kind);
+  }
+
+  protected kindNotOpenMessage(kind: ApplyingAs): string {
+    return this.permitType ? applicantKindNotOpenMessage(this.permitType, kind) : '';
+  }
+
+  /** Who usually applies for the chosen type, where that is worth saying (Sign, Fencing, Interior Design, Certificate of Occupancy). */
+  protected usualUse(): string | null {
+    return this.isGeneric ? null : usualUseNote(this.permitType);
+  }
+
+  /**
+   * When the type is open to only one kind, that kind is chosen for the
+   * citizen (whatever they signed up as, or a draft held). True when this
+   * changed the choice; the caller then asks for that kind's checklist.
+   */
+  private preselectOnlyOpenKind(): boolean {
+    const kinds = this.applicantKinds();
+    if (kinds.length !== 1 || this.applyingAs === kinds[0]) return false;
+    this.applyingAs = kinds[0];
+    this.error.set(null);
+    this.invalidatePermitCheck();
+    return true;
   }
   /** Anything that changes what the typed number must match makes the last check stale. */
   protected invalidatePermitCheck(): void {
@@ -1196,6 +1282,9 @@ export class ApplicationWizardPage {
     } else if (typeParam && typeParam !== 'generic' && isValidPermitType(typeParam) && !RETIRED_PERMIT_TYPES.has(typeParam)) {
       this.isGeneric = false;
       this.permitType = typeParam;
+      // Already known from Permit Services: a type open to one kind only
+      // opens on it, so the checklist below is asked for that kind.
+      this.preselectOnlyOpenKind();
       this.documents = this.applicationStore.requiredDocumentsFor(typeParam, this.applicationAction);
       this.loadRealDocuments(typeParam, this.applicationAction);
     } else {
@@ -1691,6 +1780,11 @@ export class ApplicationWizardPage {
     // 2026-10-21). Only a Business application needs a business.
     if (next === 2 && this.applyingAs === null) {
       this.error.set('Please choose whether you are applying as Residential / Private Individual or as a Business.');
+      return;
+    }
+    // Not accepted for this type (migration 068); the server refuses it at filing too.
+    if (next === 2 && this.applyingAs !== null && !this.isKindOpen(this.applyingAs)) {
+      this.error.set(this.kindNotOpenMessage(this.applyingAs));
       return;
     }
     if (next === 2 && this.applyingAs === 'business' && !this.businessId) {

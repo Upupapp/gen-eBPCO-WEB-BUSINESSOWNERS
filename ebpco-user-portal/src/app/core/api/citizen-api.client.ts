@@ -4,6 +4,7 @@ import { Observable, catchError, map, throwError } from 'rxjs';
 import { API_BASE_URL, ApiNotConfiguredError, RESUBMIT_MAX_FILE_BYTES } from './api-config';
 import { problemFrom } from './problem';
 import { ApplicationAction } from '../domain/permit.model';
+import { ApplyingAs } from '../domain/application.model';
 import {
   ApplicationDocumentResponse,
   ApplicationListResponse,
@@ -23,6 +24,7 @@ import {
   NotificationPreferencesResponse,
   PaymentHistoryEntry,
   PermitRequirementsResponse,
+  PermitTypesResponse,
   RenewalCheckResponse,
   PermitResponse,
   RequirementsChecklistResponse,
@@ -208,10 +210,27 @@ export class CitizenApiClient {
    * doc comment on the server).
    */
   getRequirementsForPermitType(
-    permitType: string, applicationAction?: ApplicationAction,
+    permitType: string, applicationAction?: ApplicationAction, applyingAs?: ApplyingAs,
   ): Observable<PermitRequirementsResponse> {
-    const query = applicationAction === undefined ? '' : `?applicationAction=${encodeURIComponent(applicationAction)}`;
-    return this.get<PermitRequirementsResponse>(`/requirements/${encodeURIComponent(permitType)}${query}`);
+    // `applyingAs` (migration 068): a Business application's checklist also
+    // carries the optional "Authority to sign for the business" row. Left
+    // out, only the rows asked of everyone come back, as before.
+    const query = [
+      applicationAction === undefined ? null : `applicationAction=${encodeURIComponent(applicationAction)}`,
+      applyingAs === undefined ? null : `applyingAs=${encodeURIComponent(applyingAs)}`,
+    ].filter((part): part is string => part !== null).join('&');
+    return this.get<PermitRequirementsResponse>(
+      `/requirements/${encodeURIComponent(permitType)}${query === '' ? '' : `?${query}`}`,
+    );
+  }
+
+  /**
+   * `GET /permit-types` (migration 068) — who may apply for each active
+   * permit type. Every type is open to homes and businesses unless the
+   * Municipality restricted it; see `PermitTypesStore`, which reads this.
+   */
+  getPermitTypes(): Observable<PermitTypesResponse> {
+    return this.get<PermitTypesResponse>('/permit-types');
   }
 
   /**

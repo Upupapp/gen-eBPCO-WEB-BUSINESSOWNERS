@@ -77,7 +77,8 @@ describe('ApplicationWizardPage — Applying as, and an account not verified yet
     TestBed.resetTestingModule();
   });
 
-  function configure(params: Record<string, string>, session: Session | null) {
+  /** `requirements` answers the wizard's first checklist fetch; `requirementsUrl` is what it asked. */
+  function configure(params: Record<string, string>, session: Session | null, requirements: object = { documents: [] }) {
     const user = session === null ? null : { id: 'user-1', firstName: 'Juan', lastName: 'Dela Cruz', ...session };
     TestBed.configureTestingModule({
       imports: [ApplicationWizardPage],
@@ -93,9 +94,16 @@ describe('ApplicationWizardPage — Applying as, and an account not verified yet
     http = TestBed.inject(HttpTestingController);
     const fixture = TestBed.createComponent(ApplicationWizardPage);
     http.expectOne(`${BASE}/documents/me`).flush([]);
-    http.expectOne((r) => r.url.startsWith(`${BASE}/requirements/`)).flush({ documents: [] });
+    const checklist = http.expectOne((r) => r.url.startsWith(`${BASE}/requirements/`));
+    const requirementsUrl = checklist.request.url;
+    checklist.flush(requirements);
     fixture.detectChanges();
-    return { fixture, page: fixture.componentInstance, el: fixture.nativeElement as HTMLElement };
+    return { fixture, page: fixture.componentInstance, el: fixture.nativeElement as HTMLElement, requirementsUrl };
+  }
+
+  /** The next checklist fetch, asked again after "Applying as" changed. */
+  function nextChecklist() {
+    return http.expectOne((r) => r.url.startsWith(`${BASE}/requirements/`));
   }
 
   it('opens on Residential for a citizen who signed up for that', () => {
@@ -168,9 +176,10 @@ describe('ApplicationWizardPage — Applying as, and an account not verified yet
     expect(page.error()).toBe('Please select a business.');
   });
 
-  it('suggests Business for a Sign Permit filed as Residential, without holding it back', async () => {
+  it('says who usually applies for a Sign Permit, without holding a Residential one back', async () => {
     const { page, el } = configure({ type: 'Sign Permit' }, { registeredAs: 'residential', verification: verification('verified') });
-    expect(el.textContent).toContain('Sign permits are usually for a business sign');
+    expect(el.textContent).toContain('Usually a business sign; a home-based practice can apply as Residential.');
+    expect(el.textContent).not.toContain('Not open for');
     page.ownsProperty = true;
     page.toStep(2);
     expect(page.step()).toBe(2);
@@ -240,5 +249,112 @@ describe('ApplicationWizardPage — Applying as, and an account not verified yet
     );
     await submitted;
     expect(page.error()).toBe(detail);
+  });
+
+  // ---- Who may apply for each permit type (migration 068) ----
+
+  const LOT_PLAN = { code: 'lot-plan', label: 'Lot Plan', description: '', required: true };
+  const SIGNING_AUTHORITY = {
+    code: 'business-signatory-authority',
+    label: "Authority to sign for the business (Board Resolution or Secretary's Certificate; SPA for a representative)",
+    description: '',
+    required: false,
+    applicantKind: 'business',
+  };
+
+  it('asks for the checklist as the chosen kind: Business adds the optional signing authority, Residential drops it', () => {
+    const { page, requirementsUrl } = configure(
+      { type: 'Fencing Permit' },
+      { registeredAs: 'business', verification: verification('verified') },
+      { permitType: 'Fencing Permit', applicantKinds: ['residential', 'business'], applyingAs: 'business', documents: [LOT_PLAN, SIGNING_AUTHORITY] },
+    );
+    expect(requirementsUrl).toContain('applyingAs=business');
+    expect(page.documents.map((d) => d.id)).toEqual(['lot-plan', 'business-signatory-authority']);
+    expect(page.documents[1].required).toBe(false);
+
+    page.attached = {
+      'business-signatory-authority': { kind: 'attached', documentId: 'doc-9', fileName: 'board-resolution.pdf', fileType: 'pdf' },
+    };
+    page.applyingAs = 'residential';
+    (page as unknown as { onApplyingAsChange(): void }).onApplyingAsChange();
+    const again = nextChecklist();
+    expect(again.request.url).toContain('applyingAs=residential');
+    again.flush({ permitType: 'Fencing Permit', applicantKinds: ['residential', 'business'], applyingAs: 'residential', documents: [LOT_PLAN] });
+
+    expect(page.documents.map((d) => d.id)).toEqual(['lot-plan']);
+    // Not filed with an application that does not ask for it.
+    expect(page.attached['business-signatory-authority']).toBeUndefined();
+  });
+
+  it('a type the Municipality accepts only for businesses: Residential is disabled with the reason, and Business is chosen', async () => {
+    const { fixture, page, el, requirementsUrl } = configure(
+      { type: 'Sign Permit' },
+      { registeredAs: 'residential', verification: verification('verified') },
+      { permitType: 'Sign Permit', applicantKinds: ['business'], documents: [] },
+    );
+    expect(requirementsUrl).toContain('applyingAs=residential');
+    expect(page.applyingAs).toBe('business');
+    // Its checklist is asked for again, as Business.
+    const again = nextChecklist();
+    expect(again.request.url).toContain('applyingAs=business');
+    again.flush({ permitType: 'Sign Permit', applicantKinds: ['business'], applyingAs: 'business', documents: [] });
+
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(el.textContent).toContain('Not open for a Sign Permit: the Municipality accepts it only for businesses.');
+    const radio = (value: string) =>
+      el.querySelector<HTMLInputElement>(`input[name="application-wizard-applying-as"][value="${value}"]`);
+    expect(radio('residential')?.disabled).toBe(true);
+    expect(radio('business')?.disabled).toBe(false);
+
+    // Nor does it go on as Residential some other way.
+    page.applyingAs = 'residential';
+    page.ownsProperty = true;
+    page.toStep(2);
+    expect(page.step()).toBe(1);
+    expect(page.error()).toBe('Not open for a Sign Permit: the Municipality accepts it only for businesses.');
+  });
+
+  it('a type the Municipality accepts only from private individuals: Business is disabled, and Residential is chosen', () => {
+    const { fixture, page, el } = configure(
+      { type: 'Fencing Permit' },
+      { registeredAs: 'business', verification: verification('verified') },
+      { permitType: 'Fencing Permit', applicantKinds: ['residential'], documents: [] },
+    );
+    expect(page.applyingAs).toBe('residential');
+    const again = nextChecklist();
+    expect(again.request.url).toContain('applyingAs=residential');
+    again.flush({ permitType: 'Fencing Permit', applicantKinds: ['residential'], applyingAs: 'residential', documents: [] });
+    fixture.detectChanges();
+    expect(el.textContent).toContain('Not open for a Fencing Permit: the Municipality accepts it only from private individuals.');
+  });
+
+  it('tells a Certificate of Occupancy applicant when it is applied for', () => {
+    const { el } = configure({ type: 'Certificate of Occupancy' }, { registeredAs: 'residential', verification: verification('verified') });
+    expect(el.textContent).toContain('After the building work is done, before the building is used.');
+  });
+
+  it('shows the server\'s own sentence when it refuses a type the Municipality restricted (422)', async () => {
+    const { page } = configure({ type: 'Sign Permit' }, null);
+    page.applyingAs = 'residential';
+    page.ownsProperty = true;
+    page.projectAddress = 'Purok 2, Barangay Poblacion';
+    page.scopeOfWork = 'Clinic sign';
+    page.understandRequirements = true;
+    page.agreeTerms = true;
+    const detail = 'A Sign Permit is filed for a business. Apply as Business and choose the business it is for.';
+
+    const submitted = page.submit();
+
+    const filing = http.expectOne(`${BASE}/applications`);
+    expect((filing.request.body as SubmitApplicationRequest).form?.['applyingAs']).toBe('residential');
+    filing.flush(
+      { type: '/problems/unprocessable', title: 'A precondition is unmet', status: 422, detail },
+      { status: 422, statusText: 'Unprocessable Entity' },
+    );
+    await submitted;
+    expect(page.error()).toBe(detail);
+    expect(page.submitting()).toBe(false);
   });
 });

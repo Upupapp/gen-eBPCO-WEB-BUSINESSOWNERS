@@ -49,11 +49,17 @@ export const ALL_PERMIT_TYPES: PermitType[] = [
   'FSIC for Occupancy Permit (BFP)',
 ];
 
-/** Groupings used only for the Permit Services catalog UI — mirrors ebpco-mobile's applications_screen.dart grouping. Not a separate data domain. */
+/**
+ * Groupings used only for the Permit Services catalog UI — mirrors ebpco-mobile's applications_screen.dart grouping. Not a separate data domain.
+ *
+ * The Certificate of Occupancy sits right after the Building Permit (2026-10-23):
+ * alone in a "Certificates" group at the very bottom it was easy to miss. Not
+ * the FSEC or the FSIC: see RETIRED_PERMIT_TYPES.
+ */
 export const PERMIT_TYPE_GROUPS: { label: string; types: PermitType[] }[] = [
   {
-    label: 'Building Permit',
-    types: ['Building Permit', 'Demolition Permit', 'Zoning / Locational Clearance'],
+    label: 'Building & Occupancy',
+    types: ['Building Permit', 'Certificate of Occupancy', 'Zoning / Locational Clearance', 'Demolition Permit'],
   },
   {
     label: 'Ancillary Permits',
@@ -71,11 +77,6 @@ export const PERMIT_TYPE_GROUPS: { label: string; types: PermitType[] }[] = [
   {
     label: 'Other Permits',
     types: ['Fencing Permit', 'Sign Permit', 'Excavation Permit'],
-  },
-  {
-    label: 'Certificates',
-    // Not the FSEC or the FSIC: see RETIRED_PERMIT_TYPES.
-    types: ['Certificate of Occupancy'],
   },
 ];
 

@@ -1,9 +1,10 @@
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { PermitCatalogPage } from './permit-catalog.page';
-import { PERMIT_TYPE_GROUPS, PermitType } from '../../core/domain/permit.model';
+import { FILEABLE_PERMIT_TYPES, PERMIT_TYPE_GROUPS, PermitType } from '../../core/domain/permit.model';
+import { API_BASE_URL } from '../../core/api/api-config';
 import { ALL_BLANK_FORMS, blankFormFor } from '../../core/domain/permit-form-assets';
 import { AuthService } from '../../core/session/auth.service';
 import { CitizenIdentityApi } from '../../core/api/citizen-identity.api';
@@ -131,5 +132,116 @@ describe('Permit Services: no business needed, and the account verification bann
     const text = await render('rejected', 'The ID has expired');
     expect(text).toContain('Your ID was not accepted: The ID has expired.');
     expect(text).toContain('Upload again');
+  });
+});
+
+/**
+ * The Certificate of Occupancy sat alone in a "Certificates" group at the very
+ * bottom and was easy to miss (2026-10-23): it now comes right after the
+ * Building Permit, in the first group.
+ */
+describe('Permit Services: the groups', () => {
+  it('opens with Building & Occupancy, the Certificate of Occupancy second, and has no "Certificates" group', () => {
+    expect(PERMIT_TYPE_GROUPS[0]).toEqual({
+      label: 'Building & Occupancy',
+      types: ['Building Permit', 'Certificate of Occupancy', 'Zoning / Locational Clearance', 'Demolition Permit'],
+    });
+    expect(PERMIT_TYPE_GROUPS.map((g) => g.label)).toEqual(['Building & Occupancy', 'Ancillary Permits', 'Other Permits']);
+  });
+
+  it('lists every type that can be filed, once each', () => {
+    expect([...ALL_TYPES].sort()).toEqual([...FILEABLE_PERMIT_TYPES].sort());
+  });
+
+  it('shows Building & Occupancy first on the page', () => {
+    TestBed.configureTestingModule({
+      imports: [PermitCatalogPage],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+    });
+    const fixture = TestBed.createComponent(PermitCatalogPage);
+    fixture.detectChanges();
+    const headings = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.permit-group-heading'))
+      .map((h) => h.textContent?.trim());
+    expect(headings[0]).toBe('Building & Occupancy');
+    expect(headings).not.toContain('Certificates');
+    TestBed.resetTestingModule();
+  });
+});
+
+/**
+ * Who may apply (migration 068): every type is open to homes and businesses
+ * unless the Municipality restricted it, read from `GET /permit-types`. An
+ * older server, or a failed call, hides nothing: every type reads as both.
+ */
+describe('Permit Services: who may apply for each type', () => {
+  const BASE = 'https://api.example.gov.ph';
+
+  afterEach(() => TestBed.resetTestingModule());
+
+  function render(configured: boolean): ComponentFixture<PermitCatalogPage> {
+    TestBed.configureTestingModule({
+      imports: [PermitCatalogPage],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        ...(configured ? [{ provide: API_BASE_URL, useValue: BASE }] : []),
+      ],
+    });
+    const fixture = TestBed.createComponent(PermitCatalogPage);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  function card(fixture: ComponentFixture<PermitCatalogPage>, type: PermitType): HTMLElement {
+    const name = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.permit-card__name'))
+      .find((h) => h.textContent?.trim() === type);
+    return name!.closest('.permit-card') as HTMLElement;
+  }
+
+  function chip(fixture: ComponentFixture<PermitCatalogPage>, type: PermitType): string | undefined {
+    return card(fixture, type).querySelector('.permit-card__kinds')?.textContent?.trim();
+  }
+
+  it('says "Homes & businesses" on every card when no API answers', () => {
+    const fixture = render(false);
+    for (const type of ALL_TYPES) expect(chip(fixture, type), type).toBe('Homes & businesses');
+  });
+
+  it('shows what the server says, and both for a type it leaves out or sends without kinds', () => {
+    const fixture = render(true);
+    TestBed.inject(HttpTestingController).expectOne(`${BASE}/permit-types`).flush({
+      items: [
+        { permitType: 'Sign Permit', applicantKinds: ['business'] },
+        { permitType: 'Fencing Permit', applicantKinds: ['residential'] },
+        { permitType: 'Building Permit', applicantKinds: ['residential', 'business'] },
+        { permitType: 'Demolition Permit' },
+      ],
+    });
+    fixture.detectChanges();
+    expect(chip(fixture, 'Sign Permit')).toBe('Business only');
+    expect(chip(fixture, 'Fencing Permit')).toBe('Residential only');
+    expect(chip(fixture, 'Building Permit')).toBe('Homes & businesses');
+    expect(chip(fixture, 'Demolition Permit')).toBe('Homes & businesses');
+    expect(chip(fixture, 'Excavation Permit')).toBe('Homes & businesses');
+  });
+
+  it('hides nothing when the server cannot answer', () => {
+    const fixture = render(true);
+    TestBed.inject(HttpTestingController).expectOne(`${BASE}/permit-types`)
+      .flush('Not Found', { status: 404, statusText: 'Not Found' });
+    fixture.detectChanges();
+    for (const type of ALL_TYPES) expect(chip(fixture, type), type).toBe('Homes & businesses');
+  });
+
+  it('says who usually applies on the Sign, Fencing, Interior Design and Certificate of Occupancy cards only', () => {
+    const fixture = render(false);
+    const note = (type: PermitType) => card(fixture, type).querySelector('.permit-card__note')?.textContent?.trim();
+    expect(note('Sign Permit')).toBe('Usually a business sign; a home-based practice can apply as Residential.');
+    expect(note('Fencing Permit')).toBe('Usually for homes.');
+    expect(note('Interior Design Permit')).toBe('Usually shop and office fit-outs.');
+    expect(note('Certificate of Occupancy')).toBe('After the building work is done, before the building is used.');
+    expect(note('Building Permit')).toBeUndefined();
+    expect((fixture.nativeElement as HTMLElement).querySelectorAll('.permit-card__note').length).toBe(4);
   });
 });

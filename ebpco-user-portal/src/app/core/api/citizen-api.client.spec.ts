@@ -5,6 +5,7 @@ import { CitizenApiClient, isOverResubmitLimit, newIdempotencyKey } from './citi
 import { API_BASE_URL, ApiNotConfiguredError, RESUBMIT_MAX_FILE_BYTES } from './api-config';
 import { ApiError } from './problem';
 import { CONTRACT_SAMPLES } from './contract-samples.fixture';
+import { PermitTypesResponse } from './citizen-api.models';
 
 const BASE = 'https://api.example.gov.ph';
 const APP = '00000000-0000-4000-8000-000000000000';
@@ -92,6 +93,38 @@ describe('CitizenApiClient against the recorded contract samples', () => {
       .flush('Payload Too Large', { status: 413, statusText: 'Payload Too Large' });
     expect(err!.bare).toBe(true);
     expect(err!.citizenMessage).toContain('too large');
+  });
+});
+
+describe('CitizenApiClient: who may apply for each permit type (migration 068)', () => {
+  let api: CitizenApiClient;
+  let http: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting(), { provide: API_BASE_URL, useValue: BASE }],
+    });
+    api = TestBed.inject(CitizenApiClient);
+    http = TestBed.inject(HttpTestingController);
+  });
+  afterEach(() => { http.verify(); TestBed.resetTestingModule(); });
+
+  it('reads GET /permit-types', () => {
+    let got: PermitTypesResponse | undefined;
+    api.getPermitTypes().subscribe((r) => (got = r));
+    http.expectOne(`${BASE}/permit-types`).flush({ items: [{ permitType: 'Sign Permit', applicantKinds: ['business'] }] });
+    expect(got?.items[0].applicantKinds).toEqual(['business']);
+  });
+
+  it('asks for the checklist as the chosen kind, and as before when none is given', () => {
+    api.getRequirementsForPermitType('Sign Permit', 'New', 'business').subscribe();
+    http.expectOne(`${BASE}/requirements/Sign%20Permit?applicationAction=New&applyingAs=business`)
+      .flush({ permitType: 'Sign Permit', documents: [] });
+    api.getRequirementsForPermitType('Sign Permit', 'New').subscribe();
+    http.expectOne(`${BASE}/requirements/Sign%20Permit?applicationAction=New`)
+      .flush({ permitType: 'Sign Permit', documents: [] });
+    api.getRequirementsForPermitType('Sign Permit').subscribe();
+    http.expectOne(`${BASE}/requirements/Sign%20Permit`).flush({ permitType: 'Sign Permit', documents: [] });
   });
 });
 

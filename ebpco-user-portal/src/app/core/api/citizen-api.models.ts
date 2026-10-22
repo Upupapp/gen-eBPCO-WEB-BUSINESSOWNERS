@@ -533,11 +533,32 @@ export type RenewalCheckResponse =
 
 export interface PermitRequirementsResponse {
   permitType: string;
+  /**
+   * Who may apply for this type (migration 068). Absent from an older server:
+   * read through `applicantKindsFrom`, which takes that as both.
+   */
+  applicantKinds?: ReadonlyArray<'residential' | 'business'>;
+  /** The kind this checklist was built for, when `applyingAs` was sent. */
+  applyingAs?: 'residential' | 'business';
   documents: ReadonlyArray<{
     code: string;
     label: string;
     description: string;
     required: boolean;
+    /**
+     * Set on a row asked only of one kind of applicant: the business's own
+     * `business-signatory-authority` (optional). Such rows come back only
+     * when `applyingAs` names that kind.
+     */
+    applicantKind?: 'residential' | 'business';
+  }>;
+}
+
+/** `GET /permit-types` (migration 068) — who may apply for each active permit type. */
+export interface PermitTypesResponse {
+  items: ReadonlyArray<{
+    permitType: string;
+    applicantKinds?: ReadonlyArray<'residential' | 'business'>;
   }>;
 }
 
