@@ -1047,7 +1047,9 @@ export class ApplicationWizardPage {
 
   /** Who usually applies for the chosen type, where that is worth saying (Sign, Fencing, Interior Design, Certificate of Occupancy). */
   protected usualUse(): string | null {
-    return this.isGeneric ? null : usualUseNote(this.permitType);
+    if (this.isGeneric) return null;
+    const open = (['residential', 'business'] as const).filter((kind) => this.isKindOpen(kind));
+    return usualUseNote(this.permitType, open);
   }
 
   /**

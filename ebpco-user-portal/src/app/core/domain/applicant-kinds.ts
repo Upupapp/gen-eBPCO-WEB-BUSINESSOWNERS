@@ -44,7 +44,10 @@ const USUAL_USE: Partial<Record<PermitType, string>> = {
   'Certificate of Occupancy': 'After the building work is done, before the building is used.',
 };
 
-export function usualUseNote(type: PermitType | null): string | null {
+export function usualUseNote(type: PermitType | null, kinds?: readonly ApplyingAs[]): string | null {
+  // A type the Municipality restricted to one kind says so in its chip; a note
+  // about who USUALLY applies would only contradict it.
+  if (kinds !== undefined && kinds.length < 2) return null;
   return type === null ? null : USUAL_USE[type] ?? null;
 }
 

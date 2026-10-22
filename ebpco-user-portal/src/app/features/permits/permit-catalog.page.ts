@@ -78,7 +78,7 @@ import { VerificationBannerComponent } from '../../shared/ui/verification-banner
               <div class="permit-card__identity">
                 <h4 class="permit-card__name">{{ type }}</h4>
                 <p class="small muted permit-card__subtitle">{{ office(type) }} &middot; {{ documentCount(type) }} documents</p>
-                @if (usualUseNote(type); as note) {
+                @if (usualUseNote(type, kinds); as note) {
                   <p class="small permit-card__note">{{ note }}</p>
                 }
               </div>

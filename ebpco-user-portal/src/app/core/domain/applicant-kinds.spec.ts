@@ -46,4 +46,10 @@ describe('Who may apply for a permit type', () => {
     expect(applicantKindNotOpenMessage('Certificate of Occupancy', 'residential'))
       .toBe('Not open for a Certificate of Occupancy: the Municipality accepts it only for businesses.');
   });
+
+  it('drops the usual-use note when the Municipality restricted the type to one kind', () => {
+    expect(usualUseNote('Sign Permit', ['business'])).toBeNull();
+    expect(usualUseNote('Fencing Permit', ['residential'])).toBeNull();
+    expect(usualUseNote('Sign Permit', ['residential', 'business'])).toContain('business sign');
+  });
 });
