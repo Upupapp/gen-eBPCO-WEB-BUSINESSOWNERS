@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, Injector, afterNextRender, computed, effect, inject, signal, untracked } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -788,6 +788,7 @@ export class ApplicationWizardPage {
   /** The blank form a document row asks the citizen to sign and upload, if it is one. */
   protected readonly blankFormFor = blankFormFor;
   private readonly route = inject(ActivatedRoute);
+  private readonly injector = inject(Injector);
   private readonly router = inject(Router);
   protected readonly businesses = inject(BusinessStore);
   /**
@@ -1262,6 +1263,13 @@ export class ApplicationWizardPage {
   agreeTerms = false;
 
   constructor() {
+    // Each step starts at its top: the wizard opens from a scrolled catalog,
+    // and a step shorter than the last one otherwise opens part-way down,
+    // its title and step bar off the screen.
+    effect(() => {
+      this.step();
+      untracked(() => afterNextRender(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }), { injector: this.injector }));
+    });
     const draftParam = this.route.snapshot.queryParamMap.get('draft');
     const typeParam = this.route.snapshot.queryParamMap.get('type');
     const businessParam = this.route.snapshot.queryParamMap.get('businessId');
