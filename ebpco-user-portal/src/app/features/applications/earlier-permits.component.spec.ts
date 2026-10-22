@@ -287,5 +287,8 @@ describe('Records before eBPCO: helpers', () => {
     expect(businessForEarlierPermit({ businessName: 'Dela Cruz Hardware' }, [fresh])).toBeNull();
     expect(businessForEarlierPermit({ businessName: 'Dela Cruz Hardware' }, [old, { ...old, id: 'twin' }])).toBeNull();
     expect(businessForEarlierPermit({ businessName: null }, [old])).toBeNull();
+    // The server's own answer wins, while the business is still on the account.
+    expect(businessForEarlierPermit({ businessName: 'Dela Cruz Hardware', businessId: 'new' }, [old, fresh])).toBe('new');
+    expect(businessForEarlierPermit({ businessName: 'Dela Cruz Hardware', businessId: 'gone' }, [old, fresh])).toBeNull();
   });
 });

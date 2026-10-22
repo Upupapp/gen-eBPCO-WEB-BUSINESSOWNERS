@@ -607,6 +607,8 @@ export interface EarlierPermit {
   location: string | null;
   scopeOfWork: string | null;
   businessName: string | null;
+  /** The business it was issued for, when it is on this account (absent from an older server). */
+  businessId?: string | null;
   issuedBy: string | null;
   /** The register's own page or logbook reference. */
   registerRef: string | null;

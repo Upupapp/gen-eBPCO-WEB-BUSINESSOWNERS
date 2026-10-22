@@ -7,7 +7,7 @@ import { applicantStatusLabel, applicantStatusOf } from '../../core/domain/statu
 import { formatDate } from '../../core/utils/ids';
 import { ToastService } from '../../shared/ui/toast.service';
 import { BackLinkComponent } from '../../shared/ui/back-link.component';
-import { BEFORE_EBPCO_LABEL } from '../../core/domain/earlier-records';
+import { REGISTERED_BEFORE_EBPCO_LABEL } from '../../core/domain/earlier-records';
 
 @Component({
   selector: 'app-business-details',
@@ -102,7 +102,7 @@ export class BusinessDetailsPage {
   private readonly toast = inject(ToastService);
 
   protected readonly formatDate = formatDate;
-  protected readonly beforeEbpco = BEFORE_EBPCO_LABEL;
+  protected readonly beforeEbpco = REGISTERED_BEFORE_EBPCO_LABEL;
   protected readonly applicantStatusOf = applicantStatusOf;
   protected readonly applicantStatusLabel = applicantStatusLabel;
 

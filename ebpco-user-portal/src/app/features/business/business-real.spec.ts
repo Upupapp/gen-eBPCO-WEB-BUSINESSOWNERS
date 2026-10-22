@@ -149,7 +149,7 @@ describe('My Businesses: Issued before eBPCO', () => {
     const fixture = TestBed.createComponent(BusinessListPage);
     fixture.detectChanges();
     const cards = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.business-card'));
-    expect(cards[0].querySelector('.business-before-ebpco')?.textContent).toContain('Issued before eBPCO');
+    expect(cards[0].querySelector('.business-before-ebpco')?.textContent).toContain('Registered before eBPCO');
     expect(cards[1].querySelector('.business-before-ebpco')).toBeNull();
   });
 });

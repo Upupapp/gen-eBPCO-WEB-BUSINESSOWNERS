@@ -10,6 +10,8 @@ import { FILEABLE_PERMIT_TYPES, PermitType } from './permit.model';
  * applications they filed through eBPCO.
  */
 export const BEFORE_EBPCO_LABEL = 'Issued before eBPCO';
+/** A business is registered, not issued: its badge says so. */
+export const REGISTERED_BEFORE_EBPCO_LABEL = 'Registered before eBPCO';
 
 /** Said once over the citizen's earlier permits: there is nothing to track, download or print. */
 export const BEFORE_EBPCO_NOTE =
@@ -39,15 +41,15 @@ export function canRenewEarlierPermit(permitType: string): permitType is PermitT
 }
 
 /**
- * The business an earlier permit was issued for, when it can be told: the one
- * business on the account that also came from the register under that same
- * name. `GET /me/earlier-permits` does not carry the business's id, so this
- * only preselects it for a renewal; the server's renewal check is still the
- * judge, and says which way round it is when this guessed wrong.
+ * The business an earlier permit was issued for, to preselect it for a
+ * renewal: the one the server names (`businessId`), when it is still on the
+ * account; from an older server, the one business that also came from the
+ * register under that same name. The server's renewal check is still the judge.
  */
 export function businessForEarlierPermit(
-  permit: Pick<EarlierPermit, 'businessName'>, businesses: readonly Business[],
+  permit: Pick<EarlierPermit, 'businessName' | 'businessId'>, businesses: readonly Business[],
 ): string | null {
+  if (permit.businessId) return businesses.some((b) => b.id === permit.businessId) ? permit.businessId : null;
   const name = permit.businessName?.trim().toLowerCase();
   if (!name) return null;
   const matches = businesses.filter((b) => b.importedBeforeEbpco === true && b.name.trim().toLowerCase() === name);

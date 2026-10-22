@@ -3,7 +3,7 @@ import { RouterLink } from '@angular/router';
 import { BusinessStore } from '../../core/stores/business.store';
 import { BusinessCategory } from '../../core/domain/business.model';
 import { formatDate } from '../../core/utils/ids';
-import { BEFORE_EBPCO_LABEL } from '../../core/domain/earlier-records';
+import { REGISTERED_BEFORE_EBPCO_LABEL } from '../../core/domain/earlier-records';
 
 /** Small outline-icon path set, drawn in the Lucide visual style (24x24, round caps/joins) — same convention as the dashboard's ICONS, so this page doesn't need an extra icon-library dependency (lucide-angular doesn't support this app's Angular version yet). */
 const ICONS = {
@@ -253,7 +253,7 @@ export class BusinessListPage {
   protected readonly store = inject(BusinessStore);
   protected readonly formatDate = formatDate;
   protected readonly icons = ICONS;
-  protected readonly beforeEbpco = BEFORE_EBPCO_LABEL;
+  protected readonly beforeEbpco = REGISTERED_BEFORE_EBPCO_LABEL;
 
   businessIcon(category: BusinessCategory): readonly string[] {
     switch (category) {
