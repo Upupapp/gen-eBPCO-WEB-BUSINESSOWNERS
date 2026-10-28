@@ -10,11 +10,9 @@ import {
 import { RequirementDocument } from '../../core/domain/requirements-catalog';
 import {
   ApplyingAs,
-  PropertyOwner,
   actionNeedsExistingPermit,
   actionReferenceIsComplete,
   existingPermitPrompt,
-  propertyOwnerOf,
 } from '../../core/domain/application.model';
 import { submitBlockedMessage } from '../../core/domain/account-verification';
 import { BOTH_APPLICANT_KINDS, applicantKindNotOpenMessage, applicantKindsFrom, usualUseNote } from '../../core/domain/applicant-kinds';
@@ -279,7 +277,7 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
                 [(ngModel)]="applyingAs" (ngModelChange)="onApplyingAsChange()" />
               <span class="choice-card-text">
                 <strong>Residential / Private Individual</strong>
-                <span>{{ isKindOpen('residential') ? 'For your home or other private property. No business needed.' : kindNotOpenMessage('residential') }}</span>
+                <span>{{ isKindOpen('residential') ? 'For your own home or private property. No business needed.' : kindNotOpenMessage('residential') }}</span>
               </span>
             </label>
             <label class="choice-card" [class.selected]="applyingAs === 'business'"
@@ -329,39 +327,6 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
               <div class="hint">Not listed? <a routerLink="/businesses/register">Register a business</a>.</div>
             }
           </div>
-          } @else if (applyingAs === 'residential') {
-            <!--
-              No business at all. What the Municipality needs instead is whose
-              property it is: the applicant's own, or someone else's they apply
-              for (form.propertyOwner, migration 067).
-            -->
-            <fieldset class="choice-cards choice-cards--row">
-              <legend>Do you own the property?<span class="required">*</span></legend>
-              <label class="choice-card" [class.selected]="ownsProperty === true">
-                <input type="radio" name="application-wizard-owns-property" [value]="true"
-                  [(ngModel)]="ownsProperty" (ngModelChange)="error.set(null)" />
-                <span class="choice-card-text"><strong>Yes</strong><span>It is mine.</span></span>
-              </label>
-              <label class="choice-card" [class.selected]="ownsProperty === false">
-                <input type="radio" name="application-wizard-owns-property" [value]="false"
-                  [(ngModel)]="ownsProperty" (ngModelChange)="error.set(null)" />
-                <span class="choice-card-text"><strong>No</strong><span>I am applying for the owner.</span></span>
-              </label>
-            </fieldset>
-            @if (ownsProperty === false) {
-              <div class="form-row">
-                <div class="field">
-                  <label for="application-wizard-owner-name">Owner's full name<span class="required">*</span></label>
-                  <input id="application-wizard-owner-name" class="input" [(ngModel)]="ownerName" appCapitalizeName />
-                </div>
-                <div class="field">
-                  <label for="application-wizard-owner-relationship">Your relationship to the owner</label>
-                  <input id="application-wizard-owner-relationship" class="input" [(ngModel)]="ownerRelationship"
-                    placeholder="e.g. parent, spouse, lessor" />
-                </div>
-              </div>
-              <p class="small muted" style="margin:-8px 0 14px;">Upload the owner's written consent or authorization with your documents.</p>
-            }
           }
           <div class="field">
             <label for="application-wizard-application-type-2">Application Type<span class="required">*</span></label>
@@ -715,9 +680,7 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
           <table class="table">
             <tbody>
               <tr><td class="muted">Applying as</td><td>{{ applyingAs === 'residential' ? 'Residential / Private Individual' : 'Business' }}</td></tr>
-              @if (applyingAs === 'residential') {
-                <tr><td class="muted">Property Owner</td><td>{{ propertyOwnerSummary() }}</td></tr>
-              } @else {
+              @if (applyingAs === 'business') {
                 <tr><td class="muted">Business</td><td>{{ selectedBusinessName() }}</td></tr>
               }
               <tr><td class="muted">Permit Type</td><td>{{ isGeneric ? 'New Business Permit (Generic)' : permitType }}</td></tr>
@@ -978,11 +941,6 @@ export class ApplicationWizardPage {
    * that names a business.
    */
   businessId: string | null = null;
-  /** Residential only: whether the applicant owns the property. Null until answered. */
-  ownsProperty: boolean | null = null;
-  /** Residential, when the applicant does not own it: the owner, sent as `form.propertyOwner`. */
-  ownerName = '';
-  ownerRelationship = '';
   applicationAction: ApplicationAction = 'New';
   relatedPermitNumber: string | null = null;
   /**
@@ -1402,10 +1360,6 @@ export class ApplicationWizardPage {
     this.applyingAs = filedAs === 'residential' || filedAs === 'business' ? filedAs
       : application.businessId !== null ? 'business'
       : null;
-    const owner = propertyOwnerOf(application.form);
-    this.ownsProperty = owner === null ? null : owner.isApplicant;
-    this.ownerName = owner !== null && owner.isApplicant === false ? owner.name : '';
-    this.ownerRelationship = owner !== null && owner.isApplicant === false ? owner.relationship ?? '' : '';
     this.applicationAction = (application.applicationAction as ApplicationAction) ?? 'New';
     this.relatedPermitNumber = application.renewsPermitNumber;
     this.priorPermitClaim = application.priorPermitClaim;
@@ -1477,10 +1431,10 @@ export class ApplicationWizardPage {
     return {
       // An unknown business (the list not loaded yet) does not hold the
       // citizen back; one known to be inactive does, as toStep(2) would.
-      // Residential needs no business, only the property owner answered.
+      // Residential needs no business: the applicant applies for their own property.
       applicantDone: (this.applyingAs === 'business'
           ? this.businessId !== null && (business === undefined || business.status === 'Active')
-          : this.applyingAs === 'residential' && this.propertyOwnerProblem() === null)
+          : this.applyingAs === 'residential')
         && actionReferenceIsComplete(this.applicationAction, this.relatedPermitNumber, this.priorPermitClaim)
         && (!proof || !!this.attached[proof.id]),
       detailsDone: !!this.projectAddress.trim() && !!this.scopeOfWork.trim(),
@@ -1495,31 +1449,6 @@ export class ApplicationWizardPage {
 
   selectedBusinessName(): string {
     return this.businesses.myBusinesses().find((b) => b.id === this.businessId)?.name ?? '';
-  }
-
-  /** Residential: why the owner question is not answered yet, or null. */
-  protected propertyOwnerProblem(): string | null {
-    if (this.ownsProperty === null) return 'Please say whether you own the property.';
-    if (this.ownsProperty === false && !this.ownerName.trim()) return "Please enter the property owner's full name.";
-    return null;
-  }
-
-  /** `form.propertyOwner`, for a Residential application once the question is answered; null otherwise. */
-  private propertyOwner(): PropertyOwner | null {
-    if (this.applyingAs !== 'residential' || this.ownsProperty === null) return null;
-    if (this.ownsProperty) return { isApplicant: true };
-    const relationship = this.ownerRelationship.trim();
-    return relationship
-      ? { isApplicant: false, name: this.ownerName.trim(), relationship }
-      : { isApplicant: false, name: this.ownerName.trim() };
-  }
-
-  /** The Review step's Property Owner line. */
-  protected propertyOwnerSummary(): string {
-    const owner = this.propertyOwner();
-    if (owner === null) return '—';
-    if (owner.isApplicant === true) return 'You (the applicant)';
-    return owner.relationship ? `${owner.name} (${owner.relationship})` : owner.name;
   }
 
   /**
@@ -1866,13 +1795,6 @@ export class ApplicationWizardPage {
       this.error.set('This business is inactive. Reactivate it before applying for a permit.');
       return;
     }
-    if (next === 2 && this.applyingAs === 'residential') {
-      const ownerProblem = this.propertyOwnerProblem();
-      if (ownerProblem) {
-        this.error.set(ownerProblem);
-        return;
-      }
-    }
     // A Renewal or Amendment that names no permit is not a lesser application,
     // it is an unanswerable one: the office is told an existing permit is
     // involved and never told which. Blocked here AND refused by the store.
@@ -1949,7 +1871,6 @@ export class ApplicationWizardPage {
 
   /** What both autosave and the final filing send — the one place their shapes are kept from drifting apart. */
   private buildRequest(): Omit<SubmitApplicationRequest, 'documentIds' | 'saveAsDraft'> {
-    const propertyOwner = this.propertyOwner();
     return {
       permitType: this.isGeneric ? 'Business Permit' : this.permitType!,
       applicationAction: this.applicationAction,
@@ -1966,7 +1887,6 @@ export class ApplicationWizardPage {
         // Migration 067. Left out until chosen/answered rather than sent as
         // null: the server reads an absent applyingAs from the business.
         ...(this.applyingAs !== null ? { applyingAs: this.applyingAs } : {}),
-        ...(propertyOwner !== null ? { propertyOwner } : {}),
       },
     };
   }

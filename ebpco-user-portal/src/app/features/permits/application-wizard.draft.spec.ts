@@ -12,9 +12,6 @@ import { ApplicationDocumentResponse, ApplicationSummary } from '../../core/api/
 interface Testable {
   applyingAs: 'residential' | 'business' | null;
   businessId: string | null;
-  ownsProperty: boolean | null;
-  ownerName: string;
-  ownerRelationship: string;
   projectAddress: string;
   scopeOfWork: string;
   prcNumber: string;
@@ -302,10 +299,9 @@ describe('ApplicationWizardPage — save as draft', () => {
 
     expect(page.applyingAs).toBe('residential');
     expect(page.businessId).toBeNull();
-    expect(page.ownsProperty).toBe(false);
-    expect(page.ownerName).toBe('Maria Santos');
-    expect(page.ownerRelationship).toBe('mother');
-    // Step 1 is done without a business; the documents are what is left.
+    // A draft saved before 2026-10-28 may still name another owner; it resumes
+    // all the same, and step 1 is done without a business or an owner answer.
+    // The documents are what is left.
     await waitUntil(() => page.step() === 3);
   });
 

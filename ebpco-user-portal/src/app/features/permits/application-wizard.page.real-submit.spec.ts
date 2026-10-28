@@ -201,7 +201,6 @@ describe('ApplicationWizardPage — submitReal() sends the real business id (reg
     page.applyingAs = 'business';
     page.businessId = '9f2c9b1e-7e2a-4b8e-8f2a-1a2b3c4d5e6f';
     page.applyingAs = 'residential';
-    page.ownsProperty = true;
     page.projectAddress = 'Purok 2, Barangay Poblacion';
     page.scopeOfWork = 'House extension';
     page.professionalName = 'Engr. Ana Reyes';
@@ -220,7 +219,6 @@ describe('ApplicationWizardPage — submitReal() sends the real business id (reg
       professionalName: 'Engr. Ana Reyes',
       prcNumber: '0012345',
       applyingAs: 'residential',
-      propertyOwner: { isApplicant: true },
     });
     req.flush(summaryFor(null), { status: 201, statusText: 'Created' });
 

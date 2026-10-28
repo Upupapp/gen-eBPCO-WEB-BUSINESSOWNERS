@@ -130,29 +130,24 @@ describe('ApplicationWizardPage — Applying as, and an account not verified yet
     expect(page.businessId).toBe('biz-1');
   });
 
-  it('Residential needs no business, but does need to know whose property it is', () => {
-    const { page } = configure({ type: 'Fencing Permit' }, { registeredAs: 'residential', verification: verification('verified') });
+  it('Residential needs no business and asks nothing about whose property it is: the citizen applies for their own', async () => {
+    // Owner ruling 2026-10-28: "the user only applies for themselves".
+    const { page, el } = configure({ type: 'Fencing Permit' }, { registeredAs: 'residential', verification: verification('verified') });
     expect(page.businessId).toBeNull();
+    expect(el.textContent).not.toContain('Do you own the property?');
+    expect(el.textContent).not.toContain('I am applying for the owner');
 
     page.toStep(2);
-    expect(page.step()).toBe(1);
-    expect(page.error()).toContain('own the property');
-
-    page.ownsProperty = false;
-    page.toStep(2);
-    expect(page.step()).toBe(1);
-    expect(page.error()).toContain("owner's full name");
-    http.expectNone(`${BASE}/applications`);
+    http.expectOne(`${BASE}/applications`).flush(summaryFor(), { status: 201, statusText: 'Created' });
+    (await waitForRequest(http)).flush({ data: [], nextCursor: null });
+    expect(page.step()).toBe(2);
   });
 
-  it('a Residential draft is saved with no business, even one picked before switching, and with the property owner', async () => {
+  it('a Residential draft is saved with no business, even one picked before switching, and names no other owner', async () => {
     const { page } = configure({ type: 'Fencing Permit' }, { registeredAs: 'both', verification: verification('verified') });
     page.applyingAs = 'business';
     page.businessId = 'biz-1';
     page.applyingAs = 'residential';
-    page.ownsProperty = false;
-    page.ownerName = 'Maria Santos';
-    page.ownerRelationship = 'mother';
 
     page.toStep(2);
 
@@ -161,7 +156,7 @@ describe('ApplicationWizardPage — Applying as, and an account not verified yet
     expect(body.saveAsDraft).toBe(true);
     expect(body.businessId).toBeNull();
     expect(body.form?.['applyingAs']).toBe('residential');
-    expect(body.form?.['propertyOwner']).toEqual({ isApplicant: false, name: 'Maria Santos', relationship: 'mother' });
+    expect(body.form).not.toHaveProperty('propertyOwner');
     // The existing answers are still sent alongside.
     expect(body.form).toHaveProperty('scopeOfWork');
     save.flush(summaryFor(), { status: 201, statusText: 'Created' });
@@ -180,27 +175,22 @@ describe('ApplicationWizardPage — Applying as, and an account not verified yet
     const { page, el } = configure({ type: 'Sign Permit' }, { registeredAs: 'residential', verification: verification('verified') });
     expect(el.textContent).toContain('Usually a business sign; a home-based practice can apply as Residential.');
     expect(el.textContent).not.toContain('Not open for');
-    page.ownsProperty = true;
     page.toStep(2);
     expect(page.step()).toBe(2);
     http.expectOne(`${BASE}/applications`).flush(summaryFor({ permitType: 'Sign Permit' }), { status: 201, statusText: 'Created' });
     (await waitForRequest(http)).flush({ data: [], nextCursor: null });
   });
 
-  it('the review shows "Applying as" and the property owner', () => {
+  it('the review shows "Applying as", and no property owner line', () => {
     const { fixture, page, el } = configure({ type: 'Fencing Permit' }, { registeredAs: 'residential', verification: verification('verified') });
-    page.ownsProperty = false;
-    page.ownerName = 'Maria Santos';
-    page.ownerRelationship = 'mother';
     page.step.set(4);
     fixture.detectChanges();
     expect(el.textContent).toContain('Residential / Private Individual');
-    expect(el.textContent).toContain('Maria Santos (mother)');
+    expect(el.textContent).not.toContain('Property Owner');
   });
 
   it('an account waiting for verification is told why it cannot submit, keeps Save as Draft, and files nothing', async () => {
     const { fixture, page, el } = configure({ type: 'Fencing Permit' }, { registeredAs: 'residential', verification: verification('pending') });
-    page.ownsProperty = true;
     page.projectAddress = 'Purok 2, Barangay Poblacion';
     page.scopeOfWork = 'Perimeter fence';
     page.understandRequirements = true;
@@ -228,7 +218,6 @@ describe('ApplicationWizardPage — Applying as, and an account not verified yet
   it('shows the server\'s own sentence when it refuses a filing (422)', async () => {
     const { page } = configure({ type: 'Fencing Permit' }, null);
     page.applyingAs = 'residential';
-    page.ownsProperty = true;
     page.projectAddress = 'Purok 2, Barangay Poblacion';
     page.scopeOfWork = 'Perimeter fence';
     page.understandRequirements = true;
@@ -242,7 +231,7 @@ describe('ApplicationWizardPage — Applying as, and an account not verified yet
     const body = filing.request.body as SubmitApplicationRequest;
     expect(body.saveAsDraft).toBeUndefined();
     expect(body.businessId).toBeNull();
-    expect(body.form?.['propertyOwner']).toEqual({ isApplicant: true });
+    expect(body.form).not.toHaveProperty('propertyOwner');
     filing.flush(
       { type: '/problems/unprocessable', title: 'A precondition is unmet', status: 422, detail },
       { status: 422, statusText: 'Unprocessable Entity' },
@@ -310,7 +299,6 @@ describe('ApplicationWizardPage — Applying as, and an account not verified yet
 
     // Nor does it go on as Residential some other way.
     page.applyingAs = 'residential';
-    page.ownsProperty = true;
     page.toStep(2);
     expect(page.step()).toBe(1);
     expect(page.error()).toBe('Not open for a Sign Permit: the Municipality accepts it only for businesses.');
@@ -338,7 +326,6 @@ describe('ApplicationWizardPage — Applying as, and an account not verified yet
   it('shows the server\'s own sentence when it refuses a type the Municipality restricted (422)', async () => {
     const { page } = configure({ type: 'Sign Permit' }, null);
     page.applyingAs = 'residential';
-    page.ownsProperty = true;
     page.projectAddress = 'Purok 2, Barangay Poblacion';
     page.scopeOfWork = 'Clinic sign';
     page.understandRequirements = true;
