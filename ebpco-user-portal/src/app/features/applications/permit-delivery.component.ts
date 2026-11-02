@@ -72,7 +72,7 @@ import { ToastService } from '../../shared/ui/toast.service';
           }
           @if (d.trackingNumber) {
             <div class="delivery-tracking">
-              <span><span class="muted">Tracking no.:</span> <strong id="delivery-tracking-number">{{ d.trackingNumber }}</strong></span>
+              <span><span class="muted">Tracking no.:&nbsp;</span><strong id="delivery-tracking-number">{{ d.trackingNumber }}</strong></span>
               <button type="button" class="btn btn-secondary btn-sm" id="delivery-copy-tracking"
                 aria-label="Copy tracking number" (click)="copyTracking(d.trackingNumber)">
                 {{ copied() ? 'Copied' : 'Copy' }}
