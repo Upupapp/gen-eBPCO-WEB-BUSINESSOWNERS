@@ -6,12 +6,13 @@ import { CONTRACT_SAMPLES } from '../../core/api/contract-samples.fixture';
 const READY = CONTRACT_SAMPLES['applicant.applications.permit'].body as unknown as PermitResponse;
 const BEFORE = CONTRACT_SAMPLES['applicant.applications.permit.beforeRelease'].body as unknown as PermitResponse;
 
-function render(permitNumber: string | null, release: PermitRelease | null) {
+function render(permitNumber: string | null, release: PermitRelease | null, byCourier = false) {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({ imports: [PermitReleaseComponent] });
   const f = TestBed.createComponent(PermitReleaseComponent);
   f.componentRef.setInput('permitNumber', permitNumber);
   f.componentRef.setInput('release', release);
+  f.componentRef.setInput('byCourier', byCourier);
   f.detectChanges();
   return (f.nativeElement as HTMLElement);
 }
@@ -79,5 +80,40 @@ describe('PermitRelease — can the citizen collect it? (task 21)', () => {
   it('says plainly when no permit has been issued', () => {
     const el = render(null, null);
     expect(el.textContent).toContain('No permit has been issued');
+  });
+});
+
+/**
+ * A delivery (migration 070): once sent, the office's release record names
+ * where the parcel went ("Delivered by courier"), not a counter to visit.
+ * The card must never tell a citizen whose permit is on its way to collect it.
+ */
+describe('PermitRelease — delivered by courier', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  const SENT: PermitRelease = {
+    status: 'Ready for Release', method: null, releasedAt: null,
+    claimLocation: 'Delivered by courier', officeHours: 'Not applicable: delivered by courier', bringWithYou: [],
+  };
+
+  it('says Delivered by courier instead of Where, When and Bring', () => {
+    const el = render('FP-1', SENT, true);
+    expect(el.textContent).toContain('Delivered by courier');
+    expect(el.textContent).not.toContain('Where:');
+    expect(el.textContent).not.toContain('Bring:');
+    expect(el.textContent).not.toContain('Ready to collect');
+    expect(el.querySelector('.release-ready')).toBeNull();
+  });
+
+  it('says when it was delivered once confirmed', () => {
+    const el = render('FP-1', { status: 'Released', method: 'Courier Delivery', releasedAt: '2026-11-05T02:00:00.000Z' }, true);
+    expect(el.textContent).toContain('Delivered on');
+    expect(el.textContent).not.toContain('Collected');
+  });
+
+  it('gives the claim instructions again once the courier brought it back (byCourier false)', () => {
+    const el = render('FP-1', { ...SENT, claimLocation: 'Office of the Municipal Engineer', officeHours: 'Mon–Fri 8–5' }, false);
+    expect(el.textContent).toContain('Ready to collect');
+    expect(el.textContent).toContain('Where:');
   });
 });

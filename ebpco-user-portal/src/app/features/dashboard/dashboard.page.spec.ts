@@ -38,6 +38,12 @@ describe('DashboardPage', () => {
     expect(dashboard.readyForRelease()).toBe(1);
   });
 
+  it('counts a permit on its way by courier with the ones ready to claim (migration 070)', () => {
+    const dashboard = page([row('a', 'Ready for Release'), row('b', 'Out for Delivery'), row('c', 'Completed')]);
+    expect(dashboard.readyForRelease()).toBe(2);
+    expect(dashboard.activeApplications().map((a) => a.id)).toEqual(['a', 'b']);
+  });
+
   it('keeps finished and withdrawn applications out of Active Applications', () => {
     const dashboard = page([
       row('a', 'Under Evaluation'), row('b', 'Completed'), row('c', 'Cancelled'), row('d', 'Rejected'), row('e', 'Released'),

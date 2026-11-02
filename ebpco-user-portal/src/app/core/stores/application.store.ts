@@ -9,9 +9,9 @@ import { ApplicationAction, GeneratedPermit, PermitType, PublishedPermitType } f
 import {
   ApplicationLifecycleStatus,
   LIFECYCLE_SEQUENCE,
-  NEXT_STEP_TEXT,
   applicantStatusOf,
   displayReference,
+  nextStepTextOf,
 } from '../domain/status.model';
 import { ApplicationDocument, DocumentStatus, SavedDocumentFileType } from '../domain/document.model';
 import { Assessment, AssessmentLineItem, ILLUSTRATIVE_FEE_BASIS } from '../domain/assessment.model';
@@ -589,7 +589,7 @@ export class ApplicationStore {
   }
 
   nextStepText(status: ApplicationLifecycleStatus): string {
-    return NEXT_STEP_TEXT[status];
+    return nextStepTextOf(status);
   }
 
   /**

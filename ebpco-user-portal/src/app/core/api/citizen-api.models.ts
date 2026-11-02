@@ -31,7 +31,8 @@ export interface ReviewReason {
 
 export interface PermitRelease {
   status: 'Not Ready' | 'Ready for Release' | 'Released';
-  method: 'Physical Claim' | 'Authorized Representative' | null;
+  /** 'Courier Delivery' once a delivered permit is confirmed or closed (migration 070). */
+  method: 'Physical Claim' | 'Authorized Representative' | 'Courier Delivery' | null;
   releasedAt: string | null;
   /** Where, when and with what to collect it — as the Releasing Officer typed them. Absent from an older server; null when not given. */
   claimLocation?: string | null;

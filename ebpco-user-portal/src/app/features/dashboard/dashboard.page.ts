@@ -88,12 +88,13 @@ export class DashboardPage {
    * Permits waiting to be collected, and only those. The Ready for Release
    * CATEGORY also holds Released and Completed (the filter tabs need that),
    * so a permit already collected still counted here as "Ready to claim"
-   * (QA TC-33, 2026-10-03).
+   * (QA TC-33, 2026-10-03). A permit on its way by courier (migration 070)
+   * counts too: it is issued and not yet in the citizen's hands.
    */
   readyForRelease(): number {
     return this.applications
       .myApplications()
-      .filter((a) => a.lifecycleStatus === 'Ready for Release').length;
+      .filter((a) => a.lifecycleStatus === 'Ready for Release' || a.lifecycleStatus === 'Out for Delivery').length;
   }
 
   /** Open applications: a completed, withdrawn, rejected or expired one is not "active" (QA TC-33). */
@@ -129,7 +130,7 @@ export class DashboardPage {
         theme: 'green',
         label: 'Ready for Release',
         value: this.readyForRelease(),
-        helper: 'Ready to claim / view',
+        helper: 'Ready to claim, or on its way',
         icon: ICONS.checkCircle,
       },
     ];

@@ -237,3 +237,46 @@ describe('CitizenApiClient: records before eBPCO', () => {
     http.expectOne(`${BASE}/public/permits/CO%202020%2F0033`).flush({});
   });
 });
+
+/** Permit delivery (migration 070): the three citizen routes. */
+describe('CitizenApiClient — permit delivery', () => {
+  let api: CitizenApiClient;
+  let http: HttpTestingController;
+  const STATE = { receiveBy: 'pickup', delivery: null, canChange: true, canConfirmReceipt: false, feeNote: 'x' };
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting(), { provide: API_BASE_URL, useValue: BASE }],
+    });
+    api = TestBed.inject(CitizenApiClient);
+    http = TestBed.inject(HttpTestingController);
+  });
+  afterEach(() => { http.verify(); TestBed.resetTestingModule(); });
+
+  it('reads the choice, saves it with PUT, and confirms receipt with an empty POST', () => {
+    api.getDelivery(APP).subscribe();
+    http.expectOne({ method: 'GET', url: `${BASE}/applications/${APP}/delivery` }).flush(STATE);
+
+    api.setDelivery(APP, { receiveBy: 'pickup' }).subscribe();
+    const put = http.expectOne({ method: 'PUT', url: `${BASE}/applications/${APP}/delivery` });
+    expect(put.request.body).toEqual({ receiveBy: 'pickup' });
+    put.flush(STATE);
+
+    api.confirmPermitReceived(APP).subscribe();
+    const post = http.expectOne({ method: 'POST', url: `${BASE}/applications/${APP}/delivery/received` });
+    expect(post.request.body).toEqual({});
+    post.flush({ ...STATE, lifecycleStatus: 'Completed' });
+  });
+
+  it('gives a refusal in the server’s own words', () => {
+    let error: unknown;
+    api.setDelivery(APP, { receiveBy: 'pickup' }).subscribe({ error: (e) => (error = e) });
+    http.expectOne(`${BASE}/applications/${APP}/delivery`).flush(
+      { title: 'The resource is not in a state that permits this',
+        detail: 'The permit has already left the office, so how it reaches you can no longer change.' },
+      { status: 409, statusText: 'Conflict' },
+    );
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).citizenMessage).toContain('already left the office');
+  });
+});

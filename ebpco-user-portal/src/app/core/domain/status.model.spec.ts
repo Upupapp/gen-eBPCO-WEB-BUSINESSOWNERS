@@ -1,4 +1,6 @@
-import { applicantStatusLabel, applicantStatusOf, displayReference } from './status.model';
+import {
+  ApplicationLifecycleStatus, applicantStatusLabel, applicantStatusOf, displayReference, isTerminalStatus, nextStepTextOf,
+} from './status.model';
 
 describe('applicantStatusLabel', () => {
   it('says the payment is verified once the Cashier has verified it', () => {
@@ -25,6 +27,34 @@ describe('applicantStatusLabel', () => {
   it('leaves the filter category unchanged', () => {
     expect(applicantStatusOf('For Approval')).toBe('Payment Verification');
     expect(applicantStatusOf('Payment Verified')).toBe('Payment Verification');
+  });
+});
+
+/** Server migration 070: a permit handed to a courier. */
+describe('Out for Delivery', () => {
+  it('says so on screen, and is counted with Ready for Release', () => {
+    expect(applicantStatusLabel('Out for Delivery')).toBe('Out for Delivery');
+    expect(applicantStatusOf('Out for Delivery')).toBe('Ready for Release');
+  });
+
+  it('tells the citizen to confirm when it arrives', () => {
+    expect(nextStepTextOf('Out for Delivery'))
+      .toBe('Your permit is on its way by courier. Confirm here when you receive it.');
+  });
+
+  it('is not the end of the application', () => {
+    expect(isTerminalStatus('Out for Delivery')).toBe(false);
+  });
+});
+
+/** A status the server adds before this portal learns it must never break a screen. */
+describe('an unknown status', () => {
+  const unknown = 'Sent to the Archive' as ApplicationLifecycleStatus;
+
+  it('is shown as the server wrote it, with a plain next step', () => {
+    expect(applicantStatusLabel(unknown)).toBe('Sent to the Archive');
+    expect(nextStepTextOf(unknown)).toContain('The office is working on your application');
+    expect(applicantStatusOf(unknown)).toBe('Under Review');
   });
 });
 

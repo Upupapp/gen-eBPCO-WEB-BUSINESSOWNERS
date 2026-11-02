@@ -7,6 +7,7 @@ import { vi } from 'vitest';
 import { ApplicationWizardPage } from './application-wizard.page';
 import { API_BASE_URL } from '../../core/api/api-config';
 import { ApplicationDocumentResponse, ApplicationSummary } from '../../core/api/citizen-api.models';
+import { DELIVERY_FEE_NOTE, DeliveryChoiceDraft, PermitDeliveryState } from '../../core/domain/permit-delivery';
 
 /** Just enough of the component's surface to drive it from a test — mirrors application-wizard.page.spec.ts's own cast pattern for reaching protected members. */
 interface Testable {
@@ -28,7 +29,15 @@ interface Testable {
   toStep(next: 1 | 2 | 3 | 4): void;
   submit(): Promise<void>;
   saveAndExit(): Promise<void>;
+  error(): string | null;
+  deliveryChoice(): DeliveryChoiceDraft;
+  deliveryProblem(): string | null;
 }
+
+/** `GET /applications/{id}/delivery` for a draft nobody chose delivery on (migration 070). */
+const PICKUP: PermitDeliveryState = {
+  receiveBy: 'pickup', delivery: null, canChange: true, canConfirmReceipt: false, feeNote: DELIVERY_FEE_NOTE,
+};
 function testable(instance: ApplicationWizardPage): Testable {
   return instance as unknown as Testable;
 }
@@ -229,6 +238,9 @@ describe('ApplicationWizardPage — save as draft', () => {
 
     // Every step was already done, so Continue reopens it at Review & Submit.
     await waitUntil(() => page.step() === 4);
+    // ...and reads back how the permit is to be received (migration 070).
+    http.expectOne(`${BASE}/applications/draft-1/delivery`).flush(PICKUP);
+    expect(page.deliveryChoice().receiveBy).toBe('pickup');
   });
 
   it('resuming opens on the first step not yet finished, not on step 1', async () => {
@@ -262,6 +274,7 @@ describe('ApplicationWizardPage — save as draft', () => {
     const page = testable(fixture.componentInstance);
 
     await waitUntil(() => page.step() === 3);
+    http.expectOne(`${BASE}/applications/draft-1/delivery`).flush(PICKUP);
   });
 
   it('resuming a Residential draft restores "Applying as" and the property owner, with no business', async () => {
@@ -303,6 +316,7 @@ describe('ApplicationWizardPage — save as draft', () => {
     // all the same, and step 1 is done without a business or an owner answer.
     // The documents are what is left.
     await waitUntil(() => page.step() === 3);
+    http.expectOne(`${BASE}/applications/draft-1/delivery`).flush(PICKUP);
   });
 
   it('finalizing an already-autosaved draft PATCHes then POSTs .../submit — never a second POST /applications', async () => {
@@ -338,5 +352,144 @@ describe('ApplicationWizardPage — save as draft', () => {
 
     await submitted;
     http.expectNone(`${BASE}/applications`);
+  });
+
+  /**
+   * Permit delivery (migration 070): the citizen chooses on Review & Submit,
+   * and the choice is saved on the autosaved draft before it is filed.
+   */
+  describe('how the permit is received', () => {
+    const ADDRESS = {
+      recipientName: 'Juan Dela Cruz', recipientMobile: '0917 123 4567', addressLine: 'Purok 3, Rizal St.',
+      barangay: 'Poblacion', city: 'Castilla', province: 'Sorsogon', postalCode: '4713', landmark: '',
+    };
+
+    async function draftAtReview(): Promise<Testable> {
+      const { page } = configureFresh();
+      page.applyingAs = 'business';
+      page.businessId = 'biz-1';
+      page.projectAddress = '123 Rizal Street';
+      page.scopeOfWork = 'New retail construction';
+      page.toStep(2);
+      http.expectOne(`${BASE}/applications`).flush(summaryFor(), { status: 201, statusText: 'Created' });
+      (await waitForRequest(http)).flush({ data: [summaryFor()], nextCursor: null });
+      await waitUntil(() => page.draftId() !== null);
+      page.understandRequirements = true;
+      page.agreeTerms = true;
+      return page;
+    }
+
+    it('is Pick up by default, and a pick-up sends nothing more', async () => {
+      const page = await draftAtReview();
+      expect(page.deliveryChoice().receiveBy).toBe('pickup');
+      const submitted = page.submit();
+      (await waitForRequest(http)).flush(summaryFor()); // PATCH
+      const finalize = await waitForRequest(http);
+      expect(finalize.request.url).toBe(`${BASE}/applications/draft-1/submit`);
+      finalize.flush(summaryFor({ lifecycleStatus: 'Submitted', applicantStatus: 'Submitted' }));
+      (await waitForRequest(http)).flush({ data: [summaryFor()], nextCursor: null });
+      await submitted;
+      http.expectNone(`${BASE}/applications/draft-1/delivery`);
+    });
+
+    it('a delivery is PUT on the draft after the last save and before it is filed', async () => {
+      const page = await draftAtReview();
+      page.deliveryChoice().receiveBy = 'delivery';
+      Object.assign(page.deliveryChoice().address, ADDRESS);
+
+      const submitted = page.submit();
+      const sync = await waitForRequest(http);
+      expect(sync.request.method).toBe('PATCH');
+      sync.flush(summaryFor());
+
+      const chosen = await waitForRequest(http);
+      expect(chosen.request.method).toBe('PUT');
+      expect(chosen.request.url).toBe(`${BASE}/applications/draft-1/delivery`);
+      expect(chosen.request.body).toEqual({
+        receiveBy: 'delivery',
+        address: {
+          recipientName: 'Juan Dela Cruz', recipientMobile: '09171234567', addressLine: 'Purok 3, Rizal St.',
+          barangay: 'Poblacion', city: 'Castilla', province: 'Sorsogon', postalCode: '4713', landmark: null,
+        },
+      });
+      chosen.flush({ ...PICKUP, receiveBy: 'delivery', delivery: { status: 'requested' } });
+
+      const finalize = await waitForRequest(http);
+      expect(finalize.request.url).toBe(`${BASE}/applications/draft-1/submit`);
+      finalize.flush(summaryFor({ lifecycleStatus: 'Submitted', applicantStatus: 'Submitted' }));
+      (await waitForRequest(http)).flush({ data: [summaryFor()], nextCursor: null });
+      await submitted;
+    });
+
+    it('an address the courier cannot use stops the filing before anything is sent', async () => {
+      const page = await draftAtReview();
+      page.deliveryChoice().receiveBy = 'delivery';
+      Object.assign(page.deliveryChoice().address, { ...ADDRESS, recipientMobile: '12345' });
+
+      await page.submit();
+
+      expect(page.deliveryProblem()).toBe('Give a mobile number the courier can call (09XXXXXXXXX).');
+      expect(page.error()).toContain('09XXXXXXXXX');
+      expect(http.match(() => true)).toEqual([]);
+    });
+
+    it('the server refusing the address stops the filing too, in its words', async () => {
+      const page = await draftAtReview();
+      page.deliveryChoice().receiveBy = 'delivery';
+      Object.assign(page.deliveryChoice().address, ADDRESS);
+
+      const submitted = page.submit();
+      (await waitForRequest(http)).flush(summaryFor()); // PATCH
+      (await waitForRequest(http)).flush(
+        { title: 'A precondition is unmet', detail: 'A Philippine ZIP code is four digits.' },
+        { status: 422, statusText: 'Unprocessable Entity' },
+      );
+      await submitted;
+
+      expect(page.error()).toContain('A Philippine ZIP code is four digits.');
+      http.expectNone(`${BASE}/applications/draft-1/submit`);
+    });
+
+    it('a resumed draft brings its delivery choice and address back', async () => {
+      TestBed.configureTestingModule({
+        imports: [ApplicationWizardPage],
+        providers: [
+          provideRouter([]),
+          provideHttpClient(),
+          provideHttpClientTesting(),
+          { provide: API_BASE_URL, useValue: BASE },
+          { provide: ActivatedRoute, useValue: {
+              snapshot: { queryParamMap: convertToParamMap({ draft: 'draft-1' }) } } },
+        ],
+      });
+      http = TestBed.inject(HttpTestingController);
+      const fixture = TestBed.createComponent(ApplicationWizardPage);
+      const appReq = http.expectOne(`${BASE}/applications/draft-1`);
+      const docsReq = http.expectOne(`${BASE}/applications/draft-1/documents`);
+      http.expectOne(`${BASE}/documents/me`).flush([]);
+      appReq.flush(summaryFor({ permitType: 'Fencing Permit', location: '45 Bonifacio Ave', form: { scopeOfWork: 'Fence' } }));
+      docsReq.flush([]);
+      (await waitForRequest(http)).flush({ documents: [] });
+      fixture.detectChanges();
+      const page = testable(fixture.componentInstance);
+      // Documents are still to attach; the choice comes back all the same.
+      await waitUntil(() => page.step() === 3);
+
+      http.expectOne(`${BASE}/applications/draft-1/delivery`).flush({
+        ...PICKUP, receiveBy: 'delivery',
+        delivery: {
+          status: 'requested', recipientName: 'Juan Dela Cruz', recipientMobile: '09171234567', addressLine: 'Rizal St.',
+          barangay: 'Poblacion', city: 'Castilla', province: 'Sorsogon', postalCode: null, landmark: 'Green gate',
+        },
+      });
+
+      expect(page.deliveryChoice()).toEqual({
+        receiveBy: 'delivery',
+        address: {
+          recipientName: 'Juan Dela Cruz', recipientMobile: '09171234567', addressLine: 'Rizal St.', barangay: 'Poblacion',
+          city: 'Castilla', province: 'Sorsogon', postalCode: '', landmark: 'Green gate',
+        },
+      });
+    });
   });
 });

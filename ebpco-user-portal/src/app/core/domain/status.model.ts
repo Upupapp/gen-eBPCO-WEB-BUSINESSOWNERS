@@ -2,7 +2,7 @@
 // core/domain/status.model.ts so the two apps describe the same record.
 // This Citizen Portal only ever DISPLAYS the coarser citizen-facing label
 // (see LIFECYCLE_TO_MOBILE_LABEL / applicantStatusOf below); the full
-// 19-value lifecycle exists here so a future shared backend has one
+// 20-value lifecycle exists here so a future shared backend has one
 // definition to implement, not two.
 export type ApplicationLifecycleStatus =
   | 'Draft'
@@ -19,6 +19,11 @@ export type ApplicationLifecycleStatus =
   | 'Approved'
   | 'Permit Generated'
   | 'Ready for Release'
+  // Server migration 070: handed to a courier. Off the numbered happy path
+  // below — a delivery goes Permit Generated / Ready for Release → Out for
+  // Delivery → Completed (the citizen confirms), or back to Ready for Release
+  // when the courier returns it.
+  | 'Out for Delivery'
   | 'Released'
   | 'Completed'
   | 'Rejected'
@@ -67,7 +72,7 @@ export function displayReference(reference: string): string {
   return reference.startsWith(DRAFT_REFERENCE_PREFIX) ? DRAFT_REFERENCE_LABEL : reference;
 }
 
-/** The citizen-facing vocabulary — identical to ebpco-mobile's ApplicationStatus. Every screen in this portal renders this, never the raw 19-value lifecycle. */
+/** The citizen-facing vocabulary — identical to ebpco-mobile's ApplicationStatus. Every screen in this portal renders this, never the raw 20-value lifecycle. */
 export type ApplicantStatus =
   | 'Draft'
   | 'Submitted'
@@ -92,6 +97,7 @@ export const LIFECYCLE_TO_APPLICANT_STATUS: Record<ApplicationLifecycleStatus, A
   Approved: 'Approved',
   'Permit Generated': 'Approved',
   'Ready for Release': 'Ready for Release',
+  'Out for Delivery': 'Ready for Release',
   Released: 'Ready for Release',
   Completed: 'Ready for Release',
   Rejected: 'Rejected',
@@ -99,8 +105,14 @@ export const LIFECYCLE_TO_APPLICANT_STATUS: Record<ApplicationLifecycleStatus, A
   Expired: 'Rejected',
 };
 
+/** A status this portal knows. The server may add one before the portal learns it; that must never break a screen. */
+export function isKnownStatus(status: string): status is ApplicationLifecycleStatus {
+  return Object.prototype.hasOwnProperty.call(LIFECYCLE_TO_APPLICANT_STATUS, status);
+}
+
 export function applicantStatusOf(status: ApplicationLifecycleStatus): ApplicantStatus {
-  return LIFECYCLE_TO_APPLICANT_STATUS[status];
+  // An unknown status is still the office working on it.
+  return isKnownStatus(status) ? LIFECYCLE_TO_APPLICANT_STATUS[status] : 'Under Review';
 }
 
 /**
@@ -133,6 +145,11 @@ export function applicantStatusLabel(status: ApplicationLifecycleStatus): string
   // 2026-09-30). Categories unchanged.
   if (status === 'Revision Required') return 'Revision Required';
   if (status === 'Assessed') return 'Awaiting Payment';
+  // Handed to a courier (migration 070): on its way, not waiting at the
+  // office. The category stays Ready for Release.
+  if (status === 'Out for Delivery') return 'Out for Delivery';
+  // A status the portal does not know yet is shown as the server wrote it.
+  if (!isKnownStatus(status)) return String(status || 'Unknown');
   return applicantStatusOf(status);
 }
 
@@ -152,12 +169,18 @@ export const NEXT_STEP_TEXT: Record<ApplicationLifecycleStatus, string> = {
   Approved: 'Your application has been approved. Your permit is being generated.',
   'Permit Generated': 'Your permit has been generated and is being prepared for release.',
   'Ready for Release': 'Your permit is ready for release. Visit the issuing office or check for pickup instructions.',
+  'Out for Delivery': 'Your permit is on its way by courier. Confirm here when you receive it.',
   Released: 'Your permit has been released.',
   Completed: 'This application is complete.',
   Rejected: 'Your application was rejected. See remarks for details.',
   Cancelled: 'This application was cancelled.',
   Expired: 'This application has expired.',
 };
+
+/** The "what happens next" line, with a plain one for a status the portal does not know yet. */
+export function nextStepTextOf(status: ApplicationLifecycleStatus): string {
+  return isKnownStatus(status) ? NEXT_STEP_TEXT[status] : 'The office is working on your application. Check back here for updates.';
+}
 
 export type EvaluationStage = 'Initial' | 'Zoning' | 'Fire Safety' | 'OBO' | 'Final Approval';
 export type EvaluationResult = 'Pending' | 'Passed' | 'Revision Required' | 'Rejected';

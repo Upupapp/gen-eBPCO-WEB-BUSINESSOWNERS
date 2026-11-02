@@ -3,8 +3,12 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { EMPTY, of } from 'rxjs';
 import { ApplicationDetailsPage } from './application-details.page';
 import { CitizenApiClient } from '../../core/api/citizen-api.client';
-import { ApplicationDocumentResponse } from '../../core/api/citizen-api.models';
+import {
+  ApplicationDocumentResponse, ApplicationSummary, PermitRelease, PermitResponse,
+} from '../../core/api/citizen-api.models';
 import { ToastService } from '../../shared/ui/toast.service';
+import { ApplicationStore } from '../../core/stores/application.store';
+import { DELIVERY_FEE_NOTE, PermitDeliveryState } from '../../core/domain/permit-delivery';
 
 /**
  * A citizen's own real, backend-uploaded document must actually open when they
@@ -168,5 +172,82 @@ describe('ApplicationDetailsPage — sending a returned application back to the 
 
     expect(calls).toEqual(['app-real-1']);
     expect(said.join(' ')).toMatch(/sent back to the office/i);
+  });
+});
+
+/**
+ * Permit delivery (migration 070): the application page reads how the permit
+ * reaches the citizen, and a permit on its way is not "ready to collect".
+ */
+describe('ApplicationDetailsPage — receiving the permit', () => {
+  const summary = (lifecycleStatus: string): ApplicationSummary => ({
+    id: 'app-real-1', referenceNumber: 'E-BPCO-2026-000010', serviceDomain: 'Construction Permit',
+    permitType: 'Fencing Permit', applicationAction: 'New', businessId: null, businessName: null, location: 'Rizal St.',
+    renewsPermitNumber: null, priorPermitClaim: null, lifecycleStatus, applicantStatus: 'Ready for Release',
+    requiresApplicantAction: false, dateSubmitted: '2026-10-20T00:00:00.000Z', updatedAt: '2026-11-03T00:00:00.000Z',
+    openInstructionCount: 0, form: {}, payment: { status: 'Paid' },
+  });
+
+  const onItsWay: PermitDeliveryState = {
+    receiveBy: 'delivery', canChange: false, canConfirmReceipt: true, feeNote: DELIVERY_FEE_NOTE,
+    delivery: {
+      status: 'out-for-delivery', recipientName: 'Juan Dela Cruz', recipientMobile: '09171234567', addressLine: 'Rizal St.',
+      barangay: 'Poblacion', city: 'Castilla', province: 'Sorsogon', postalCode: null, landmark: null,
+      requestedAt: '2026-11-01T00:00:00.000Z', courier: 'LBC Express', trackingNumber: 'LBC123', sentOn: '2026-11-03',
+      deliveredOn: null, proofReference: null, receivedAt: null, closedAt: null, closeNote: null, returnedAt: null,
+      returnReason: null, closableFrom: null,
+    },
+  };
+
+  const permit = (release: PermitRelease) => ({
+    permitNumber: 'FP-2026-000001', issuedDate: '2026-11-02', conditions: [], release,
+  }) as unknown as PermitResponse;
+
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('reads the delivery, shows the courier card, and never says "Ready to collect"', async () => {
+    const asked: string[] = [];
+    TestBed.configureTestingModule({
+      imports: [ApplicationDetailsPage],
+      providers: [
+        provideRouter([]),
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: 'app-real-1' }) } } },
+        {
+          provide: CitizenApiClient,
+          useValue: {
+            configured: true,
+            listApplications: () => of({ data: [summary('Out for Delivery')], nextCursor: null }),
+            listDocuments: () => of([]),
+            getTimeline: () => EMPTY,
+            getInstructions: () => of([]),
+            getRequirementsForPermitType: () => EMPTY,
+            getPermit: () => of(permit({
+              status: 'Ready for Release', method: null, releasedAt: null,
+              claimLocation: 'Delivered by courier', officeHours: 'Not applicable: delivered by courier', bringWithYou: [],
+            })),
+            getDelivery: (id: string) => { asked.push(id); return of(onItsWay); },
+          } as Partial<CitizenApiClient>,
+        },
+      ],
+    });
+    const fixture = TestBed.createComponent(ApplicationDetailsPage);
+    // Signed out, the store's own effect empties its list on the first pass;
+    // the list is loaded after it, as a sign-in would.
+    fixture.detectChanges();
+    await TestBed.inject(ApplicationStore).refreshMine();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(asked).toEqual(['app-real-1']);
+    expect(text).toContain('Out for Delivery');
+    expect(text).toContain('Your permit is on its way by courier. Confirm here when you receive it.');
+    expect(text).toContain('Receiving your permit');
+    expect(text).toContain('LBC123');
+    expect(text).toContain('Delivered by courier');
+    expect(text).not.toContain('Ready to collect');
+    expect(text).not.toContain('Where:');
+    expect((fixture.nativeElement as HTMLElement).querySelector('#delivery-received')).not.toBeNull();
   });
 });

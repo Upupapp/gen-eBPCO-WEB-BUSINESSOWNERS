@@ -11,7 +11,8 @@ import { DocumentStatus } from '../../core/domain/document.model';
  * been the right color by accident, not by a decision recorded anywhere).
  */
 const APPLICANT_STATUS_CLASS: Record<
-  ApplicantStatus | 'Cancelled' | 'Released' | 'Completed' | 'Payment Verified' | 'Revision Required' | 'Awaiting Payment',
+  ApplicantStatus | 'Cancelled' | 'Released' | 'Completed' | 'Payment Verified' | 'Revision Required' | 'Awaiting Payment'
+    | 'Out for Delivery',
   string
 > = {
   Draft: 'badge-gray',
@@ -23,6 +24,8 @@ const APPLICANT_STATUS_CLASS: Record<
   'Awaiting Payment': 'badge-amber',
   Approved: 'badge-green',
   'Ready for Release': 'badge-green',
+  // On its way by courier (migration 070): moving, not yet in hand.
+  'Out for Delivery': 'badge-blue',
   Rejected: 'badge-red',
   Cancelled: 'badge-gray',
   Released: 'badge-green',

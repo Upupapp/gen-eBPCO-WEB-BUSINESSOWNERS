@@ -29,7 +29,8 @@ const FILTERS: readonly ApplicationFilter[] = [
   { label: 'Revision Required', statuses: ['Revision Required'] },
   { label: 'Payment', statuses: ['Assessed', 'Payment Submitted', 'Payment Under Verification', 'Payment Verified', 'For Approval'] },
   { label: 'Approved', statuses: ['Approved', 'Permit Generated'] },
-  { label: 'Ready for Release', statuses: ['Ready for Release'] },
+  // A permit on its way by courier (migration 070) sits with the ones ready to collect.
+  { label: 'Ready for Release', statuses: ['Ready for Release', 'Out for Delivery'] },
   { label: 'Released', statuses: ['Released'] },
   { label: 'Completed', statuses: ['Completed'] },
   { label: 'Rejected', statuses: ['Rejected'] },

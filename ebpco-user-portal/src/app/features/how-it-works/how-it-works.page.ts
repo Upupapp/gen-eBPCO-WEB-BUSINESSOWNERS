@@ -40,7 +40,7 @@ const STEPS: ProcessStep[] = [
   {
     label: 'Ready for Release',
     title: 'Release',
-    description: 'Your permit is ready for release. Visit the issuing office or check your application for pickup instructions.',
+    description: 'Your permit is ready for release. Pick it up at the issuing office, or have it delivered by courier at your own expense (you pay the courier when it arrives). You choose when you apply, and can change it until the permit is sent.',
   },
 ];
 

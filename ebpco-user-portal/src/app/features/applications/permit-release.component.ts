@@ -37,7 +37,8 @@ import { formatDate } from '../../core/utils/ids';
         <p class="small" style="margin:4px 0 0;">{{ detail() }}</p>
       </div>
 
-      @if (release(); as r) {
+      <!-- A delivery (migration 070) has nothing to collect, so no Where/When/Bring. -->
+      @if (!byCourier() && release(); as r) {
         @if (r.status === 'Ready for Release') {
           <div class="small" style="margin-top:10px; display:grid; gap:4px;">
             <div><span class="muted">Where:</span> {{ r.claimLocation || ('the ' + engineer.name + ', ' + hallAddress) }}</div>
@@ -65,12 +66,21 @@ export class PermitReleaseComponent {
   readonly issuedDate = input<string | null>(null);
   /** The contract's `release`: null is a state, not a missing value. */
   readonly release = input<PermitRelease | null>(null);
+  /**
+   * The citizen asked for delivery by courier and it has not come back
+   * (migration 070). The release record the office keeps then says where the
+   * parcel went, not where to collect it: this card says "Delivered by
+   * courier" instead of Where/When/Bring, and never "Ready to collect".
+   * After a return the claim instructions apply again, so this is false.
+   */
+  readonly byCourier = input<boolean>(false);
 
   protected readonly engineer = MUNICIPAL_ENGINEER;
   protected readonly hallAddress = MUNICIPAL_HALL_ADDRESS;
 
   protected readonly headline = computed(() => {
     const r = this.release();
+    if (this.byCourier()) return 'Delivered by courier';
     if (!r) return 'Not yet ready to collect';
     switch (r.status) {
       case 'Ready for Release': return 'Ready to collect';
@@ -81,6 +91,10 @@ export class PermitReleaseComponent {
 
   protected readonly detail = computed(() => {
     const r = this.release();
+    if (this.byCourier()) {
+      if (r?.status === 'Released') return r.releasedAt ? `Delivered on ${formatDate(r.releasedAt)}.` : 'This permit has been delivered.';
+      return 'Nothing to collect at the office: it comes to the address you gave. Where it stands is under Receiving your permit.';
+    }
     // null and 'Not Ready' both mean "not yet", but they are different facts:
     // null is nobody has arranged it, 'Not Ready' is an officer saying so.
     // Neither may read as collectable.
@@ -100,6 +114,6 @@ export class PermitReleaseComponent {
   });
 
   protected readonly toneClass = computed(() =>
-    this.release()?.status === 'Ready for Release' ? 'release-ready' : 'release-waiting',
+    !this.byCourier() && this.release()?.status === 'Ready for Release' ? 'release-ready' : 'release-waiting',
   );
 }

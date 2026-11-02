@@ -45,6 +45,7 @@ import {
 } from './citizen-api.models';
 import { MeResponse, ProfileRectification, RectificationResult } from './citizen-profile';
 import { VerificationRequest, VerificationResult } from '../domain/account-verification';
+import { DeliveryChoiceRequest, PermitDeliveryState } from '../domain/permit-delivery';
 
 /**
  * Client for the citizen endpoints.
@@ -89,6 +90,39 @@ export class CitizenApiClient {
   /** `GET /applications/{id}/instructions` — the open Letters of Instruction; an empty array when nothing is outstanding. */
   getInstructions(applicationId: string): Observable<InstructionLetter[]> {
     return this.get<InstructionLetter[]>(`/applications/${encodeURIComponent(applicationId)}/instructions`);
+  }
+
+  /**
+   * `GET /applications/{id}/delivery` (migration 070) — pick up at the office
+   * or delivery by courier, where a delivery stands, and what the citizen may
+   * do now (`canChange`, `canConfirmReceipt`). 404 for an application not theirs.
+   */
+  getDelivery(applicationId: string): Observable<PermitDeliveryState> {
+    return this.get<PermitDeliveryState>(`/applications/${encodeURIComponent(applicationId)}/delivery`);
+  }
+
+  /**
+   * `PUT /applications/{id}/delivery` — pick up, or delivery to this address.
+   * Works on a Draft (the wizard sets it before filing). 422 with a `detail`
+   * for an address the courier cannot use; 409 once the permit has left the office.
+   */
+  setDelivery(applicationId: string, body: DeliveryChoiceRequest): Observable<PermitDeliveryState> {
+    if (this.baseUrl === null) return throwError(() => new ApiNotConfiguredError());
+    return this.http
+      .put<PermitDeliveryState>(`${this.baseUrl}/applications/${encodeURIComponent(applicationId)}/delivery`, body)
+      .pipe(catchError((e) => throwError(() => this.toApiError(e))));
+  }
+
+  /**
+   * `POST /applications/{id}/delivery/received` — "I received my permit":
+   * closes the delivery and the application (`lifecycleStatus: 'Completed'`).
+   * 409 when it has not been sent yet, or is already closed.
+   */
+  confirmPermitReceived(applicationId: string): Observable<PermitDeliveryState> {
+    if (this.baseUrl === null) return throwError(() => new ApiNotConfiguredError());
+    return this.http
+      .post<PermitDeliveryState>(`${this.baseUrl}/applications/${encodeURIComponent(applicationId)}/delivery/received`, {})
+      .pipe(catchError((e) => throwError(() => this.toApiError(e))));
   }
 
   /** `GET /public/permits/{number}` — public, no sign-in; what the permit's QR code opens. */

@@ -25,7 +25,7 @@ describe('MyApplicationsPage filters', () => {
     ({ id, lifecycleStatus, applicationNumber: id, permitType: 'Building Permit', businessName: 'Shop' }) as ApplicationRecord;
   const ROWS = [
     row('a', 'Draft'), row('b', 'Revision Required'), row('c', 'Completed'),
-    row('d', 'Cancelled'), row('e', 'Released'), row('f', 'Ready for Release'),
+    row('d', 'Cancelled'), row('e', 'Released'), row('f', 'Ready for Release'), row('g', 'Out for Delivery'),
   ];
 
   function render() {
@@ -53,8 +53,9 @@ describe('MyApplicationsPage filters', () => {
     expect(page.filtered().map((a) => a.id)).toEqual(['c']);
     page.filter.set('Revision Required');
     expect(page.filtered().map((a) => a.id)).toEqual(['b']);
+    // A permit on its way by courier (migration 070) is listed with the ones ready to collect.
     page.filter.set('Ready for Release');
-    expect(page.filtered().map((a) => a.id)).toEqual(['f']);
+    expect(page.filtered().map((a) => a.id)).toEqual(['f', 'g']);
     page.filter.set('All');
     expect(page.filtered()).toHaveLength(ROWS.length);
   });

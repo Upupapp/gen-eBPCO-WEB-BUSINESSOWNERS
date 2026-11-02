@@ -10,6 +10,8 @@ import { formatDate, formatDateTime } from '../../core/utils/ids';
 import { ToastService } from '../../shared/ui/toast.service';
 import { ApplicationDocumentsComponent } from './application-documents.component';
 import { PermitReleaseComponent } from './permit-release.component';
+import { PermitDeliveryComponent } from './permit-delivery.component';
+import { PermitDeliveryState } from '../../core/domain/permit-delivery';
 import { DocumentPreviewComponent } from '../../shared/ui/document-preview.component';
 import { SavedDocumentFileType } from '../../core/domain/document.model';
 import { PermitRelease } from '../../core/api/citizen-api.models';
@@ -39,12 +41,15 @@ interface PreviewableDocument {
 
 /** The statuses at which a generated permit exists to fetch. */
 const PERMIT_STATUSES: ReadonlySet<ApplicationLifecycleStatus> = new Set<ApplicationLifecycleStatus>([
-  'Permit Generated', 'Ready for Release', 'Released', 'Completed',
+  'Permit Generated', 'Ready for Release', 'Out for Delivery', 'Released', 'Completed',
 ]);
 
 @Component({
   selector: 'app-application-details',
-  imports: [RouterLink, StatusPillComponent, ApplicationDocumentsComponent, PermitReleaseComponent, DocumentPreviewComponent, BackLinkComponent],
+  imports: [
+    RouterLink, StatusPillComponent, ApplicationDocumentsComponent, PermitReleaseComponent, PermitDeliveryComponent,
+    DocumentPreviewComponent, BackLinkComponent,
+  ],
   template: `
     @if (app(); as a) {
       <div class="page">
@@ -218,7 +223,18 @@ const PERMIT_STATUSES: ReadonlySet<ApplicationLifecycleStatus> = new Set<Applica
             [permitNumber]="permit()?.permitNumber ?? null"
             [issuedDate]="permit() ? formatDate(permit()!.issuedDate) : null"
             [release]="release()"
+            [byCourier]="byCourier()"
           />
+          <!-- Pick up or delivery by courier (migration 070). -->
+          @if (deliveryState(); as delivery) {
+            <app-permit-delivery
+              [applicationId]="a.id"
+              [state]="delivery"
+              [permitNumber]="permit()?.permitNumber ?? null"
+              (stateChange)="deliveryState.set($event)"
+              (received)="onPermitReceived($event)"
+            />
+          }
         }
 
         @if (missingRequired().length > 0) {
@@ -424,6 +440,22 @@ export class ApplicationDetailsPage {
         fetchedFor = status;
         untracked(() => this.store.fetchPermit(this.id()));
       });
+      // How the permit reaches the citizen (migration 070): read when the
+      // page opens and when the status moves, and on every refresh of the
+      // list while the permit is with the courier — the office marking it
+      // delivered moves no status, and the citizen should see it.
+      let deliveryFor: string | null = null;
+      effect(() => {
+        const status = this.app()?.lifecycleStatus;
+        if (status === undefined || this.closedAs(status) !== null) return;
+        const withCourier = untracked(() => {
+          const d = this.deliveryState()?.delivery;
+          return d?.status === 'out-for-delivery' || d?.status === 'delivered';
+        });
+        if (status === deliveryFor && !withCourier) return;
+        deliveryFor = status;
+        untracked(() => this.refreshDelivery());
+      });
     }
     // Side-effecting on purpose (writes the store's real-checklist cache) —
     // must live in an effect(), never inside `missingRequired` itself,
@@ -553,6 +585,34 @@ export class ApplicationDetailsPage {
       next: (entries) => this.realTimeline.set(entries),
       error: () => {},
     });
+  }
+
+  /** `GET /applications/{id}/delivery` (migration 070): null until read, or when it cannot be (a local demo id). */
+  protected readonly deliveryState = signal<PermitDeliveryState | null>(null);
+
+  private refreshDelivery(): void {
+    this.api.getDelivery(this.id()).subscribe({
+      next: (state) => this.deliveryState.set(state),
+      error: () => {},
+    });
+  }
+
+  /**
+   * The permit travels by courier: the Your permit card says so instead of
+   * where and when to collect it. Not after the courier brought it back —
+   * then the claim instructions apply again.
+   */
+  protected byCourier(): boolean {
+    const state = this.deliveryState();
+    return state?.receiveBy === 'delivery' && !!state.delivery && state.delivery.status !== 'returned';
+  }
+
+  /** "I received my permit" closed the application: its status, timeline and permit release all moved. */
+  protected async onPermitReceived(state: PermitDeliveryState): Promise<void> {
+    this.deliveryState.set(state);
+    this.refreshTimeline();
+    await this.store.refreshMine();
+    this.store.fetchPermit(this.id());
   }
 
   /** The real `release` once fetched; the local-demo construction otherwise. See `ApplicationStore.releaseFor`. */
@@ -767,7 +827,12 @@ export class ApplicationDetailsPage {
   progressPct(status: Parameters<typeof applicantStatusOf>[0]): number {
     // Revision Required is not on the forward path, so indexOf missed and the
     // bar read 100% while the application was waiting on the citizen.
-    const idx = LIFECYCLE_SEQUENCE.indexOf(status === 'Revision Required' ? 'Document Verification' : status);
+    // Out for Delivery (migration 070) is off it too: on its way, between
+    // ready and in hand, it reads where Released does.
+    const onPath = status === 'Revision Required' ? 'Document Verification'
+      : status === 'Out for Delivery' ? 'Released'
+      : status;
+    const idx = LIFECYCLE_SEQUENCE.indexOf(onPath);
     if (idx < 0) return 100;
     return Math.round((idx / (LIFECYCLE_SEQUENCE.length - 1)) * 100);
   }

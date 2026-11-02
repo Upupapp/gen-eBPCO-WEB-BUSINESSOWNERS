@@ -35,6 +35,11 @@ import { CapitalizeNameDirective } from '../../core/utils/capitalize-name.direct
 import { LegalDocument, LegalModalComponent } from '../../shared/ui/legal-modal.component';
 import { DocumentPreviewComponent } from '../../shared/ui/document-preview.component';
 import { VerificationBannerComponent } from '../../shared/ui/verification-banner.component';
+import { DeliveryChoiceComponent } from '../../shared/ui/delivery-choice.component';
+import {
+  DELIVERY_FEE_NOTE, DeliveryChoiceDraft, ReceiveBy, addressFromDelivery, addressFromProfile, deliveryAddressProblem,
+  deliveryChoiceRequest,
+} from '../../core/domain/permit-delivery';
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -123,7 +128,10 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
  */
 @Component({
   selector: 'app-application-wizard',
-  imports: [FormsModule, RouterLink, CapitalizeNameDirective, LegalModalComponent, DocumentPreviewComponent, VerificationBannerComponent],
+  imports: [
+    FormsModule, RouterLink, CapitalizeNameDirective, LegalModalComponent, DocumentPreviewComponent,
+    VerificationBannerComponent, DeliveryChoiceComponent,
+  ],
   // The blank form on a document row that is a form, set apart like the
   // mobile app's: a tinted box with room around it, the form's own name, and
   // View and Download.
@@ -713,6 +721,20 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
               <tr><td class="muted">PRC License No.</td><td>{{ prcNumber || 'None given' }}</td></tr>
             </tbody>
           </table>
+          <!--
+            Pick up at the office, or delivery by courier (server migration
+            070, owner request 2026-11-03). Saved on the draft just before it
+            is filed; changeable on the application page until the permit is
+            handed to the courier.
+          -->
+          <section id="wizard-receive-by" style="margin-top:18px;">
+            <app-delivery-choice
+              [value]="deliveryChoice()"
+              [feeNote]="feeNote()"
+              [problem]="deliveryProblem()"
+              (edited)="deliveryProblem.set(null)"
+            />
+          </section>
           <hr class="divider" />
           <label class="checkbox-row" style="margin-bottom:8px;">
             <input type="checkbox" [(ngModel)]="understandRequirements" /> I understand the application requirements and certify the information provided is true and correct.
@@ -1267,6 +1289,21 @@ export class ApplicationWizardPage {
   understandRequirements = false;
   agreeTerms = false;
 
+  /**
+   * How the citizen will receive the permit (server migration 070): Pick up
+   * by default; Delivery prefilled from their profile. The object is edited
+   * in place by the Review step's form; the signal holds it so a resumed
+   * draft's saved choice, read back later, reaches the screen.
+   */
+  protected readonly deliveryChoice = signal<DeliveryChoiceDraft>({
+    receiveBy: 'pickup', address: addressFromProfile(this.auth.currentUser()),
+  });
+  /** The server's wording once read (a resumed draft); its own copy of it until then. */
+  protected readonly feeNote = signal(DELIVERY_FEE_NOTE);
+  protected readonly deliveryProblem = signal<string | null>(null);
+  /** What the server holds for this draft, so a pick-up never sent anywhere is not sent now. */
+  private deliveryOnServer: ReceiveBy = 'pickup';
+
   constructor() {
     // Each step starts at its top: the wizard opens from a scrolled catalog,
     // and a step shorter than the last one otherwise opens part-way down,
@@ -1422,6 +1459,54 @@ export class ApplicationWizardPage {
       step = resumeStep(this.draftProgress());
     }
     this.step.set(step);
+    this.loadDelivery(id);
+  }
+
+  /**
+   * A resumed draft's own choice of how to receive the permit, read back
+   * (`GET /applications/{id}/delivery`). Nothing is lost if it cannot be
+   * read: the choice stays Pick up, as every application was before.
+   */
+  private loadDelivery(id: string): void {
+    this.api.getDelivery(id).subscribe({
+      next: (state) => {
+        if (state.feeNote) this.feeNote.set(state.feeNote);
+        this.deliveryOnServer = state.receiveBy === 'delivery' ? 'delivery' : 'pickup';
+        if (state.receiveBy === 'delivery' && state.delivery) {
+          this.deliveryChoice.set({ receiveBy: 'delivery', address: addressFromDelivery(state.delivery) });
+        }
+      },
+      error: () => {},
+    });
+  }
+
+  /**
+   * Saves the choice on the application (`PUT /applications/{id}/delivery`).
+   * Nothing is sent for a pick-up the server already holds — every
+   * application starts as one.
+   */
+  private async saveDeliveryChoice(applicationId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+    const choice = this.deliveryChoice();
+    if (choice.receiveBy === 'pickup' && this.deliveryOnServer === 'pickup') return { ok: true };
+    try {
+      const state = await firstValueFrom(this.api.setDelivery(applicationId, deliveryChoiceRequest(choice)));
+      this.deliveryOnServer = state.receiveBy === 'delivery' ? 'delivery' : 'pickup';
+      if (state.feeNote) this.feeNote.set(state.feeNote);
+      return { ok: true };
+    } catch (e) {
+      const error = e instanceof ApiError
+        ? e.citizenMessage
+        : 'We could not reach the Municipality’s system. Check your connection and try again.';
+      return { ok: false, error };
+    }
+  }
+
+  /** Why the delivery address cannot be used, shown under it; null for a pick-up or a usable address. */
+  private checkDeliveryAddress(): string | null {
+    const choice = this.deliveryChoice();
+    const problem = choice.receiveBy === 'delivery' ? deliveryAddressProblem(choice.address) : null;
+    this.deliveryProblem.set(problem);
+    return problem;
   }
 
   /** What is already done, by the same tests toStep() applies on the way forward. */
@@ -1927,6 +2012,19 @@ export class ApplicationWizardPage {
   /** The explicit "Save & Exit" button — the same save, just awaited and immediate rather than fired on step navigation. */
   protected async saveAndExit(): Promise<void> {
     await this.autoSave();
+    // Save as Draft on Review (an account not verified yet) keeps the
+    // delivery choice too, so Continue brings it back. An address the
+    // courier could not use is not saved, and the citizen is told so.
+    const id = this.draftId();
+    if (this.step() === 4 && id !== null) {
+      const problem = this.checkDeliveryAddress();
+      if (problem !== null) {
+        this.toast.show(`Saved as a draft. Your delivery address was not saved: ${problem}`);
+      } else {
+        const saved = await this.saveDeliveryChoice(id);
+        if (!saved.ok) this.toast.show(`Saved as a draft. How you receive the permit was not saved: ${saved.error}`);
+      }
+    }
     this.router.navigate(['/applications']);
   }
 
@@ -1942,6 +2040,12 @@ export class ApplicationWizardPage {
     }
     if (!this.understandRequirements || !this.agreeTerms) {
       this.error.set('Please check both declarations to continue.');
+      return;
+    }
+    // The server's own address rules, checked before anything is sent.
+    const deliveryProblem = this.checkDeliveryAddress();
+    if (deliveryProblem !== null) {
+      this.error.set(`Delivery address: ${deliveryProblem}`);
       return;
     }
 
@@ -2043,6 +2147,14 @@ export class ApplicationWizardPage {
           draftId, { ...request, ...(newIds.length > 0 ? { documentIds: newIds } : {}) },
         );
         if (!synced.ok) { this.error.set(synced.error); return; }
+        // How the permit is received, on the draft before it is filed: a
+        // refused address stops here, with nothing filed yet.
+        const chosen = await this.saveDeliveryChoice(draftId);
+        if (!chosen.ok) {
+          if (this.deliveryChoice().receiveBy === 'delivery') this.deliveryProblem.set(chosen.error);
+          this.error.set(`How you receive the permit was not saved: ${chosen.error}`);
+          return;
+        }
         const finalized = await this.applicationStore.submitDraftReal(draftId);
         if (!finalized.ok) { this.refused(finalized.error); return; }
         applicationId = draftId;
@@ -2053,6 +2165,12 @@ export class ApplicationWizardPage {
         const result = await this.applicationStore.fileReal({ ...request, documentIds: Object.values(ids) });
         if (!result.ok) { this.refused(result.error); return; }
         applicationId = result.id;
+        // Filed already, so a choice that does not save is said, not blocking:
+        // it can still be set on the application page.
+        const chosen = await this.saveDeliveryChoice(applicationId);
+        if (!chosen.ok) {
+          this.toast.error(`How you receive the permit was not saved: ${chosen.error} You can set it on the application page.`);
+        }
       }
 
       const notSent = this.documents.filter((d) => this.attached[d.id] && !ids[d.id]).map((d) => d.label);
