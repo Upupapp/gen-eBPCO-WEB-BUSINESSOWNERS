@@ -58,7 +58,7 @@ const DOCUMENTS_OPEN: ReadonlySet<ApplicationLifecycleStatus> = new Set<Applicat
 type NextKind = 'revision' | 'pay' | 'delivery' | 'returned' | 'collect' | 'info';
 
 /** The five stages a citizen follows an application through (house style 2026-11-03). */
-const STAGES = ['Submitted', 'Review', 'Payment', 'Approved', 'Release'] as const;
+const STAGES = ['Submitted', 'Review', 'Payment', 'Approval', 'Release'] as const;
 
 /**
  * The stage in progress at each status, for the tracker only (display; no
@@ -1038,7 +1038,11 @@ export class ApplicationDetailsPage {
   /** The timeline newest first (equal times keep their newest-last order reversed); display only. */
   protected timelineNewestFirst(): { status: string; timestamp: string; remarks: string | null }[] {
     const time = (iso: string): number => Date.parse(iso) || 0;
-    return [...this.timelineEntries()].reverse().sort((x, y) => time(y.timestamp) - time(x.timestamp));
+    const sorted = [...this.timelineEntries()].reverse().sort((x, y) => time(y.timestamp) - time(x.timestamp));
+    // Back-to-back office steps the citizen sees under one word (Received, Document Verification and Under
+    // Evaluation all read "Under Review") show once: the newest. An entry with the office's remarks always stays.
+    return sorted.filter((t, i) => i === 0 || !!t.remarks
+      || this.timelineLabel(t.status) !== this.timelineLabel(sorted[i - 1].status));
   }
 
   /** A timeline entry in the pill's words ("Under Evaluation" reads "Under Review"); display only. */
