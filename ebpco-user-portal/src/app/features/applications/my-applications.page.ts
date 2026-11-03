@@ -67,7 +67,7 @@ const FILTERS: readonly ApplicationFilter[] = [
       } @else {
         <div class="card" style="padding:0;">
           <table class="table">
-            <thead><tr><th>Application No.</th><th>Permit Type</th><th>Applying as</th><th>Status</th><th>Submitted</th><th></th></tr></thead>
+            <thead><tr><th>Application no.</th><th>Permit type</th><th>Applying as</th><th>Status</th><th>Submitted</th><th></th></tr></thead>
             <tbody>
               @for (app of filtered(); track app.id) {
                 <tr>

@@ -78,7 +78,7 @@ import { BackLinkComponent } from '../../shared/ui/back-link.component';
                   <div class="small"><strong>Branch:</strong> {{ b.branch }}</div>
                 </div>
                 <div class="field" style="margin-top:12px;">
-                  <label for="payment-flow-proof-of-payment-1">Proof of Payment<span class="required">*</span></label>
+                  <label for="payment-flow-proof-of-payment-1">Proof of payment<span class="required">*</span></label>
                   <input id="payment-flow-proof-of-payment-1" type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onProofSelected($event)" />
                 </div>
               } @else {

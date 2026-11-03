@@ -71,7 +71,7 @@ import { CASTILLA_BARANGAYS, CITIES, PH_PROVINCES } from '../../core/domain/ph-r
               [(ngModel)]="value.address.barangay" (ngModelChange)="edited.emit()" />
           </div>
           <div class="field">
-            <label for="delivery-city">City / Municipality<span class="required">*</span></label>
+            <label for="delivery-city">City / municipality<span class="required">*</span></label>
             <input id="delivery-city" class="input" maxlength="120" list="delivery-city-options" autocomplete="address-level2"
               [(ngModel)]="value.address.city" (ngModelChange)="edited.emit()" />
           </div>

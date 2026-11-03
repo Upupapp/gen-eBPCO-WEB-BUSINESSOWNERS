@@ -75,7 +75,7 @@ import { REGISTERED_BEFORE_EBPCO_LABEL } from '../../core/domain/earlier-records
             </div>
           } @else {
             <table class="table">
-              <thead><tr><th>Application No.</th><th>Permit Type</th><th>Status</th><th>Submitted</th></tr></thead>
+              <thead><tr><th>Application no.</th><th>Permit type</th><th>Status</th><th>Submitted</th></tr></thead>
               <tbody>
                 @for (app of appsForBusiness(); track app.id) {
                   <tr>

@@ -67,23 +67,23 @@ type LookupState = 'idle' | 'loading' | 'found' | 'not-found' | 'unavailable';
               </div>
               <dl style="text-align:left; display:flex; flex-direction:column; gap:8px; margin:0;">
                 <div style="display:flex; justify-content:space-between; gap:12px; border-bottom:1px solid var(--border-light); padding-bottom:6px;">
-                  <dt class="small muted">Permit Type</dt>
+                  <dt class="small muted">Permit type</dt>
                   <dd style="margin:0; font-weight:700; font-size:14px; text-align:right;">{{ r.permitType }}</dd>
                 </div>
                 <div style="display:flex; justify-content:space-between; gap:12px; border-bottom:1px solid var(--border-light); padding-bottom:6px;">
-                  <dt class="small muted">Permit No.</dt>
+                  <dt class="small muted">Permit no.</dt>
                   <dd style="margin:0; font-weight:700; font-size:14px;">{{ r.permitNumber }}</dd>
                 </div>
                 <div style="display:flex; justify-content:space-between; gap:12px; border-bottom:1px solid var(--border-light); padding-bottom:6px;">
-                  <dt class="small muted">Project / Establishment</dt>
+                  <dt class="small muted">Project / establishment</dt>
                   <dd style="margin:0; font-weight:700; font-size:14px; text-align:right;">{{ r.businessName ?? 'Not on file' }}</dd>
                 </div>
                 <div style="display:flex; justify-content:space-between; gap:12px; border-bottom:1px solid var(--border-light); padding-bottom:6px;">
-                  <dt class="small muted">Issue Date</dt>
+                  <dt class="small muted">Issue date</dt>
                   <dd style="margin:0; font-weight:700; font-size:14px;">{{ formatDate(r.issuedDate) }}</dd>
                 </div>
                 <div style="display:flex; justify-content:space-between; gap:12px; border-bottom:1px solid var(--border-light); padding-bottom:6px;">
-                  <dt class="small muted">Issuing Office</dt>
+                  <dt class="small muted">Issuing office</dt>
                   <dd style="margin:0; font-weight:700; font-size:14px; text-align:right;">{{ r.approvingOffice ?? issuingOffice() }}</dd>
                 </div>
                 @if (r.expiresOn) {

@@ -53,7 +53,7 @@ import { registrationDateProblem, registrationNumberProblem } from '../../core/d
         @if (api.configured) {
           <div class="form-row">
             <div class="field">
-              <label for="register-business-registration-number-7">DTI / SEC / CDA Registration No.<span class="required">*</span></label>
+              <label for="register-business-registration-number-7">DTI / SEC / CDA registration no.<span class="required">*</span></label>
               <input id="register-business-registration-number-7" class="input" [(ngModel)]="registrationNumber"
                      placeholder="As printed on the certificate" autocomplete="off" />
             </div>

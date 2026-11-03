@@ -86,7 +86,7 @@ import { registrationDateProblem, registrationNumberProblem } from '../../core/d
             } @else {
               <div class="form-row">
                 <div class="field">
-                  <label for="edit-business-registration-number">DTI / SEC / CDA Registration No.<span class="required">*</span></label>
+                  <label for="edit-business-registration-number">DTI / SEC / CDA registration no.<span class="required">*</span></label>
                   <input id="edit-business-registration-number" class="input" [(ngModel)]="registrationNumber" autocomplete="off" />
                 </div>
                 <div class="field">

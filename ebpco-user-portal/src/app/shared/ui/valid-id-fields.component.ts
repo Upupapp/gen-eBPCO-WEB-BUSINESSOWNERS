@@ -103,7 +103,7 @@ export class ValidIdDraft {
       </select>
     </div>
     <div class="field">
-      <label [for]="prefix() + '-number'">ID Number<span class="required">*</span></label>
+      <label [for]="prefix() + '-number'">ID number<span class="required">*</span></label>
       <input [id]="prefix() + '-number'" class="input" maxlength="40" autocomplete="off" [disabled]="disabled()"
              [ngModel]="draft().idNumber()" (ngModelChange)="draft().idNumber.set($event)" />
       <div class="hint">As printed on the ID.</div>

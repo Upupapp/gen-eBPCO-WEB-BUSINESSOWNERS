@@ -418,7 +418,7 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
                 -->
                 @if (isGeneric && !permitType) {
                   <label for="application-wizard-claim-permit-type" style="margin-top:10px; display:block;">
-                    Permit Type<span class="required">*</span>
+                    Permit type<span class="required">*</span>
                   </label>
                   <select id="application-wizard-claim-permit-type" class="input" [(ngModel)]="permitType" (ngModelChange)="onClaimPermitTypeChosen()">
                     <option [ngValue]="null" disabled>Select a permit type</option>
@@ -475,11 +475,11 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
       @if (step() === 2) {
         <div class="card">
           <div class="card-title">Project / Application Details</div>
-          <div class="field"><label for="application-wizard-project-business-address-3">Project / Property Address<span class="required">*</span></label><input id="application-wizard-project-business-address-3" class="input" [(ngModel)]="projectAddress" placeholder="Street, Barangay, City" /></div>
-          <div class="field"><label for="application-wizard-scope-of-work-4">Scope of Work / Purpose<span class="required">*</span></label><textarea id="application-wizard-scope-of-work-4" class="input" rows="3" [(ngModel)]="scopeOfWork" placeholder="Briefly describe the work or purpose of this application"></textarea></div>
+          <div class="field"><label for="application-wizard-project-business-address-3">Project / property address<span class="required">*</span></label><input id="application-wizard-project-business-address-3" class="input" [(ngModel)]="projectAddress" placeholder="Street, Barangay, City" /></div>
+          <div class="field"><label for="application-wizard-scope-of-work-4">Scope of work / purpose<span class="required">*</span></label><textarea id="application-wizard-scope-of-work-4" class="input" rows="3" [(ngModel)]="scopeOfWork" placeholder="Briefly describe the work or purpose of this application"></textarea></div>
           <div class="form-row">
             <div class="field"><label for="application-wizard-professional-in-charge-5">Professional in Charge (if any)</label><input id="application-wizard-professional-in-charge-5" class="input" [(ngModel)]="professionalName" placeholder="Engineer / Architect name" appCapitalizeName /></div>
-            <div class="field"><label for="application-wizard-prc-license-no-6">PRC License No.</label><input id="application-wizard-prc-license-no-6" class="input" [(ngModel)]="prcNumber" inputmode="numeric" maxlength="7" placeholder="7 digits, e.g. 0012345" /><div class="hint">The 7-digit number on the professional's PRC ID.</div></div>
+            <div class="field"><label for="application-wizard-prc-license-no-6">PRC license no.</label><input id="application-wizard-prc-license-no-6" class="input" [(ngModel)]="prcNumber" inputmode="numeric" maxlength="7" placeholder="7 digits, e.g. 0012345" /><div class="hint">The 7-digit number on the professional's PRC ID.</div></div>
           </div>
           @if (error()) { <div class="field error">{{ error() }}</div> }
           <div style="display:flex; gap:10px;">
@@ -692,7 +692,7 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
             @if (applyingAs === 'business') {
               <div><dt>Business</dt><dd>{{ selectedBusinessName() }}</dd></div>
             }
-            <div><dt>Permit Type</dt><dd>{{ isGeneric ? 'New Business Permit (Generic)' : permitType }}</dd></div>
+            <div><dt>Permit type</dt><dd>{{ isGeneric ? 'New Business Permit (Generic)' : permitType }}</dd></div>
             <div><dt>Application type</dt><dd>{{ applicationAction }}</dd></div>
             @if (needsExistingPermit() && relatedPermitNumber) {
               <div><dt>{{ existingPermitPrompt(applicationAction) }}</dt><dd>{{ relatedPermitNumber }}</dd></div>
@@ -703,7 +703,7 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
                 <dd>{{ priorPermitClaim }} <span class="small muted" style="font-weight:400;">(not on file in eBPCO — unverified)</span></dd>
               </div>
             }
-            <div><dt>Documents Attached</dt><dd>{{ attachedCount() }} of {{ documents.length }}</dd></div>
+            <div><dt>Documents attached</dt><dd>{{ attachedCount() }} of {{ documents.length }}</dd></div>
           </dl>
           <!--
             What the citizen typed in Details, to check before submitting (QA
@@ -714,10 +714,10 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
             <button type="button" class="link-button" (click)="step.set(2)">Edit</button>
           </div>
           <dl class="kv">
-            <div class="kv-wide"><dt>Project / Property Address</dt><dd>{{ projectAddress || '—' }}</dd></div>
-            <div class="kv-wide"><dt>Scope of Work / Purpose</dt><dd style="white-space:pre-line;">{{ scopeOfWork || '—' }}</dd></div>
-            <div><dt>Professional in Charge</dt><dd>{{ professionalName || 'None named' }}</dd></div>
-            <div><dt>PRC License No.</dt><dd>{{ prcNumber || 'None given' }}</dd></div>
+            <div class="kv-wide"><dt>Project / property address</dt><dd>{{ projectAddress || '—' }}</dd></div>
+            <div class="kv-wide"><dt>Scope of work / purpose</dt><dd style="white-space:pre-line;">{{ scopeOfWork || '—' }}</dd></div>
+            <div><dt>Professional in charge</dt><dd>{{ professionalName || 'None named' }}</dd></div>
+            <div><dt>PRC license no.</dt><dd>{{ prcNumber || 'None given' }}</dd></div>
           </dl>
           <!--
             Pick up at the office, or delivery by courier (server migration
