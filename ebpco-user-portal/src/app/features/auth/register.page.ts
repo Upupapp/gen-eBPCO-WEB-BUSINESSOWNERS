@@ -61,12 +61,12 @@ const APPLICANT_TYPES: readonly { value: RegisteredAs; title: string; descriptio
 
         @if (step() === 2) {
           <div class="form-row">
-            <div class="field"><label for="register-first-name-1">First Name<span class="required">*</span></label><input id="register-first-name-1" class="input" [(ngModel)]="firstName" appCapitalizeName /></div>
-            <div class="field"><label for="register-middle-name-2">Middle Name</label><input id="register-middle-name-2" class="input" [(ngModel)]="middleName" appCapitalizeName /></div>
+            <div class="field"><label for="register-first-name-1">First name<span class="required">*</span></label><input id="register-first-name-1" class="input" [(ngModel)]="firstName" appCapitalizeName /></div>
+            <div class="field"><label for="register-middle-name-2">Middle name</label><input id="register-middle-name-2" class="input" [(ngModel)]="middleName" appCapitalizeName /></div>
           </div>
-          <div class="field"><label for="register-last-name-3">Last Name<span class="required">*</span></label><input id="register-last-name-3" class="input" [(ngModel)]="lastName" appCapitalizeName /></div>
+          <div class="field"><label for="register-last-name-3">Last name<span class="required">*</span></label><input id="register-last-name-3" class="input" [(ngModel)]="lastName" appCapitalizeName /></div>
           <div class="form-row">
-            <div class="field"><label for="register-date-of-birth-4">Date of Birth<span class="required">*</span></label><input id="register-date-of-birth-4" class="input" type="date" [(ngModel)]="dateOfBirth" /></div>
+            <div class="field"><label for="register-date-of-birth-4">Date of birth<span class="required">*</span></label><input id="register-date-of-birth-4" class="input" type="date" [(ngModel)]="dateOfBirth" /></div>
             <div class="field">
               <label for="register-sex-5">Sex<span class="required">*</span></label>
               <select id="register-sex-5" class="input" [(ngModel)]="sex">
@@ -79,7 +79,7 @@ const APPLICANT_TYPES: readonly { value: RegisteredAs; title: string; descriptio
           </div>
           <div class="form-row">
             <div class="field">
-              <label for="register-civil-status-6">Civil Status<span class="required">*</span></label>
+              <label for="register-civil-status-6">Civil status<span class="required">*</span></label>
               <select id="register-civil-status-6" class="input" [(ngModel)]="civilStatus">
                 <option [ngValue]="null" disabled>Select</option>
                 <option value="Single">Single</option>
@@ -110,7 +110,7 @@ const APPLICANT_TYPES: readonly { value: RegisteredAs; title: string; descriptio
 
         @if (step() === 3) {
           <div class="field">
-            <label for="register-email-address-8">Email Address<span class="required">*</span></label>
+            <label for="register-email-address-8">Email address<span class="required">*</span></label>
             <div style="display:flex; gap:8px; align-items:center;">
               <input id="register-email-address-8" class="input" type="email" style="flex:1"
                 [ngModel]="email" (ngModelChange)="onEmailInput($event)" [disabled]="emailVerified()" />
@@ -148,13 +148,13 @@ const APPLICANT_TYPES: readonly { value: RegisteredAs; title: string; descriptio
             }
           </div>
           <div class="field">
-            <label for="register-mobile-number-9">Mobile Number<span class="required">*</span></label>
+            <label for="register-mobile-number-9">Mobile number<span class="required">*</span></label>
             <input #mobileInput id="register-mobile-number-9" class="input" type="tel" inputmode="numeric" maxlength="11"
               placeholder="09XXXXXXXXX" [ngModel]="mobileNumber" (ngModelChange)="onMobileNumberInput($event, mobileInput)" />
             <p class="small muted" style="margin-top:4px;">Numbers only, 11 digits starting with 09 (e.g. 09171234567).</p>
             @if (mobileError()) { <div class="field error" style="margin-top:6px;">{{ mobileError() }}</div> }
           </div>
-          <div class="field"><label for="register-house-number-street-10">House Number / Street<span class="required">*</span></label><input id="register-house-number-street-10" class="input" [(ngModel)]="street" /></div>
+          <div class="field"><label for="register-house-number-street-10">House number / street<span class="required">*</span></label><input id="register-house-number-street-10" class="input" [(ngModel)]="street" /></div>
           <div class="form-row">
             <div class="field">
               <label for="register-barangay-11">Barangay<span class="required">*</span></label>
@@ -166,7 +166,7 @@ const APPLICANT_TYPES: readonly { value: RegisteredAs; title: string; descriptio
               </select>
             </div>
             <div class="field">
-              <label for="register-city-municipality-12">City / Municipality<span class="required">*</span></label>
+              <label for="register-city-municipality-12">City / municipality<span class="required">*</span></label>
               <select id="register-city-municipality-12" class="input" [(ngModel)]="city">
                 <option value="Castilla">Castilla</option>
               </select>
@@ -180,7 +180,7 @@ const APPLICANT_TYPES: readonly { value: RegisteredAs; title: string; descriptio
               </select>
             </div>
             <div class="field">
-              <label for="register-postal-code-14">Postal Code<span class="required">*</span></label>
+              <label for="register-postal-code-14">Postal code<span class="required">*</span></label>
               <input #postalInput id="register-postal-code-14" class="input" type="text" inputmode="numeric" maxlength="4"
                 placeholder="0000" [ngModel]="postalCode" (ngModelChange)="onPostalCodeInput($event, postalInput)" />
             </div>
@@ -225,7 +225,7 @@ const APPLICANT_TYPES: readonly { value: RegisteredAs; title: string; descriptio
             <div class="hint">We also check it isn't a password already known from a real data breach — that part happens when you submit, not here in the browser.</div>
           </div>
           <div class="field">
-            <label for="register-confirm-password-16">Confirm Password<span class="required">*</span></label>
+            <label for="register-confirm-password-16">Confirm password<span class="required">*</span></label>
             <div class="password-field">
               <input id="register-confirm-password-16" class="input" [type]="showConfirmPassword() ? 'text' : 'password'" [(ngModel)]="confirmPassword" />
               <button type="button" class="password-toggle" (click)="showConfirmPassword.set(!showConfirmPassword())" [attr.aria-label]="showConfirmPassword() ? 'Hide password' : 'Show password'">
@@ -525,13 +525,13 @@ export class RegisterPage {
     // six filled-in fields and a seventh they missed should be told which one,
     // not left to hunt for it themselves.
     const missing: [boolean, string][] = [
-      [!this.email, 'Email Address'],
-      [!this.mobileNumber, 'Mobile Number'],
-      [!this.street, 'House Number / Street'],
+      [!this.email, 'Email address'],
+      [!this.mobileNumber, 'Mobile number'],
+      [!this.street, 'House number / street'],
       [!this.barangay, 'Barangay'],
-      [!this.city, 'City / Municipality'],
+      [!this.city, 'City / municipality'],
       [!this.province, 'Province'],
-      [!this.postalCode, 'Postal Code'],
+      [!this.postalCode, 'Postal code'],
     ];
     const firstMissing = missing.find(([isMissing]) => isMissing);
     if (firstMissing) {

@@ -332,7 +332,7 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
           </div>
           }
           <div class="field">
-            <label for="application-wizard-application-type-2">Application Type<span class="required">*</span></label>
+            <label for="application-wizard-application-type-2">Application type<span class="required">*</span></label>
             <select id="application-wizard-application-type-2" class="input" [(ngModel)]="applicationAction" (ngModelChange)="onApplicationActionChange()">
               <option value="New">New Permit</option>
               <option value="Renewal">Renewal</option>
@@ -693,7 +693,7 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
               <div><dt>Business</dt><dd>{{ selectedBusinessName() }}</dd></div>
             }
             <div><dt>Permit Type</dt><dd>{{ isGeneric ? 'New Business Permit (Generic)' : permitType }}</dd></div>
-            <div><dt>Application Type</dt><dd>{{ applicationAction }}</dd></div>
+            <div><dt>Application type</dt><dd>{{ applicationAction }}</dd></div>
             @if (needsExistingPermit() && relatedPermitNumber) {
               <div><dt>{{ existingPermitPrompt(applicationAction) }}</dt><dd>{{ relatedPermitNumber }}</dd></div>
             }

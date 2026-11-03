@@ -39,7 +39,7 @@ import { firstPasswordRejectionMessage, passwordChecks } from '../../core/domain
           <h2>Set a new password</h2>
           <p class="muted small" style="margin-bottom:16px;">Choose a new password for your account.</p>
           <div class="field">
-            <label for="reset-password-new-1">New Password</label>
+            <label for="reset-password-new-1">New password</label>
             <div class="password-field">
               <input id="reset-password-new-1" class="input" [type]="showPassword() ? 'text' : 'password'" [(ngModel)]="password" />
               <button type="button" class="password-toggle" (click)="showPassword.set(!showPassword())" [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'">
@@ -57,7 +57,7 @@ import { firstPasswordRejectionMessage, passwordChecks } from '../../core/domain
             <div class="hint">We also check it isn't a password already known from a real data breach — that part happens when you submit, not here in the browser.</div>
           </div>
           <div class="field">
-            <label for="reset-password-confirm-2">Confirm New Password</label>
+            <label for="reset-password-confirm-2">Confirm new password</label>
             <div class="password-field">
               <input id="reset-password-confirm-2" class="input" [type]="showConfirmPassword() ? 'text' : 'password'" [(ngModel)]="confirmPassword" />
               <button type="button" class="password-toggle" (click)="showConfirmPassword.set(!showConfirmPassword())" [attr.aria-label]="showConfirmPassword() ? 'Hide password' : 'Show password'">

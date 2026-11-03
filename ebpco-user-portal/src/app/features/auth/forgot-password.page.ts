@@ -64,7 +64,7 @@ import { CitizenApiClient } from '../../core/api/citizen-api.client';
             Enter the email address on your account and we'll send you a link to set a new password.
           </p>
           <div class="field">
-            <label for="forgot-password-email-1">Email Address</label>
+            <label for="forgot-password-email-1">Email address</label>
             <input id="forgot-password-email-1" class="input" type="email" [(ngModel)]="email" placeholder="you@example.com" />
           </div>
           @if (error()) { <div class="field error">{{ error() }}</div> }

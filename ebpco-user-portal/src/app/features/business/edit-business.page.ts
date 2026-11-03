@@ -38,17 +38,17 @@ import { registrationDateProblem, registrationNumberProblem } from '../../core/d
 
         <div class="card">
           <div class="field">
-            <label for="edit-business-name">Business Name<span class="required">*</span></label>
+            <label for="edit-business-name">Business name<span class="required">*</span></label>
             <input id="edit-business-name" class="input" [(ngModel)]="name" />
           </div>
           <div class="field">
-            <label for="edit-business-category">Business Category<span class="required">*</span></label>
+            <label for="edit-business-category">Business category<span class="required">*</span></label>
             <select id="edit-business-category" class="input" [(ngModel)]="category">
               @for (c of categories; track c) { <option [value]="c">{{ c }}</option> }
             </select>
           </div>
           <div class="field">
-            <label for="edit-business-street">House Number / Street<span class="required">*</span></label>
+            <label for="edit-business-street">House number / street<span class="required">*</span></label>
             <input id="edit-business-street" class="input" [(ngModel)]="street" />
           </div>
           <div class="form-row">
@@ -60,7 +60,7 @@ import { registrationDateProblem, registrationNumberProblem } from '../../core/d
               </select>
             </div>
             <div class="field">
-              <label for="edit-business-city">City / Municipality<span class="required">*</span></label>
+              <label for="edit-business-city">City / municipality<span class="required">*</span></label>
               <select id="edit-business-city" class="input" [(ngModel)]="city">
                 <option value="Castilla">Castilla</option>
               </select>
@@ -90,7 +90,7 @@ import { registrationDateProblem, registrationNumberProblem } from '../../core/d
                   <input id="edit-business-registration-number" class="input" [(ngModel)]="registrationNumber" autocomplete="off" />
                 </div>
                 <div class="field">
-                  <label for="edit-business-date-registered">Date Registered<span class="required">*</span></label>
+                  <label for="edit-business-date-registered">Date registered<span class="required">*</span></label>
                   <input id="edit-business-date-registered" class="input" type="date" [(ngModel)]="dateRegistered" />
                 </div>
               </div>

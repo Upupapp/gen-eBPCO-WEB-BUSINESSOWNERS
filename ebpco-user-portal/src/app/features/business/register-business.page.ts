@@ -21,14 +21,14 @@ import { registrationDateProblem, registrationNumberProblem } from '../../core/d
       </div>
 
       <div class="card">
-        <div class="field"><label for="register-business-business-name-1">Business Name<span class="required">*</span></label><input id="register-business-business-name-1" class="input" [(ngModel)]="name" /></div>
+        <div class="field"><label for="register-business-business-name-1">Business name<span class="required">*</span></label><input id="register-business-business-name-1" class="input" [(ngModel)]="name" /></div>
         <div class="field">
-          <label for="register-business-business-category-2">Business Category<span class="required">*</span></label>
+          <label for="register-business-business-category-2">Business category<span class="required">*</span></label>
           <select id="register-business-business-category-2" class="input" [(ngModel)]="category">
             @for (c of categories; track c) { <option [value]="c">{{ c }}</option> }
           </select>
         </div>
-        <div class="field"><label for="register-business-house-number-street-3">House Number / Street<span class="required">*</span></label><input id="register-business-house-number-street-3" class="input" [(ngModel)]="street" /></div>
+        <div class="field"><label for="register-business-house-number-street-3">House number / street<span class="required">*</span></label><input id="register-business-house-number-street-3" class="input" [(ngModel)]="street" /></div>
         <div class="form-row">
           <div class="field">
             <label for="register-business-barangay-4">Barangay<span class="required">*</span></label>
@@ -38,7 +38,7 @@ import { registrationDateProblem, registrationNumberProblem } from '../../core/d
             </select>
           </div>
           <div class="field">
-            <label for="register-business-city-municipality-5">City / Municipality<span class="required">*</span></label>
+            <label for="register-business-city-municipality-5">City / municipality<span class="required">*</span></label>
             <select id="register-business-city-municipality-5" class="input" [(ngModel)]="city">
               <option value="Castilla">Castilla</option>
             </select>
@@ -58,7 +58,7 @@ import { registrationDateProblem, registrationNumberProblem } from '../../core/d
                      placeholder="As printed on the certificate" autocomplete="off" />
             </div>
             <div class="field">
-              <label for="register-business-date-registered-8">Date Registered<span class="required">*</span></label>
+              <label for="register-business-date-registered-8">Date registered<span class="required">*</span></label>
               <input id="register-business-date-registered-8" class="input" type="date" [(ngModel)]="dateRegistered" [max]="today" />
             </div>
           </div>
