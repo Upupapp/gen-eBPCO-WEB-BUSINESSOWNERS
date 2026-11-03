@@ -149,7 +149,7 @@ expect(reviewText.includes(businessName.trim()),
   `review did not mention "${businessName.trim()}"`);
 
 for (const cb of await page.locator('input[type=checkbox]').all()) await cb.check();
-await page.locator('button:has-text("Submit Application")').click();
+await page.locator('button:has-text("Submit application")').click();
 await page.waitForURL(/\/applications\//, { timeout: 15000 });
 ok('submitting lands on the application it created');
 

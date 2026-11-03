@@ -186,7 +186,7 @@ describe('ApplicationWizardPage — Applying as, and an account not verified yet
     page.step.set(4);
     fixture.detectChanges();
     expect(el.textContent).toContain('Residential / Private Individual');
-    expect(el.textContent).not.toContain('Property Owner');
+    expect(el.textContent?.toLowerCase()).not.toContain('property owner');
   });
 
   it('an account waiting for verification is told why it cannot submit, keeps Save as Draft, and files nothing', async () => {
@@ -202,7 +202,7 @@ describe('ApplicationWizardPage — Applying as, and an account not verified yet
       'Your account is being verified. You can prepare applications now and submit once it is verified.',
     );
     const buttons = Array.from(el.querySelectorAll('button'));
-    expect(buttons.find((b) => b.textContent?.includes('Submit Application'))?.disabled).toBe(true);
+    expect(buttons.find((b) => b.textContent?.includes('Submit application'))?.disabled).toBe(true);
     expect(buttons.some((b) => b.textContent?.includes('Save as Draft'))).toBe(true);
 
     await page.submit();

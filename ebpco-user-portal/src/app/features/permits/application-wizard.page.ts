@@ -478,7 +478,7 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
           <div class="field"><label for="application-wizard-project-business-address-3">Project / property address<span class="required">*</span></label><input id="application-wizard-project-business-address-3" class="input" [(ngModel)]="projectAddress" placeholder="Street, Barangay, City" /></div>
           <div class="field"><label for="application-wizard-scope-of-work-4">Scope of work / purpose<span class="required">*</span></label><textarea id="application-wizard-scope-of-work-4" class="input" rows="3" [(ngModel)]="scopeOfWork" placeholder="Briefly describe the work or purpose of this application"></textarea></div>
           <div class="form-row">
-            <div class="field"><label for="application-wizard-professional-in-charge-5">Professional in Charge (if any)</label><input id="application-wizard-professional-in-charge-5" class="input" [(ngModel)]="professionalName" placeholder="Engineer / Architect name" appCapitalizeName /></div>
+            <div class="field"><label for="application-wizard-professional-in-charge-5">Professional in charge (if any)</label><input id="application-wizard-professional-in-charge-5" class="input" [(ngModel)]="professionalName" placeholder="Engineer / Architect name" appCapitalizeName /></div>
             <div class="field"><label for="application-wizard-prc-license-no-6">PRC license no.</label><input id="application-wizard-prc-license-no-6" class="input" [(ngModel)]="prcNumber" inputmode="numeric" maxlength="7" placeholder="7 digits, e.g. 0012345" /><div class="hint">The 7-digit number on the professional's PRC ID.</div></div>
           </div>
           @if (error()) { <div class="field error">{{ error() }}</div> }
@@ -775,7 +775,7 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
               <button class="btn btn-secondary" [disabled]="saveStatus() === 'saving'" (click)="saveAndExit()">Save as Draft</button>
             }
             <button class="btn btn-primary" [disabled]="submitting() || uploadingRequirementId() !== null || submitBlocked() !== null" (click)="submit()">
-              {{ submitting() ? 'Submitting…' : 'Submit Application' }}
+              {{ submitting() ? 'Submitting…' : 'Submit application' }}
             </button>
           </div>
         </div>

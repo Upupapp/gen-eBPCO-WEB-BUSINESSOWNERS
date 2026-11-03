@@ -766,11 +766,11 @@ export class ApplicationDetailsPage {
       ? `${owner.name.trim()}${owner.relationship ? ` (${owner.relationship.trim()})` : ''}`
       : '';
     const rows = [
-      { label: 'Property Owner', value: ownerText, wide: false },
-      { label: 'Project / Property Address', value: (a.location ?? '').trim(), wide: false },
-      { label: 'Scope of Work / Purpose', value: text('scopeOfWork'), wide: true },
-      { label: 'Professional in Charge', value: text('professionalName'), wide: false },
-      { label: 'PRC License No.', value: text('prcNumber'), wide: false },
+      { label: 'Property owner', value: ownerText, wide: false },
+      { label: 'Project / property address', value: (a.location ?? '').trim(), wide: false },
+      { label: 'Scope of work / purpose', value: text('scopeOfWork'), wide: true },
+      { label: 'Professional in charge', value: text('professionalName'), wide: false },
+      { label: 'PRC license no.', value: text('prcNumber'), wide: false },
     ].filter((row) => row.value !== '');
     return rows.length > 0 ? rows : null;
   }
