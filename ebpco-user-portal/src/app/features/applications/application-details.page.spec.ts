@@ -297,3 +297,55 @@ describe('ApplicationDetailsPage — receiving the permit', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('.release-state strong')?.textContent).toBe('Delivery by courier');
   });
 });
+
+/**
+ * Live check, 4 Nov 2026: a draft's page lit up "Submitted" on the tracker,
+ * offered no way back into the form, and offered "Withdraw application" with
+ * a caption about waiting to be received.
+ */
+describe('ApplicationDetailsPage — a draft', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('shows no tracker, offers Continue back into the form, and calls cancelling it "Discard draft"', async () => {
+    const draft: ApplicationSummary = {
+      id: 'draft-1', referenceNumber: 'DRAFT-0521851DFB', serviceDomain: 'Construction Permit',
+      permitType: 'Fencing Permit', applicationAction: 'New', businessId: null, businessName: null, location: 'Rizal St.',
+      renewsPermitNumber: null, priorPermitClaim: null, lifecycleStatus: 'Draft', applicantStatus: 'Draft',
+      requiresApplicantAction: false, dateSubmitted: null, updatedAt: '2026-11-04T00:00:00.000Z',
+      openInstructionCount: 0, form: {}, payment: { status: 'Not Yet Available' },
+    } as unknown as ApplicationSummary;
+    TestBed.configureTestingModule({
+      imports: [ApplicationDetailsPage],
+      providers: [
+        provideRouter([]),
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: 'draft-1' }) } } },
+        {
+          provide: CitizenApiClient,
+          useValue: {
+            configured: true,
+            listApplications: () => of({ data: [draft], nextCursor: null }),
+            listDocuments: () => of([]),
+            getTimeline: () => EMPTY,
+            getInstructions: () => of([]),
+            getRequirementsForPermitType: () => EMPTY,
+            getPermit: () => EMPTY,
+            getDelivery: () => EMPTY,
+          } as Partial<CitizenApiClient>,
+        },
+      ],
+    });
+    const fixture = TestBed.createComponent(ApplicationDetailsPage);
+    fixture.detectChanges();
+    await TestBed.inject(ApplicationStore).refreshMine();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('app-stepper')).toBeNull();
+    expect(el.textContent).toContain('Not sent yet');
+    expect(el.querySelector('#continue-draft')?.getAttribute('href')).toBe('/permits/apply?draft=draft-1');
+    expect(el.querySelector('.withdraw-row button')?.textContent?.trim()).toBe('Discard draft');
+    expect(el.textContent).not.toContain('waits to be received');
+  });
+});

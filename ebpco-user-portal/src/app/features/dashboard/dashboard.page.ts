@@ -78,10 +78,19 @@ export class DashboardPage {
    * status, said 0.
    */
   awaitingAction(): number {
+    // A draft always waits on the citizen. The server's flag is the office's view and leaves drafts out, so the
+    // card said 0 beside its own "or still a draft" (live check, 4 Nov 2026).
     return this.applications
       .myApplications()
-      .filter((a) => a.requiresApplicantAction
-        ?? ['Draft', 'Revision Required', 'Assessed'].includes(a.lifecycleStatus)).length;
+      .filter((a) => a.lifecycleStatus === 'Draft' || (a.requiresApplicantAction
+        ?? ['Revision Required', 'Assessed'].includes(a.lifecycleStatus))).length;
+  }
+
+  /** Where a row opens: a draft goes back into the form (as My Applications' Continue does), anything else to its page. */
+  rowLink(a: { id: string; lifecycleStatus: string }): { link: unknown[]; query: Record<string, string> | null } {
+    return a.lifecycleStatus === 'Draft'
+      ? { link: ['/permits/apply'], query: { draft: a.id } }
+      : { link: ['/applications', a.id], query: null };
   }
 
   /**
@@ -112,11 +121,13 @@ export class DashboardPage {
    * a returned application to fix, an Order of Payment to pay, a permit on
    * its way to confirm. Read from the list's own statuses; display only.
    */
-  attention(): { id: string; permitType: string; applicationNumber: string; reason: string; action: string; link: unknown[] }[] {
-    const items: { id: string; permitType: string; applicationNumber: string; reason: string; action: string; link: unknown[] }[] = [];
+  attention(): { id: string; permitType: string; applicationNumber: string; reason: string; action: string; link: unknown[]; query?: Record<string, string> }[] {
+    const items: { id: string; permitType: string; applicationNumber: string; reason: string; action: string; link: unknown[]; query?: Record<string, string> }[] = [];
     for (const a of this.applications.myApplications()) {
       const base = { id: a.id, permitType: a.permitType, applicationNumber: a.applicationNumber };
-      if (a.lifecycleStatus === 'Revision Required') {
+      if (a.lifecycleStatus === 'Draft') {
+        items.push({ ...base, applicationNumber: '', reason: 'not submitted yet', action: 'Continue', link: ['/permits/apply'], query: { draft: a.id } });
+      } else if (a.lifecycleStatus === 'Revision Required') {
         items.push({ ...base, reason: 'the office returned it for changes', action: 'Fix now', link: ['/applications', a.id] });
       } else if (a.lifecycleStatus === 'Assessed' && (a.paymentStatus === 'Not Yet Available' || a.paymentStatus === 'Overdue')) {
         items.push({ ...base, reason: a.paymentStatus === 'Overdue' ? 'payment is overdue' : 'ready for payment', action: 'Pay', link: ['/payments', a.id] });

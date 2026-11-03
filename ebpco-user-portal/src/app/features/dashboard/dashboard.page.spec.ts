@@ -50,4 +50,20 @@ describe('DashboardPage', () => {
     ]);
     expect(dashboard.activeApplications().map((a) => a.id)).toEqual(['a', 'e']);
   });
+
+  /** Live check, 4 Nov 2026: "Needs your action 0 — returned, to pay, or still a draft" beside a draft. */
+  it('counts a draft as needing the citizen, even when the server does not flag it', () => {
+    const draft = { ...row('d', 'Draft'), requiresApplicantAction: false } as ApplicationRecord;
+    const submitted = { ...row('s', 'Submitted'), requiresApplicantAction: false } as ApplicationRecord;
+    const returned = { ...row('r', 'Revision Required'), requiresApplicantAction: true } as ApplicationRecord;
+    const dashboard = page([draft, submitted, returned]);
+    expect(dashboard.awaitingAction()).toBe(2);
+    expect(dashboard.attention().map((i) => [i.id, i.action])).toEqual([['d', 'Continue'], ['r', 'Fix now']]);
+  });
+
+  it('sends a draft back into the form, and anything else to its page', () => {
+    const dashboard = page([]);
+    expect(dashboard.rowLink({ id: 'd', lifecycleStatus: 'Draft' })).toEqual({ link: ['/permits/apply'], query: { draft: 'd' } });
+    expect(dashboard.rowLink({ id: 's', lifecycleStatus: 'Submitted' })).toEqual({ link: ['/applications', 's'], query: null });
+  });
 });

@@ -55,7 +55,7 @@ const DOCUMENTS_OPEN: ReadonlySet<ApplicationLifecycleStatus> = new Set<Applicat
 ]);
 
 /** What the Next step callout under the tracker asks the citizen to do. */
-type NextKind = 'revision' | 'pay' | 'delivery' | 'returned' | 'collect' | 'info';
+type NextKind = 'draft' | 'revision' | 'pay' | 'delivery' | 'returned' | 'collect' | 'info';
 
 /** The five stages a citizen follows an application through (house style 2026-11-03). */
 const STAGES = ['Submitted', 'Review', 'Payment', 'Approval', 'Release'] as const;
@@ -67,9 +67,11 @@ const STAGES = ['Submitted', 'Review', 'Payment', 'Approval', 'Release'] as cons
  * courier is still Release. Released and Completed have every stage done.
  * A status not listed (one the portal does not know yet) shows no tracker,
  * only the "what happens next" line. It replaces a red percentage bar.
+ * A Draft has no tracker either: it has not reached Submitted, and the live
+ * check (4 Nov 2026) found "Submitted" lit up on one never sent. Its Next step
+ * callout says so and offers Continue.
  */
 const STAGE_OF: Partial<Record<ApplicationLifecycleStatus, number>> = {
-  Draft: 0,
   Submitted: 1,
   Received: 1,
   'Document Verification': 1,
@@ -191,6 +193,15 @@ const STAGE_OF: Partial<Record<ApplicationLifecycleStatus, number>> = {
 
               <!-- Next step: the one thing this status asks of the citizen, right under the tracker. -->
               @switch (nextKind(a)) {
+                @case ('draft') {
+                  <div class="callout callout-info" role="region" aria-label="Finish your application">
+                    <strong class="callout-title">Not sent yet</strong>
+                    <p>This application is a draft. Finish the remaining steps and submit it; the office sees it only after you submit.</p>
+                    <div class="callout-actions">
+                      <a class="btn btn-primary btn-sm" id="continue-draft" [routerLink]="['/permits/apply']" [queryParams]="{ draft: a.id }">Continue application</a>
+                    </div>
+                  </div>
+                }
                 @case ('revision') {
                   <div class="callout callout-warning" role="region" aria-label="Send back to the office">
                     <strong class="callout-title">
@@ -301,19 +312,29 @@ const STAGE_OF: Partial<Record<ApplicationLifecycleStatus, number>> = {
             <!-- Withdrawing is possible, not the point of the page: a quiet button at the foot of the card. -->
             @if (canCancel(a)) {
               <div class="withdraw-row">
+                @let isDraft = a.lifecycleStatus === 'Draft';
                 @if (!confirmingCancel()) {
-                  <button class="btn btn-danger-outline btn-sm" (click)="confirmingCancel.set(true)">Withdraw application</button>
+                  <button class="btn btn-danger-outline btn-sm" (click)="confirmingCancel.set(true)">{{ isDraft ? 'Discard draft' : 'Withdraw application' }}</button>
                   <span class="small muted">
-                    Available while your application waits to be received, or while it is returned to you for changes.
+                    @if (isDraft) {
+                      It has not been sent to the office. Discard it if you no longer need it.
+                    } @else {
+                      Available while your application waits to be received, or while it is returned to you for changes.
+                    }
                   </span>
                 } @else {
                   <div class="callout callout-danger">
-                    <strong class="callout-title">Withdraw {{ a.applicationNumber }}?</strong>
-                    <p>The Municipality stops processing it and this cannot be undone. You would need to file a new application.</p>
+                    @if (isDraft) {
+                      <strong class="callout-title">Discard this draft?</strong>
+                      <p>It has not been sent to the office. This cannot be undone; you would start a new application.</p>
+                    } @else {
+                      <strong class="callout-title">Withdraw {{ a.applicationNumber }}?</strong>
+                      <p>The Municipality stops processing it and this cannot be undone. You would need to file a new application.</p>
+                    }
                     <div class="callout-actions">
-                      <button class="btn btn-secondary btn-sm" [disabled]="cancelling()" (click)="confirmingCancel.set(false)">Keep my application</button>
+                      <button class="btn btn-secondary btn-sm" [disabled]="cancelling()" (click)="confirmingCancel.set(false)">{{ isDraft ? 'Keep the draft' : 'Keep my application' }}</button>
                       <button class="btn btn-danger btn-sm" [disabled]="cancelling()" (click)="cancel(a.id)">
-                        {{ cancelling() ? 'Withdrawing…' : 'Yes, withdraw it' }}
+                        @if (isDraft) { {{ cancelling() ? 'Discarding…' : 'Yes, discard it' }} } @else { {{ cancelling() ? 'Withdrawing…' : 'Yes, withdraw it' }} }
                       </button>
                     </div>
                   </div>
@@ -1072,6 +1093,7 @@ export class ApplicationDetailsPage {
    * parcel, collect a ready permit; otherwise only what happens next.
    */
   protected nextKind(a: ApplicationRecord): NextKind {
+    if (a.lifecycleStatus === 'Draft') return 'draft';
     if (a.lifecycleStatus === 'Revision Required' && this.api.configured) return 'revision';
     if (this.fees()?.canPay) return 'pay';
     const state = this.deliveryState();
@@ -1144,6 +1166,7 @@ export class ApplicationDetailsPage {
 
   async cancel(id: string): Promise<void> {
     this.cancelling.set(true);
+    const wasDraft = this.store.applicationById(id)?.lifecycleStatus === 'Draft';
     try {
       const result = await this.store.cancelReal(id);
       if (!result.ok) {
@@ -1152,7 +1175,7 @@ export class ApplicationDetailsPage {
       }
       this.refreshTimeline();
       this.confirmingCancel.set(false);
-      this.toast.success('Application withdrawn.');
+      this.toast.success(wasDraft ? 'Draft discarded.' : 'Application withdrawn.');
     } finally {
       this.cancelling.set(false);
     }

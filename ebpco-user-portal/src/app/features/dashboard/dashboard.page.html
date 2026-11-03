@@ -32,9 +32,9 @@
           @for (item of attention(); track item.id; let first = $first) {
             <li class="attention-item">
               <span class="attention-text">
-                <strong>{{ item.permitType }}</strong> · {{ item.applicationNumber }} · {{ item.reason }}
+                <strong>{{ item.permitType }}</strong>@if (item.applicationNumber) { · {{ item.applicationNumber }} } · {{ item.reason }}
               </span>
-              <a class="btn btn-sm" [class.btn-primary]="first" [class.btn-secondary]="!first" [routerLink]="item.link">{{ item.action }}</a>
+              <a class="btn btn-sm" [class.btn-primary]="first" [class.btn-secondary]="!first" [routerLink]="item.link" [queryParams]="item.query ?? null">{{ item.action }}</a>
             </li>
           }
         </ul>
@@ -104,7 +104,8 @@
           <div class="application-list">
             @for (app of shownApplications(); track app.id) {
               @let visual = applicationVisual(app.permitType);
-              <a [routerLink]="['/applications', app.id]" class="application-row">
+              @let target = rowLink(app);
+              <a [routerLink]="target.link" [queryParams]="target.query" class="application-row">
                 <div class="application-icon" [style.background]="visual.bg" [style.color]="visual.fg">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     @for (d of visual.icon; track d) { <path [attr.d]="d" /> }
