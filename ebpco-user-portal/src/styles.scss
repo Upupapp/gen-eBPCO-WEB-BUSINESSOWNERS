@@ -691,7 +691,7 @@ select.input {
 // items, each loose text node and inline link came apart with gaps around the
 // link ("I agree to the  Terms  and have read the  Privacy Notice").
 .checkbox-row { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.5; color: var(--gray-700); }
-.checkbox-row > input { flex: none; width: 16px; height: 16px; margin: 3px 0 0; }
+.checkbox-row > input { flex: none; width: 18px; height: 18px; margin: 2px 0 0; cursor: pointer; }
 .checkbox-row > span { flex: 1; min-width: 0; }
 .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
 

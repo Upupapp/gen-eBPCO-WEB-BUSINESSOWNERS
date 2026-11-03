@@ -164,7 +164,7 @@ export class DashboardPage {
       },
       {
         theme: 'green',
-        label: 'Ready for release',
+        label: 'Ready for Release',
         value: this.readyForRelease(),
         helper: 'Ready to claim, or on its way',
         icon: ICONS.checkCircle,
