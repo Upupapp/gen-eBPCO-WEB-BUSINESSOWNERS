@@ -7,16 +7,16 @@ import { AuthService } from '../../core/session/auth.service';
   selector: 'app-login',
   imports: [FormsModule, RouterLink],
   template: `
-    <div style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;">
-      <div class="card auth-card anim-pop-in" style="width:100%; max-width:400px;">
-        <div style="text-align:center; margin-bottom:20px;">
-          <img src="logo.png" alt="eBPCO" style="width:48px; height:48px; object-fit:contain; margin-bottom:8px;" />
-          <h2>Log In</h2>
+    <div class="auth-screen">
+      <div class="card auth-card anim-pop-in">
+        <div class="auth-head">
+          <img src="logo.png" alt="eBPCO" class="auth-logo" />
+          <h2>Log in</h2>
           <p class="muted small">Sign in to your eBPCO account</p>
         </div>
 
         <div class="field">
-          <label for="login-email-or-mobile-1">Email or Mobile Number</label>
+          <label for="login-email-or-mobile-1">Email or mobile number</label>
           <input id="login-email-or-mobile-1" class="input" [(ngModel)]="identifier" placeholder="you@example.com" />
         </div>
         <div class="field">
@@ -45,7 +45,7 @@ import { AuthService } from '../../core/session/auth.service';
         }
 
         <button class="btn btn-primary btn-block" [disabled]="submitting()" (click)="submit()">
-          {{ submitting() ? 'Signing in' : 'Log In' }}
+          {{ submitting() ? 'Signing in' : 'Log in' }}
         </button>
 
         <div style="text-align:center; margin-top:14px;">
@@ -56,6 +56,7 @@ import { AuthService } from '../../core/session/auth.service';
           Don't have an account? <a routerLink="/register">Register</a>
         </div>
       </div>
+      <a routerLink="/landing" class="auth-home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6" /></svg>Back to home</a>
     </div>
   `,
 })

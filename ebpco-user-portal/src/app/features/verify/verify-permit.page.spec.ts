@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import { VerifyPermitPage } from './verify-permit.page';
 import { CitizenApiClient } from '../../core/api/citizen-api.client';
@@ -19,6 +19,8 @@ function render(permitNumber: string, answer: () => Observable<PublicPermitRecor
   TestBed.configureTestingModule({
     imports: [VerifyPermitPage],
     providers: [
+      // The page links back to the home page (one auth layout, 2026-11-03).
+      provideRouter([]),
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ permitNumber }) } } },
       { provide: CitizenApiClient, useValue: {
           configured: true,

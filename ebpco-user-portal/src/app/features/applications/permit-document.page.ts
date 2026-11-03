@@ -39,7 +39,7 @@ interface QrCell {
   template: `
     @if (app(); as a) {
       <div class="page" style="max-width:900px;">
-        <div class="no-print" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <div class="no-print doc-toolbar">
           <app-back-link [fallback]="'/applications/' + a.id" fallbackLabel="Application" />
           <button class="btn btn-primary btn-sm" (click)="print()">Print / Download</button>
         </div>
@@ -168,7 +168,7 @@ interface QrCell {
                     <tbody>
                       <tr>
                         <td><strong>Total Amount Due</strong></td>
-                        <td><strong>{{ pesos(real.totalCentavos) }}</strong></td>
+                        <td class="num"><strong>{{ pesos(real.totalCentavos) }}</strong></td>
                       </tr>
                       <tr>
                         <td>Payment Status</td>
@@ -179,23 +179,23 @@ interface QrCell {
                 } @else if (isDemo(asmt); as demo) {
                   <table class="doc-generated-table">
                     <thead>
-                      <tr><th>Fee</th><th>Authority</th><th>Amount</th></tr>
+                      <tr><th>Fee</th><th>Authority</th><th class="num">Amount</th></tr>
                     </thead>
                     <tbody>
                       @for (line of demo.lineItems; track line.code) {
                         <tr>
                           <td>{{ line.name }}</td>
                           <td>{{ line.legalBasisTitle || line.authority }}</td>
-                          <td>{{ line.amountCentavos !== null ? pesos(line.amountCentavos) : 'Pending' }}</td>
+                          <td class="num">{{ line.amountCentavos !== null ? pesos(line.amountCentavos) : 'Pending' }}</td>
                         </tr>
                       }
                       <tr>
                         <td colspan="2"><strong>Total Amount Due</strong></td>
-                        <td><strong>{{ pesos(demo.totalCentavos) }}</strong></td>
+                        <td class="num"><strong>{{ pesos(demo.totalCentavos) }}</strong></td>
                       </tr>
                       <tr>
                         <td colspan="2">Outstanding Balance</td>
-                        <td>{{ pesos(demo.balanceCentavos) }}</td>
+                        <td class="num">{{ pesos(demo.balanceCentavos) }}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -244,7 +244,7 @@ interface QrCell {
                  not the office's, and it contradicted "Valid Until" above. -->
 
             <section class="doc-generated-section doc-generated-signature">
-              <h2 style="text-align:left; border:none;">Approval</h2>
+              <h2>Approval</h2>
               <div class="sig-pending">Pending Authorized Signature</div>
               <div class="sig-line"></div>
               <div class="sig-name">{{ permit()?.approvingOfficial ?? 'Not on file' }}</div>

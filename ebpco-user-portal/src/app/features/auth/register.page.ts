@@ -31,10 +31,11 @@ const APPLICANT_TYPES: readonly { value: RegisteredAs; title: string; descriptio
   selector: 'app-register',
   imports: [FormsModule, RouterLink, CapitalizeNameDirective, NgTemplateOutlet, LegalModalComponent, ValidIdFieldsComponent, StepperComponent],
   template: `
-    <div style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;">
-      <div class="card auth-card anim-pop-in" style="width:100%; max-width:520px;">
-        <div style="text-align:center; margin-bottom:12px;">
-          <h2>Create Your Account</h2>
+    <div class="auth-screen">
+      <div class="card auth-card anim-pop-in">
+        <div class="auth-head">
+          <img src="logo.png" alt="eBPCO" class="auth-logo" />
+          <h2>Create your account</h2>
           <p class="muted small">Step {{ step() }} of 5</p>
         </div>
         <app-stepper [steps]="signUpSteps" [current]="step() - 1" label="Sign-up steps" />
@@ -255,8 +256,9 @@ const APPLICANT_TYPES: readonly { value: RegisteredAs; title: string; descriptio
         }
 
         <hr class="divider" />
-        <div style="text-align:center;" class="small muted">Already have an account? <a routerLink="/login">Log In</a></div>
+        <div style="text-align:center;" class="small muted">Already have an account? <a routerLink="/login">Log in</a></div>
       </div>
+      <a routerLink="/landing" class="auth-home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6" /></svg>Back to home</a>
     </div>
 
     <ng-template #eyeIcon let-open="open">

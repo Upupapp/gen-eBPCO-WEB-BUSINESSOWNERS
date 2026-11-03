@@ -51,7 +51,7 @@ const ICONS = {
           <h1>My Businesses</h1>
           <div class="subtitle">Manage the businesses registered under your account.</div>
         </div>
-        <a routerLink="/businesses/register" class="btn btn-primary">+ Register Business</a>
+        <a routerLink="/businesses/register" class="btn btn-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg> Register a business</a>
       </div>
 
       @if (!store.usingReal()) {

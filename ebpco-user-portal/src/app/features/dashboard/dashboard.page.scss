@@ -79,101 +79,95 @@
 }
 
 // ---------------------------------------------------------------------------
-// KPI cards. Brand red for My Businesses; the others in the tone that matches
-// what they count (info, needs you, done).
+// Summary tiles, drawn like the Payments tiles: a small tone icon beside the
+// label, the number, one muted line. No coloured strip, no 44px circle.
 // ---------------------------------------------------------------------------
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  gap: 14px;
   margin-bottom: 16px;
 }
 
 .kpi-card {
   --kpi-tone: var(--gray-600);
   --kpi-soft: var(--gray-100);
-  position: relative;
-  min-height: 132px;
+  padding: 18px 20px;
+  border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
   background: var(--surface);
-  border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
-  overflow: hidden;
-  padding: 20px 16px 14px 16px;
   display: flex;
   flex-direction: column;
 }
-.kpi-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--kpi-tone);
-}
-.kpi-card.theme-red { --kpi-tone: var(--primary-500); --kpi-soft: var(--primary-50); }
+.kpi-card.theme-red { --kpi-tone: var(--primary-600); --kpi-soft: var(--primary-100); }
 .kpi-card.theme-blue { --kpi-tone: var(--info-text); --kpi-soft: var(--info-100); }
 .kpi-card.theme-orange { --kpi-tone: var(--warning-text); --kpi-soft: var(--warning-100); }
 .kpi-card.theme-green { --kpi-tone: var(--success-text); --kpi-soft: var(--success-100); }
 
-.kpi-main {
+.kpi-label {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-600);
 }
-
-.kpi-icon-shell {
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  border-radius: 50%;
+.kpi-icon {
   display: grid;
   place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
   background: var(--kpi-soft);
   color: var(--kpi-tone);
 }
-.kpi-icon-core {
-  display: grid;
-  place-items: center;
-}
-.kpi-icon-core svg { width: 22px; height: 22px; }
-
-.kpi-copy { min-width: 0; }
-.kpi-label {
-  font-size: 13px;
-  line-height: 1.3;
-  font-weight: 500;
-  color: var(--ink-600);
-}
+.kpi-icon svg { width: 16px; height: 16px; }
 .kpi-value {
-  margin-top: 4px;
-  font-size: 26px;
-  line-height: 1;
+  margin-top: 10px;
+  font-size: 24px;
+  line-height: 1.2;
   font-weight: 700;
-  color: var(--ink-900);
+  letter-spacing: -0.01em;
+  color: var(--gray-900);
   font-variant-numeric: tabular-nums;
 }
-
-.kpi-footer {
-  margin-top: auto;
-  padding-top: 10px;
-  border-top: 1px solid var(--divider);
+.kpi-note {
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--gray-500);
 }
-.kpi-footer-link,
-.kpi-footer-text {
+a.kpi-note {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--ink-500);
+  align-self: flex-start;
+  color: var(--primary-500);
+  font-weight: 600;
   text-decoration: none;
 }
-.kpi-footer-link { color: var(--brand-red); font-weight: 600; }
-.kpi-footer-link:hover { text-decoration: underline; text-underline-offset: 2px; }
-.kpi-footer-link svg,
-.kpi-footer-text svg { width: 13px; height: 13px; flex-shrink: 0; }
+a.kpi-note:hover { text-decoration: underline; text-underline-offset: 2px; }
+a.kpi-note svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+// ---------------------------------------------------------------------------
+// Needs your attention: what is waiting on the citizen, each with its action.
+// ---------------------------------------------------------------------------
+.attention { margin-bottom: 16px; }
+.attention-list { list-style: none; padding: 0; }
+.attention-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  padding: 8px 0;
+  border-top: 1px solid var(--warning-200);
+}
+.attention-item:first-child { border-top: none; padding-top: 4px; }
+.attention-item:last-child { padding-bottom: 0; }
+.attention-text { min-width: 0; color: var(--gray-700); }
+.attention-text strong { color: var(--gray-900); font-weight: 600; }
 
 // ---------------------------------------------------------------------------
 // Lower two-column section. Each panel is as tall as its content: an empty
@@ -241,6 +235,20 @@
 }
 .panel-view-all:hover { text-decoration: underline; text-underline-offset: 3px; }
 .panel-view-all svg { width: 13px; height: 13px; }
+// Under a list cut at five rows.
+.panel-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary-500);
+  text-decoration: none;
+}
+.panel-more:hover { text-decoration: underline; text-underline-offset: 3px; }
+.panel-more svg { width: 13px; height: 13px; }
 
 // Inside a panel the global empty state needs less room.
 .panel .empty-state { padding: 16px 8px 8px; }
@@ -349,7 +357,8 @@
 // ---------------------------------------------------------------------------
 // Focus
 // ---------------------------------------------------------------------------
-.kpi-footer-link:focus-visible,
+a.kpi-note:focus-visible,
+.panel-more:focus-visible,
 .panel-view-all:focus-visible,
 .application-row:focus-visible {
   outline: 2px solid var(--primary-500);

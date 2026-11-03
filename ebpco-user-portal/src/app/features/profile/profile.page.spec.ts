@@ -130,7 +130,7 @@ describe('ProfilePage (preferences round-trip through the real backend)', () => 
     const labels = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].map(
       (b) => b.textContent?.trim() ?? '',
     );
-    expect(labels).toContain('Save Preferences');
+    expect(labels).toContain('Save preferences');
     http.verify();
   });
 });
@@ -326,7 +326,7 @@ describe('ProfilePage (verify my email)', () => {
     button(el, 'Confirm')!.click();
     await stable();
     await stable();
-    expect(el.textContent).toContain('Email: Verified');
+    expect(el.querySelector('.profile-email-status')?.textContent).toMatch(/\bVerified\b/);
     expect(button(el, 'Verify my email')).toBeUndefined();
   });
 });

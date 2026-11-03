@@ -19,23 +19,24 @@ import { firstPasswordRejectionMessage, passwordChecks } from '../../core/domain
   selector: 'app-reset-password',
   imports: [FormsModule, RouterLink, NgTemplateOutlet],
   template: `
-    <div style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;">
-      <div class="card auth-card anim-pop-in" style="width:100%; max-width:400px;">
+    <div class="auth-screen">
+      <div class="card auth-card anim-pop-in">
+        <img src="logo.png" alt="eBPCO" class="auth-logo" />
         @if (outcome() === 'done') {
-          <h2>Password Set</h2>
+          <h2>Password set</h2>
           <p class="small" style="margin-bottom:16px;">
             Your password has been set. You can now sign in with it.
           </p>
           <a routerLink="/login" class="btn btn-primary btn-block">Log In</a>
         } @else if (outcome() === 'invalid-link' || !hasToken) {
-          <h2>That Link Is No Longer Valid</h2>
+          <h2>That link is no longer valid</h2>
           <p class="small" style="margin-bottom:16px;">
             This link may have expired, already been used, or been typed incorrectly. Request a new
             one from the sign-in screen.
           </p>
-          <a routerLink="/forgot-password" class="btn btn-primary btn-block">Request a New Link</a>
+          <a routerLink="/forgot-password" class="btn btn-primary btn-block">Request a new link</a>
         } @else {
-          <h2>Set a New Password</h2>
+          <h2>Set a new password</h2>
           <p class="muted small" style="margin-bottom:16px;">Choose a new password for your account.</p>
           <div class="field">
             <label for="reset-password-new-1">New Password</label>
@@ -66,13 +67,14 @@ import { firstPasswordRejectionMessage, passwordChecks } from '../../core/domain
           </div>
           @if (formError()) { <div class="field error">{{ formError() }}</div> }
           <button class="btn btn-primary btn-block" [disabled]="submitting()" (click)="submit()">
-            {{ submitting() ? 'Setting…' : 'Set Password' }}
+            {{ submitting() ? 'Setting…' : 'Set password' }}
           </button>
         }
         <div style="text-align:center; margin-top:16px;">
-          <a routerLink="/login" class="small">Back to Log In</a>
+          <a routerLink="/login" class="small">Back to log in</a>
         </div>
       </div>
+      <a routerLink="/landing" class="auth-home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6" /></svg>Back to home</a>
     </div>
 
     <ng-template #eyeIcon let-open="open">

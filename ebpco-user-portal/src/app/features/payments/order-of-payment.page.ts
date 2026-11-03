@@ -37,7 +37,7 @@ const FEE_LINES: ReadonlyArray<{ code: keyof Order['fees']; name: string }> = [
   template: `
     @if (app(); as a) {
       <div class="page" style="max-width:900px;">
-        <div class="no-print" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <div class="no-print doc-toolbar">
           <app-back-link fallback="/payments" fallbackLabel="Payments" />
           @if (order()) {
             <button class="btn btn-primary btn-sm" (click)="print()">Print / Download</button>
@@ -91,12 +91,12 @@ const FEE_LINES: ReadonlyArray<{ code: keyof Order['fees']; name: string }> = [
             <section class="doc-generated-section">
               <h2>Fees</h2>
               <table class="doc-generated-table">
-                <thead><tr><th>Fee</th><th>Amount</th></tr></thead>
+                <thead><tr><th>Fee</th><th class="num">Amount</th></tr></thead>
                 <tbody>
                   @for (line of lines(); track line.code) {
-                    <tr><td>{{ line.name }}</td><td>{{ pesos(line.amountCentavos) }}</td></tr>
+                    <tr><td>{{ line.name }}</td><td class="num">{{ pesos(line.amountCentavos) }}</td></tr>
                   }
-                  <tr><td><strong>Total Amount Due</strong></td><td><strong>{{ pesos(o.totalCentavos) }}</strong></td></tr>
+                  <tr><td><strong>Total Amount Due</strong></td><td class="num"><strong>{{ pesos(o.totalCentavos) }}</strong></td></tr>
                 </tbody>
               </table>
               <p class="doc-generated-note">

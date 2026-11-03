@@ -4,6 +4,7 @@ import { BFP_FSIS_URL, PERMIT_TYPE_GROUPS, PermitType } from '../../core/domain/
 import { REQUIREMENTS_CATALOG } from '../../core/domain/requirements-catalog';
 import { permitVisual } from '../../core/domain/permit-visual';
 import { applicantKindsChip, usualUseNote } from '../../core/domain/applicant-kinds';
+import type { ApplyingAs } from '../../core/domain/application.model';
 import { PermitTypesStore } from '../../core/stores/permit-types.store';
 import { RequirementsModalComponent } from '../../shared/ui/requirements-modal.component';
 import { VerificationBannerComponent } from '../../shared/ui/verification-banner.component';
@@ -76,11 +77,14 @@ import { VerificationBannerComponent } from '../../shared/ui/verification-banner
                 </div>
                 <!--
                   Who may apply (migration 068): every type is open to homes and
-                  businesses unless the Municipality restricted it. Facts, not
-                  statuses, so quiet neutral tags.
+                  businesses unless the Municipality restricted it, so the chip
+                  shows only on a restricted type ("Homes & businesses" on all
+                  sixteen cards said nothing). Facts, not statuses: neutral chips.
                 -->
                 <div class="permit-card__tags">
-                  <span class="tag permit-card__kinds">{{ applicantKindsChip(kinds) }}</span>
+                  @if (restricted(kinds)) {
+                    <span class="tag permit-card__kinds">{{ applicantKindsChip(kinds) }}</span>
+                  }
                   <span class="tag">{{ documentCount(type) }} documents</span>
                 </div>
                 @if (usualUseNote(type, kinds); as note) {
@@ -88,10 +92,13 @@ import { VerificationBannerComponent } from '../../shared/ui/verification-banner
                 }
               </div>
 
-              <!-- A quiet Requirements beside one compact Start: these were two full-width bars on every card. -->
+              <!-- One primary per card (Start), Requirements a small secondary with an icon, both at the card's edges. -->
               <div class="permit-card__footer">
-                <button type="button" class="btn btn-ghost btn-sm" [attr.aria-label]="'Requirements for ' + type" (click)="openRequirements(type)">Requirements</button>
-                <a class="btn btn-primary btn-sm" [attr.aria-label]="'Start Application for ' + type" [routerLink]="['/permits/apply']" [queryParams]="startParams(type)">Start Application</a>
+                <button type="button" class="btn btn-secondary btn-sm" [attr.aria-label]="'Requirements for ' + type" (click)="openRequirements(type)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01" /></svg>
+                  Requirements
+                </button>
+                <a class="btn btn-primary btn-sm" [attr.aria-label]="'Start Application for ' + type" [routerLink]="['/permits/apply']" [queryParams]="startParams(type)">Start application</a>
               </div>
             </div>
           }
@@ -188,6 +195,11 @@ export class PermitCatalogPage {
 
   constructor() {
     this.permitTypes.load();
+  }
+
+  /** Only a type the Municipality opened to homes OR businesses, not both, says who may apply. */
+  protected restricted(kinds: readonly ApplyingAs[]): boolean {
+    return !(kinds.includes('residential') && kinds.includes('business'));
   }
 
   protected startParams(type: PermitType): Record<string, string> {

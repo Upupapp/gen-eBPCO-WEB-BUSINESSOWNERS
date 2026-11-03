@@ -48,9 +48,9 @@ import { REGISTERED_BEFORE_EBPCO_LABEL } from '../../core/domain/earlier-records
               >{{ changingStatus() ? 'Reactivating…' : 'Reactivate' }}</button>
             }
             @if (b.status === 'Active') {
-              <a [routerLink]="['/permits']" [queryParams]="{ businessId: b.id }" class="btn btn-primary">Apply for Permit</a>
+              <a [routerLink]="['/permits']" [queryParams]="{ businessId: b.id }" class="btn btn-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" /><path d="M14 3v4h4M12 12v6M9 15h6" /></svg> Apply for a permit</a>
             } @else {
-              <button type="button" class="btn btn-primary" (click)="applyForInactive()">Apply for Permit</button>
+              <button type="button" class="btn btn-primary" (click)="applyForInactive()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" /><path d="M14 3v4h4M12 12v6M9 15h6" /></svg> Apply for a permit</button>
             }
           </div>
         </div>
@@ -62,14 +62,17 @@ import { REGISTERED_BEFORE_EBPCO_LABEL } from '../../core/domain/earlier-records
         }
 
         <div class="card" style="margin-bottom:16px;">
-          <div class="card-title">Business Address</div>
+          <div class="card-title">Business address</div>
           <p style="margin:0;">{{ b.street }}, Barangay {{ b.barangay }}, {{ b.city }}, {{ b.province }}</p>
         </div>
 
         <div class="card">
           <div class="card-title">Applications for this Business</div>
           @if (appsForBusiness().length === 0) {
-            <div class="empty-state">No applications filed yet for this business.</div>
+            <div class="empty-state empty-state--file">
+              <span class="empty-state-title">No applications yet</span>
+              <p>Applications filed for this business show here.</p>
+            </div>
           } @else {
             <table class="table">
               <thead><tr><th>Application No.</th><th>Permit Type</th><th>Status</th><th>Submitted</th></tr></thead>

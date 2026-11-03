@@ -27,9 +27,12 @@ import { CitizenApiClient } from '../../core/api/citizen-api.client';
   selector: 'app-forgot-password',
   imports: [RouterLink, FormsModule],
   template: `
-    <div style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;">
-      <div class="card auth-card anim-pop-in" style="width:100%; max-width:400px;">
-        <h2>Password Reset</h2>
+    <div class="auth-screen">
+      <div class="card auth-card anim-pop-in">
+        <div class="auth-head">
+          <img src="logo.png" alt="eBPCO" class="auth-logo" />
+          <h2>Reset your password</h2>
+        </div>
 
         @if (!api.configured) {
           <p class="small" style="margin-bottom:12px;">
@@ -66,14 +69,15 @@ import { CitizenApiClient } from '../../core/api/citizen-api.client';
           </div>
           @if (error()) { <div class="field error">{{ error() }}</div> }
           <button class="btn btn-primary btn-block" [disabled]="submitting()" (click)="submit()">
-            {{ submitting() ? 'Sending…' : 'Send Reset Link' }}
+            {{ submitting() ? 'Sending…' : 'Send reset link' }}
           </button>
         }
 
         <div style="text-align:center; margin-top:16px;">
-          <a routerLink="/login" class="small">Back to Log In</a>
+          <a routerLink="/login" class="small">Back to log in</a>
         </div>
       </div>
+      <a routerLink="/landing" class="auth-home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6" /></svg>Back to home</a>
     </div>
   `,
 })

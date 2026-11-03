@@ -203,9 +203,10 @@ describe('Permit Services: who may apply for each type', () => {
     return card(fixture, type).querySelector('.permit-card__kinds')?.textContent?.trim();
   }
 
-  it('says "Homes & businesses" on every card when no API answers', () => {
+  // Open to both (the default) shows no chip: "Homes & businesses" on every card said nothing.
+  it('says nothing about who may apply on any card when no API answers', () => {
     const fixture = render(false);
-    for (const type of ALL_TYPES) expect(chip(fixture, type), type).toBe('Homes & businesses');
+    for (const type of ALL_TYPES) expect(chip(fixture, type), type).toBeUndefined();
   });
 
   it('shows what the server says, and both for a type it leaves out or sends without kinds', () => {
@@ -221,9 +222,9 @@ describe('Permit Services: who may apply for each type', () => {
     fixture.detectChanges();
     expect(chip(fixture, 'Sign Permit')).toBe('Business only');
     expect(chip(fixture, 'Fencing Permit')).toBe('Residential only');
-    expect(chip(fixture, 'Building Permit')).toBe('Homes & businesses');
-    expect(chip(fixture, 'Demolition Permit')).toBe('Homes & businesses');
-    expect(chip(fixture, 'Excavation Permit')).toBe('Homes & businesses');
+    expect(chip(fixture, 'Building Permit')).toBeUndefined();
+    expect(chip(fixture, 'Demolition Permit')).toBeUndefined();
+    expect(chip(fixture, 'Excavation Permit')).toBeUndefined();
   });
 
   it('hides nothing when the server cannot answer', () => {
@@ -231,7 +232,7 @@ describe('Permit Services: who may apply for each type', () => {
     TestBed.inject(HttpTestingController).expectOne(`${BASE}/permit-types`)
       .flush('Not Found', { status: 404, statusText: 'Not Found' });
     fixture.detectChanges();
-    for (const type of ALL_TYPES) expect(chip(fixture, type), type).toBe('Homes & businesses');
+    for (const type of ALL_TYPES) expect(chip(fixture, type), type).toBeUndefined();
   });
 
   it('says who usually applies on the Sign, Fencing, Interior Design and Certificate of Occupancy cards only', () => {

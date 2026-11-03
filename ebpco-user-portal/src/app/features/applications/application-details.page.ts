@@ -1,9 +1,9 @@
-import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
+import { Component, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { blankFormFor } from '../../core/domain/permit-form-assets';
 import { firstValueFrom } from 'rxjs';
 import { ApplicationStore } from '../../core/stores/application.store';
-import { StatusPillComponent } from '../../shared/ui/status-pill.component';
+import { StatusPillComponent, statusTone } from '../../shared/ui/status-pill.component';
 import { ApplicationLifecycleStatus, applicantStatusLabel, applicantStatusOf, isTerminalStatus } from '../../core/domain/status.model';
 import { pesos } from '../../core/domain/assessment.model';
 import { formatDate, formatDateTime } from '../../core/utils/ids';
@@ -45,6 +45,18 @@ const PERMIT_STATUSES: ReadonlySet<ApplicationLifecycleStatus> = new Set<Applica
   'Permit Generated', 'Ready for Release', 'Out for Delivery', 'Released', 'Completed',
 ]);
 
+/**
+ * The statuses at which documents can still be added to the application: the
+ * "Still needed" rows show only then (they listed nine "Choose file" buttons on
+ * an approved application).
+ */
+const DOCUMENTS_OPEN: ReadonlySet<ApplicationLifecycleStatus> = new Set<ApplicationLifecycleStatus>([
+  'Draft', 'Submitted', 'Received', 'Document Verification', 'Revision Required',
+]);
+
+/** What the Next step callout under the tracker asks the citizen to do. */
+type NextKind = 'revision' | 'pay' | 'delivery' | 'returned' | 'collect' | 'info';
+
 /** The five stages a citizen follows an application through (house style 2026-11-03). */
 const STAGES = ['Submitted', 'Review', 'Payment', 'Approved', 'Release'] as const;
 
@@ -83,11 +95,10 @@ const STAGE_OF: Partial<Record<ApplicationLifecycleStatus, number>> = {
     DocumentPreviewComponent, BackLinkComponent, StepperComponent,
   ],
   styles: [`
-    .status-card .stepper { margin: 4px 0 20px; }
-    .next-step { margin: 0; font-size: 14px; color: var(--gray-700); }
     .status-card > .callout, .status-card > .demo-row { margin-top: 16px; }
-    .status-card > .callout:first-child { margin-top: 0; }
+    .status-card > .callout:first-child, .status-card > app-stepper + .callout { margin-top: 0; }
     .demo-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .next-step-facts { font-variant-numeric: tabular-nums; }
     .revision-remarks {
       padding: 2px 12px; border: 1px solid var(--warning-200); border-radius: var(--radius-md); background: var(--surface);
     }
@@ -102,25 +113,33 @@ const STAGE_OF: Partial<Record<ApplicationLifecycleStatus, number>> = {
     .withdraw-row > .callout { flex: 1 1 100%; }
     .fees-due { margin: -4px 0 12px; }
     .card-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
-    .missing-list { list-style: none; margin: 0; padding: 0; }
-    .missing-item {
-      display: flex; align-items: center; justify-content: space-between; gap: 12px;
-      padding: 12px 0; border-top: 1px solid var(--border-light);
-    }
-    .missing-item:first-child { border-top: none; padding-top: 0; }
-    .missing-name { min-width: 0; color: var(--gray-800); font-weight: 500; }
-    .missing-form { display: block; margin-top: 2px; font-weight: 400; }
+    .permit-facts { margin-top: 16px; }
+    /* Main column and right rail: side by side when both fit, else one column. */
+    .detail-layout { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px 24px; }
+    .detail-main { flex: 999 1 520px; min-width: 0; }
+    .detail-rail { flex: 1 1 340px; min-width: 0; }
+    .doc-subhead { display: flex; flex-direction: column; gap: 2px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-light); }
+    .card-title + .doc-subhead { margin-top: 0; padding-top: 0; border-top: none; }
+    .doc-subhead-title { font-size: 13px; font-weight: 600; color: var(--gray-800); }
+    .doc-subhead + .doc-list { margin-top: 4px; }
+    .doc-upload-input { display: none; }
+    /* Status timeline: newest first, a dot per update on one vertical line. */
     .timeline { list-style: none; margin: 0; padding: 0; }
-    .timeline-item { display: flex; gap: 16px; padding: 10px 0; border-top: 1px solid var(--border-light); }
-    .timeline-item:first-child { border-top: none; padding-top: 0; }
-    .timeline-when { flex: 0 0 170px; white-space: nowrap; }
-    .timeline-status { font-weight: 600; color: var(--gray-900); }
-    .timeline-step { font-weight: 400; color: var(--gray-500); }
-    @media (max-width: 560px) {
-      .timeline-item { flex-direction: column; gap: 2px; }
-      .timeline-when { flex: none; }
-      .missing-item { flex-wrap: wrap; }
+    .timeline-item { position: relative; padding: 0 0 16px 24px; }
+    .timeline-item:last-child { padding-bottom: 0; }
+    .timeline-item::before {
+      content: ''; position: absolute; left: 0; top: 5px; width: 10px; height: 10px; border-radius: 50%;
+      background: var(--surface); border: 2px solid var(--gray-300); box-sizing: border-box;
     }
+    .timeline-item.timeline-latest::before { background: var(--primary-500); border-color: var(--primary-500); box-shadow: 0 0 0 3px var(--primary-100); }
+    .timeline-item::after {
+      content: ''; position: absolute; left: 4px; top: 19px; bottom: -2px; width: 2px; border-radius: 2px; background: var(--gray-200);
+    }
+    .timeline-item:last-child::after { display: none; }
+    .timeline-status { font-size: 14px; font-weight: 600; line-height: 20px; color: var(--gray-900); }
+    .timeline-step { font-size: 12.5px; line-height: 18px; color: var(--gray-500); }
+    .timeline-remarks { margin-top: 4px; font-size: 13px; line-height: 1.45; color: var(--gray-700); white-space: pre-line; }
+    .timeline-when { display: block; margin-top: 2px; font-size: 12px; line-height: 18px; color: var(--gray-500); font-variant-numeric: tabular-nums; }
   `],
   template: `
     @if (app(); as a) {
@@ -143,9 +162,10 @@ const STAGE_OF: Partial<Record<ApplicationLifecycleStatus, number>> = {
         </div>
 
         <!--
-          One stack, so every section is 16px from the next. The cards inside
-          <app-permit-release> and <app-permit-delivery> touched the ones
-          around them: .card + .card cannot see across a component's host.
+          Where it stands, full width; then two columns when there is room:
+          what was filed (details, documents, fees) and a right rail (the
+          permit, how it reaches the citizen, the timeline). Each column is a
+          stack, so every section is 16px from the next.
         -->
         <div class="stack">
           <div class="card status-card">
@@ -168,44 +188,107 @@ const STAGE_OF: Partial<Record<ApplicationLifecycleStatus, number>> = {
               @if (stage >= 0) {
                 <app-stepper [steps]="stages" [current]="stage" label="Application progress" />
               }
-              <p class="next-step">{{ store.nextStepText(a.lifecycleStatus) }}</p>
-            }
 
-            @if (a.lifecycleStatus === 'Revision Required' && api.configured) {
-              <div class="callout callout-warning" role="region" aria-label="Send back to the office">
-                <strong class="callout-title">
-                  {{ returnedNotReplaced().length === 0 ? 'Ready to send back' : 'The office returned this application' }}
-                </strong>
-                @if (letters().length > 0) {
-                  <div class="revision-remarks">
-                    <div class="small muted revision-remarks-title">What the office needs from you</div>
-                    @for (letter of letters(); track letter.letterId) {
-                      @for (item of letter.items; track item.id) {
-                        <div class="revision-remark">
-                          <p>{{ item.remark }}</p>
-                          <div class="small muted">Sent {{ formatDateTime(letter.issuedAt) }}</div>
-                        </div>
+              <!-- Next step: the one thing this status asks of the citizen, right under the tracker. -->
+              @switch (nextKind(a)) {
+                @case ('revision') {
+                  <div class="callout callout-warning" role="region" aria-label="Send back to the office">
+                    <strong class="callout-title">
+                      {{ returnedNotReplaced().length === 0 ? 'Ready to send back' : 'The office returned this application' }}
+                    </strong>
+                    @if (letters().length > 0) {
+                      <div class="revision-remarks">
+                        <div class="small muted revision-remarks-title">What the office needs from you</div>
+                        @for (letter of letters(); track letter.letterId) {
+                          @for (item of letter.items; track item.id) {
+                            <div class="revision-remark">
+                              <p>{{ item.remark }}</p>
+                              <div class="small muted">Sent {{ formatDateTime(letter.issuedAt) }}</div>
+                            </div>
+                          }
+                        }
+                      </div>
+                    }
+                    @if (returnedNotReplaced().length === 0) {
+                      <p>
+                        When you have made the changes the office asked for (replace or add documents below), send the
+                        application back so the office can continue evaluating it.
+                      </p>
+                    } @else {
+                      <p>
+                        Replace {{ returnedNotReplaced().length === 1 ? 'the returned document' : 'the ' + returnedNotReplaced().length + ' returned documents' }}
+                        below ({{ returnedNotReplacedNames() }}), then send the application back to the office.
+                      </p>
+                    }
+                    <div class="callout-actions">
+                      <button class="btn btn-primary btn-sm" [disabled]="sendingBack() || returnedNotReplaced().length > 0" (click)="sendBack(a.id)">
+                        {{ sendingBack() ? 'Sending…' : 'Send back to the office' }}
+                      </button>
+                      @if (returnedNotReplaced().length > 0) {
+                        <button type="button" class="btn btn-secondary btn-sm" (click)="scrollToCard('application-documents')">Go to documents</button>
                       }
+                    </div>
+                  </div>
+                }
+                @case ('pay') {
+                  @let due = fees();
+                  <div class="callout callout-warning">
+                    <strong class="callout-title">Pay {{ pesos(due?.balanceCentavos ?? 0) }} to continue</strong>
+                    <p>
+                      {{ store.nextStepText(a.lifecycleStatus) }}
+                      @if (due?.dueDate) { Pay on or before {{ formatDate(due?.dueDate ?? null) }}. }
+                    </p>
+                    <div class="callout-actions">
+                      <a class="btn btn-primary btn-sm" [routerLink]="['/payments', a.id]">Pay Now</a>
+                    </div>
+                  </div>
+                }
+                @case ('delivery') {
+                  @let d = deliveryState()?.delivery;
+                  <div class="callout" [class]="d?.status === 'delivered' ? 'callout-success' : 'callout-violet'">
+                    <strong class="callout-title">
+                      {{ d?.status === 'delivered' ? 'The courier delivered your permit' : 'Your permit is on its way' }}
+                    </strong>
+                    <p>
+                      {{ d?.status === 'delivered' ? 'Confirm once the permit is in your hands.' : store.nextStepText(a.lifecycleStatus) }}
+                    </p>
+                    @if (d?.trackingNumber) {
+                      <p class="next-step-facts">
+                        Tracking no. <strong>{{ d?.trackingNumber }}</strong>@if (d?.courier) { · {{ d?.courier }} }
+                      </p>
+                    }
+                    @if (deliveryState()?.canConfirmReceipt) {
+                      <div class="callout-actions">
+                        <button type="button" class="btn btn-primary btn-sm" (click)="confirmReceipt()">I received my permit</button>
+                      </div>
                     }
                   </div>
                 }
-                @if (returnedNotReplaced().length === 0) {
-                  <p>
-                    When you have made the changes the office asked for (replace or add documents below), send the
-                    application back so the office can continue evaluating it.
-                  </p>
-                } @else {
-                  <p>
-                    Replace {{ returnedNotReplaced().length === 1 ? 'the returned document' : 'the ' + returnedNotReplaced().length + ' returned documents' }}
-                    below ({{ returnedNotReplacedNames() }}), then send the application back to the office.
-                  </p>
+                @case ('returned') {
+                  <div class="callout callout-warning">
+                    <strong class="callout-title">The courier brought your permit back</strong>
+                    <p>Claim it at the office, or ask for delivery again.</p>
+                    <div class="callout-actions">
+                      <button type="button" class="btn btn-secondary btn-sm" (click)="scrollToCard('permit-delivery-card')">See your options</button>
+                    </div>
+                  </div>
                 }
-                <div class="callout-actions">
-                  <button class="btn btn-primary btn-sm" [disabled]="sendingBack() || returnedNotReplaced().length > 0" (click)="sendBack(a.id)">
-                    {{ sendingBack() ? 'Sending…' : 'Send Back to the Office' }}
-                  </button>
-                </div>
-              </div>
+                @case ('collect') {
+                  <div class="callout callout-success">
+                    <strong class="callout-title">Your permit is ready to collect</strong>
+                    <p>{{ store.nextStepText(a.lifecycleStatus) }}</p>
+                    <div class="callout-actions">
+                      <button type="button" class="btn btn-secondary btn-sm" (click)="scrollToCard('your-permit')">Where and when to collect it</button>
+                    </div>
+                  </div>
+                }
+                @default {
+                  <div class="callout" [class]="nextTone(a.lifecycleStatus)">
+                    <strong class="callout-title">{{ a.lifecycleStatus === 'Completed' || a.lifecycleStatus === 'Released' ? 'All done' : 'Next step' }}</strong>
+                    <p>{{ store.nextStepText(a.lifecycleStatus) }}</p>
+                  </div>
+                }
+              }
             }
 
             @if (!isTerminal(a.lifecycleStatus) && !store.isReal(a.id)) {
@@ -219,7 +302,7 @@ const STAGE_OF: Partial<Record<ApplicationLifecycleStatus, number>> = {
             @if (canCancel(a)) {
               <div class="withdraw-row">
                 @if (!confirmingCancel()) {
-                  <button class="btn btn-danger-outline btn-sm" (click)="confirmingCancel.set(true)">Withdraw Application</button>
+                  <button class="btn btn-danger-outline btn-sm" (click)="confirmingCancel.set(true)">Withdraw application</button>
                   <span class="small muted">
                     Available while your application waits to be received, or while it is returned to you for changes.
                   </span>
@@ -239,186 +322,202 @@ const STAGE_OF: Partial<Record<ApplicationLifecycleStatus, number>> = {
             }
           </div>
 
-          <!-- What the citizen entered in the Details step (QA TC-23): staff saw it, the citizen never did. -->
-          @if (projectDetails(a); as details) {
-            <div class="card">
-              <div class="card-title">Project Details</div>
-              <dl class="kv">
-                @for (row of details; track row.label) {
-                  <div [class.kv-wide]="row.wide"><dt>{{ row.label }}</dt><dd style="white-space:pre-line;">{{ row.value }}</dd></div>
-                }
-              </dl>
-            </div>
-          }
-
-          @if (permit(); as p) {
-            <div class="card">
-              <div class="card-head">
-                <span class="icon-tile icon-tile-success" aria-hidden="true"></span>
-                <div class="card-title">Your permit has been issued</div>
-                <a class="btn btn-primary btn-sm card-head-action" [routerLink]="['/applications', a.id, 'permit']">Preview Permit</a>
-              </div>
-              <dl class="kv">
-                <div><dt>Permit Number</dt><dd>{{ p.permitNumber }}</dd></div>
-                <div><dt>Issued</dt><dd>{{ formatDate(p.issuedDate) }}</dd></div>
-                <div><dt>Valid Until</dt><dd>{{ p.expiryDate ? formatDate(p.expiryDate) : 'Not recorded by the office' }}</dd></div>
-                <div><dt>Approving Office</dt><dd>{{ p.approvingOffice ?? 'Not on file' }}</dd></div>
-              </dl>
-            </div>
-          }
-
-          @if (fees(); as asmt) {
-            <div class="card">
-              <div class="card-title">Assessment (Order of Payment){{ asmt.opsNumber ? ' · ' + asmt.opsNumber : '' }}</div>
-              @if (asmt.dueDate) {
-                <p class="small muted fees-due">Pay on or before <strong>{{ formatDate(asmt.dueDate) }}</strong>.</p>
-              }
-              <table class="table">
-                <thead><tr><th>Fee</th><th class="num">Amount</th></tr></thead>
-                <tbody>
-                  @for (line of asmt.lineItems; track line.code) {
-                    <tr><td>{{ line.name }}</td><td class="num">{{ line.amountCentavos !== null ? pesos(line.amountCentavos) : 'Pending' }}</td></tr>
-                  }
-                </tbody>
-                <tfoot>
-                  <tr><td>Total</td><td class="num">{{ pesos(asmt.totalCentavos) }}</td></tr>
-                  <tr>
-                    <td>Balance</td>
-                    <td class="num">{{ pesos(asmt.balanceCentavos) }}@if (asmt.pendingVerification) { — pending verification }</td>
-                  </tr>
-                </tfoot>
-              </table>
-              @if (asmt.canPay || asmt.opsNumber) {
-                <div class="card-actions">
-                  @if (asmt.canPay) {
-                    <a class="btn btn-primary btn-sm" [routerLink]="['/payments', a.id]">Pay Now</a>
-                  }
-                  @if (asmt.opsNumber) {
-                    <a class="btn btn-secondary btn-sm" [routerLink]="['/payments', a.id, 'order']">Print Order of Payment</a>
-                  }
-                </div>
-              }
-              @if (asmt.pendingVerification) {
-                <p class="small muted" style="margin:12px 0 0;">Your payment is waiting for the Cashier to verify it.</p>
-              }
-            </div>
-          }
-
-          @if (!closedAs(a.lifecycleStatus)) {
-            <app-permit-release
-              [permitNumber]="permit()?.permitNumber ?? null"
-              [issuedDate]="permit() ? formatDate(permit()!.issuedDate) : null"
-              [release]="release()"
-              [byCourier]="byCourier()"
-              [loading]="permitLoading()"
-            />
-            <!-- Pick up or delivery by courier (migration 070). -->
-            @if (deliveryState(); as delivery) {
-              <app-permit-delivery
-                [applicationId]="a.id"
-                [state]="delivery"
-                [permitNumber]="permit()?.permitNumber ?? null"
-                (stateChange)="deliveryState.set($event)"
-                (received)="onPermitReceived($event)"
-              />
-            }
-          }
-
-          @if (missingRequired().length > 0) {
-            <div class="card">
-              <div class="card-head">
-                <span class="icon-tile icon-tile-warning" aria-hidden="true"></span>
-                <div class="card-head-text">
-                  <div class="card-title">{{ a.lifecycleStatus === 'Revision Required' ? 'Add a Document' : 'Missing Required Documents' }}</div>
-                  <p class="card-subtitle">
-                    {{ a.lifecycleStatus === 'Revision Required'
-                      ? 'Documents not yet on this application. Add any the office asked for.'
-                      : 'The Municipality still needs these to continue reviewing your application.' }}
-                  </p>
-                </div>
-              </div>
-              <!-- One quiet button per row: these used to be a wall of solid red "Choose File" buttons. -->
-              <ul class="missing-list">
-                @for (req of missingRequired(); track req.id) {
-                  <li class="missing-item">
-                    <span class="missing-name">
-                      {{ req.label }}@if (!req.required) { <span class="small muted"> (optional)</span> }
-                      @if (blankFormFor(req.id, req.label); as form) {
-                        <span class="small missing-form">
-                          Blank form: {{ form.label }} &middot;
-                          <a [href]="form.fileName" target="_blank" rel="noopener">View</a> &middot;
-                          <a [href]="form.fileName" [attr.download]="form.downloadName">Download</a>
-                        </span>
-                      }
-                    </span>
-                    <span>
-                      <input
-                        type="file"
-                        [attr.id]="'missing-doc-' + req.id"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        style="display:none;"
-                        [disabled]="uploadingMissingId() === req.id"
-                        (change)="attachMissing(req, $event)"
-                      />
-                      <label
-                        [attr.for]="'missing-doc-' + req.id"
-                        class="btn btn-secondary btn-sm"
-                        style="cursor:pointer;"
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14" /></svg>
-                        {{ uploadingMissingId() === req.id ? 'Sending…' : 'Choose File' }}
-                      </label>
-                    </span>
-                  </li>
-                }
-              </ul>
-            </div>
-          }
-
-          <div class="card">
-            <div class="card-title">Documents</div>
-            <app-application-documents
-              [documents]="contractDocs()"
-              [returned]="a.lifecycleStatus === 'Revision Required'"
-              (replace)="onReplace($event)"
-              (preview)="onPreview($event)"
-            />
-            @if (previewing(); as p) {
-              <app-document-preview
-                [file]="p.file"
-                [fileName]="p.fileName"
-                [fileType]="p.fileType"
-                [label]="p.label"
-                [seeded]="p.file === null"
-                (close)="previewing.set(null)"
-              />
-            }
-          </div>
-
-          <div class="card">
-            <div class="card-title">Status Timeline</div>
-            <ol class="timeline">
-              @for (t of timelineEntries(); track t.timestamp) {
-                <li class="timeline-item">
-                  <div class="small muted timeline-when">{{ formatDateTime(t.timestamp) }}</div>
-                  <div>
-                    <!-- In the pill's words; the office's own step name beside it when it differs. -->
-                    <div class="timeline-status">{{ timelineLabel(t.status) }}@if (timelineStep(t.status); as step) {<span class="timeline-step"> · {{ step }}</span>}</div>
-                    @if (t.remarks) {
-                      <div class="small muted" style="margin-top:2px;">{{ t.remarks }}</div>
+          <div class="detail-layout">
+            <div class="detail-main stack">
+              <!-- What the citizen entered in the Details step (QA TC-23): staff saw it, the citizen never did. -->
+              @if (projectDetails(a); as details) {
+                <div class="card">
+                  <div class="card-title">Project details</div>
+                  <dl class="kv">
+                    @for (row of details; track row.label) {
+                      <div [class.kv-wide]="row.wide"><dt>{{ row.label }}</dt><dd style="white-space:pre-line;">{{ row.value }}</dd></div>
                     }
-                  </div>
-                </li>
+                  </dl>
+                </div>
               }
-            </ol>
+
+              <!-- Sent and still-needed documents, one row each: icon, name over file, chip, action. -->
+              <div class="card" id="application-documents">
+                <div class="card-title">Documents</div>
+                @if (contractDocs().length > 0 || missingRequired().length === 0) {
+                  <app-application-documents
+                    [documents]="contractDocs()"
+                    [returned]="a.lifecycleStatus === 'Revision Required'"
+                    (replace)="onReplace($event)"
+                    (preview)="onPreview($event)"
+                  />
+                }
+                @if (missingRequired().length > 0) {
+                  <div class="doc-subhead">
+                    <span class="doc-subhead-title">{{ a.lifecycleStatus === 'Revision Required' ? 'Add a document' : 'Still needed' }}</span>
+                    <span class="small muted">
+                      {{ a.lifecycleStatus === 'Revision Required'
+                        ? 'Documents not yet on this application. Add any the office asked for.'
+                        : 'The Municipality still needs these to continue reviewing your application.' }}
+                    </span>
+                  </div>
+                  <ul class="doc-list">
+                    @for (req of missingRequired(); track req.id) {
+                      <li class="doc-row">
+                        <span class="doc-icon doc-icon--missing" aria-hidden="true"></span>
+                        <div class="doc-main">
+                          <div class="doc-name">{{ req.label }}</div>
+                          @if (blankFormFor(req.id, req.label); as form) {
+                            <div class="doc-sub">
+                              Blank form: {{ form.label }} &middot;
+                              <a [href]="form.fileName" target="_blank" rel="noopener">View</a> &middot;
+                              <a [href]="form.fileName" [attr.download]="form.downloadName">Download</a>
+                            </div>
+                          } @else {
+                            <div class="doc-sub">Not sent yet</div>
+                          }
+                        </div>
+                        <span class="tag">{{ req.required ? 'Required' : 'Optional' }}</span>
+                        <div class="doc-actions">
+                          <input
+                            type="file"
+                            class="doc-upload-input"
+                            [attr.id]="'missing-doc-' + req.id"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            [disabled]="uploadingMissingId() === req.id"
+                            (change)="attachMissing(req, $event)"
+                          />
+                          <label
+                            [attr.for]="'missing-doc-' + req.id"
+                            class="btn btn-secondary btn-sm"
+                            style="cursor:pointer;"
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14" /></svg>
+                            {{ uploadingMissingId() === req.id ? 'Sending…' : 'Choose file' }}
+                          </label>
+                        </div>
+                      </li>
+                    }
+                  </ul>
+                }
+                @if (previewing(); as p) {
+                  <app-document-preview
+                    [file]="p.file"
+                    [fileName]="p.fileName"
+                    [fileType]="p.fileType"
+                    [label]="p.label"
+                    [seeded]="p.file === null"
+                    (close)="previewing.set(null)"
+                  />
+                }
+              </div>
+
+              @if (fees(); as asmt) {
+                <div class="card">
+                  <div class="card-title">Assessment (Order of Payment){{ asmt.opsNumber ? ' · ' + asmt.opsNumber : '' }}</div>
+                  @if (asmt.dueDate) {
+                    <p class="small muted fees-due">Pay on or before <strong>{{ formatDate(asmt.dueDate) }}</strong>.</p>
+                  }
+                  <table class="table">
+                    <thead><tr><th>Fee</th><th class="num">Amount</th></tr></thead>
+                    <tbody>
+                      @for (line of asmt.lineItems; track line.code) {
+                        <tr><td>{{ line.name }}</td><td class="num">{{ line.amountCentavos !== null ? pesos(line.amountCentavos) : 'Pending' }}</td></tr>
+                      }
+                    </tbody>
+                    <tfoot>
+                      <tr><td>Total</td><td class="num">{{ pesos(asmt.totalCentavos) }}</td></tr>
+                      <tr>
+                        <td>Balance</td>
+                        <td class="num">{{ pesos(asmt.balanceCentavos) }}@if (asmt.pendingVerification) { — pending verification }</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                  <!-- Pay sits in the Next step callout when that is the step; here only otherwise. -->
+                  @if ((asmt.canPay && nextKind(a) !== 'pay') || asmt.opsNumber) {
+                    <div class="card-actions">
+                      @if (asmt.canPay && nextKind(a) !== 'pay') {
+                        <a class="btn btn-primary btn-sm" [routerLink]="['/payments', a.id]">Pay Now</a>
+                      }
+                      @if (asmt.opsNumber) {
+                        <a class="btn btn-secondary btn-sm" [routerLink]="['/payments', a.id, 'order']">Print Order of Payment</a>
+                      }
+                    </div>
+                  }
+                  @if (asmt.pendingVerification) {
+                    <p class="small muted" style="margin:12px 0 0;">Your payment is waiting for the Cashier to verify it.</p>
+                  }
+                </div>
+              }
+            </div>
+
+            <div class="detail-rail stack">
+              <!-- Your permit: only once a permit can exist (it said "No permit has been issued" from the day of filing). -->
+              @if (!closedAs(a.lifecycleStatus) && permitCanExist(a.lifecycleStatus)) {
+                <app-permit-release
+                  id="your-permit"
+                  [permitNumber]="permit()?.permitNumber ?? null"
+                  [issuedDate]="permit() ? formatDate(permit()!.issuedDate) : null"
+                  [release]="release()"
+                  [byCourier]="byCourier()"
+                  [loading]="permitLoading()"
+                >
+                  @if (permit(); as p) {
+                    @if (!permitLoading()) {
+                      <dl class="kv permit-facts">
+                        <div><dt>Valid until</dt><dd>{{ p.expiryDate ? formatDate(p.expiryDate) : 'Not recorded by the office' }}</dd></div>
+                        <div><dt>Approving office</dt><dd>{{ p.approvingOffice ?? 'Not on file' }}</dd></div>
+                      </dl>
+                      <div class="card-actions">
+                        <a class="btn btn-primary btn-sm" [routerLink]="['/applications', a.id, 'permit']">Preview permit</a>
+                      </div>
+                    }
+                  }
+                </app-permit-release>
+              }
+              <!-- Pick up or delivery by courier (migration 070). -->
+              @if (!closedAs(a.lifecycleStatus)) {
+                @if (deliveryState(); as delivery) {
+                  <app-permit-delivery
+                    [applicationId]="a.id"
+                    [state]="delivery"
+                    [permitNumber]="permit()?.permitNumber ?? null"
+                    (stateChange)="deliveryState.set($event)"
+                    (received)="onPermitReceived($event)"
+                  />
+                }
+              }
+
+              <div class="card">
+                <div class="card-title">Status timeline</div>
+                @if (timelineNewestFirst().length === 0) {
+                  <div class="empty-state empty-state--loading">
+                    <span class="empty-state-title">No updates yet</span>
+                    <p>Each step the office takes on your application shows here.</p>
+                  </div>
+                } @else {
+                  <ol class="timeline">
+                    @for (t of timelineNewestFirst(); track t.timestamp; let first = $first) {
+                      <li class="timeline-item" [class.timeline-latest]="first">
+                        <!-- In the pill's words; the office's own step name under it when it differs. -->
+                        <div class="timeline-status">{{ timelineLabel(t.status) }}</div>
+                        @if (timelineStep(t.status); as step) {
+                          <div class="timeline-step">{{ step }}</div>
+                        }
+                        @if (t.remarks) {
+                          <div class="timeline-remarks">{{ t.remarks }}</div>
+                        }
+                        <time class="timeline-when" [attr.datetime]="t.timestamp">{{ formatDateTime(t.timestamp) }}</time>
+                      </li>
+                    }
+                  </ol>
+                }
+              </div>
+            </div>
           </div>
         </div>
       </div>
     } @else {
       <div class="page">
         <div class="card empty-state empty-state--search">
-          <p>We couldn't find that application. It may not belong to your account, or the link may be out of date.</p>
-          <a routerLink="/applications" class="btn btn-primary">Back to My Applications</a>
+          <span class="empty-state-title">Application not found</span>
+          <p>It may not belong to your account, or the link may be out of date.</p>
+          <a routerLink="/applications" class="btn btn-secondary">Back to My Applications</a>
         </div>
       </div>
     }
@@ -806,6 +905,8 @@ export class ApplicationDetailsPage {
     // own carry-over logic (application-wizard.page.ts) guards against it
     // before ever calling `requiredDocumentsFor`.
     if (!a || a.permitType === 'Business Permit') return [];
+    // Past Document Verification nothing more can be added: no "Choose file" rows then.
+    if (!DOCUMENTS_OPEN.has(a.lifecycleStatus)) return [];
     // While the office has the application returned, optional documents are
     // offered too: "add the lot owner's written consent" is an optional
     // requirement the office can still ask for (found live 2026-09-27).
@@ -934,6 +1035,12 @@ export class ApplicationDetailsPage {
     return this.timeline();
   }
 
+  /** The timeline newest first (equal times keep their newest-last order reversed); display only. */
+  protected timelineNewestFirst(): { status: string; timestamp: string; remarks: string | null }[] {
+    const time = (iso: string): number => Date.parse(iso) || 0;
+    return [...this.timelineEntries()].reverse().sort((x, y) => time(y.timestamp) - time(x.timestamp));
+  }
+
   /** A timeline entry in the pill's words ("Under Evaluation" reads "Under Review"); display only. */
   protected timelineLabel(status: string): string {
     return applicantStatusLabel(status as ApplicationLifecycleStatus);
@@ -953,6 +1060,47 @@ export class ApplicationDetailsPage {
   /** The stage in progress (see STAGE_OF); STAGES.length when all are done, -1 for a status the portal does not know. */
   protected stageIndex(status: ApplicationLifecycleStatus): number {
     return STAGE_OF[status] ?? -1;
+  }
+
+  /**
+   * The Next step callout's one action, in this order: send back a returned
+   * application, pay, confirm a courier delivery, deal with a returned
+   * parcel, collect a ready permit; otherwise only what happens next.
+   */
+  protected nextKind(a: ApplicationRecord): NextKind {
+    if (a.lifecycleStatus === 'Revision Required' && this.api.configured) return 'revision';
+    if (this.fees()?.canPay) return 'pay';
+    const state = this.deliveryState();
+    const delivery = state?.receiveBy === 'delivery' ? state.delivery : null;
+    if (delivery && (delivery.status === 'out-for-delivery' || delivery.status === 'delivered')) return 'delivery';
+    if (delivery && delivery.status === 'returned' && state?.canChange) return 'returned';
+    if (a.lifecycleStatus === 'Ready for Release' && !this.byCourier() && this.release()?.status === 'Ready for Release') {
+      return 'collect';
+    }
+    return 'info';
+  }
+
+  /** The plain Next step callout takes the status pill's tone. */
+  protected nextTone(status: ApplicationLifecycleStatus): string {
+    return `callout-${statusTone(applicantStatusLabel(status))}`;
+  }
+
+  /** "Your permit" shows once a permit can exist, not from the day of filing. */
+  protected permitCanExist(status: ApplicationLifecycleStatus): boolean {
+    return PERMIT_STATUSES.has(status) || !!this.permit();
+  }
+
+  private readonly deliveryCard = viewChild(PermitDeliveryComponent);
+
+  /** "I received my permit" in the Next step callout opens the same confirmation on the delivery card. */
+  protected confirmReceipt(): void {
+    this.deliveryCard()?.askToConfirm();
+  }
+
+  /** Brings a card on this page into view (the Next step callout's links). */
+  protected scrollToCard(id: string): void {
+    const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    document.getElementById(id)?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
   }
 
   advance(id: string): void {

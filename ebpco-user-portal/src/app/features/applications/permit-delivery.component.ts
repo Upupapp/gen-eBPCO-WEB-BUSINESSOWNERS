@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { Component, ElementRef, computed, inject, input, output, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { CitizenApiClient } from '../../core/api/citizen-api.client';
 import { ApiError } from '../../core/api/problem';
@@ -26,7 +26,6 @@ import { ToastService } from '../../shared/ui/toast.service';
   imports: [DeliveryChoiceComponent],
   styles: [`
     :host { display: block; }
-    .delivery-how { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .delivery-facts { margin-top: 16px; }
     .delivery-tracking dd { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
     .delivery-tracking .btn { margin: -6px 0; }
@@ -36,7 +35,17 @@ import { ToastService } from '../../shared/ui/toast.service';
   `],
   template: `
     <div class="card" id="permit-delivery-card">
-      <div class="card-title">Receiving your permit</div>
+      <!-- How it comes, once, as a chip in the card head (it was a badge, a callout and a sentence). -->
+      <div class="card-head">
+        <div class="card-title">Receiving your permit</div>
+        @if (!editing()) {
+          @if (delivery()) {
+            <span id="delivery-choice" class="badge badge-violet card-head-action">Delivery by courier</span>
+          } @else {
+            <span id="delivery-choice" class="badge card-head-action">Pick up at the office</span>
+          }
+        }
+      </div>
 
       @if (editing(); as draft) {
         <app-delivery-choice
@@ -54,20 +63,19 @@ import { ToastService } from '../../shared/ui/toast.service';
           </button>
         </div>
       } @else if (delivery(); as d) {
-        <div id="delivery-choice" class="delivery-how"><span class="badge badge-violet">Delivery by courier</span></div>
         <div class="callout release-state" id="delivery-status" [class]="toneClass()" [attr.data-status]="d.status">
           <strong class="callout-title" id="delivery-status-title">{{ statusText().title }}</strong>
           <p>{{ statusText().detail }}</p>
         </div>
 
-        @if (d.status === 'returned' && d.returnReason) {
-          <p class="small delivery-note" id="delivery-return-reason">
-            <span class="muted">Reason:</span> {{ d.returnReason }}
-          </p>
-          <p class="small muted" style="margin:4px 0 0;">Where and when to claim it are under Your permit.</p>
+        @if (d.status === 'returned') {
+          <p class="small muted delivery-note">Where and when to claim it are under Your permit.</p>
         }
 
         <dl class="kv delivery-facts">
+          @if (d.status === 'returned' && d.returnReason) {
+            <div id="delivery-return-reason" class="kv-wide"><dt>Reason</dt><dd>{{ d.returnReason }}</dd></div>
+          }
           @if (d.courier) {
             <div id="delivery-courier"><dt>Courier</dt><dd>{{ d.courier }}</dd></div>
           }
@@ -89,14 +97,12 @@ import { ToastService } from '../../shared/ui/toast.service';
           @if (d.deliveredOn && d.status !== 'returned') {
             <div id="delivery-delivered-on"><dt>Delivered</dt><dd>{{ formatDay(d.deliveredOn) }}</dd></div>
           }
-          <div id="delivery-address" class="kv-wide">
-            <dt>Deliver to</dt>
-            <dd>
-              {{ d.recipientName }} · {{ d.recipientMobile }}<br />
-              {{ addressLine(d) }}
-              @if (d.landmark) { <br /><span class="muted">Landmark:</span> {{ d.landmark }} }
-            </dd>
-          </div>
+          <div id="delivery-recipient"><dt>Recipient</dt><dd>{{ d.recipientName }}</dd></div>
+          <div id="delivery-mobile"><dt>Mobile</dt><dd>{{ d.recipientMobile }}</dd></div>
+          <div id="delivery-address" class="kv-wide"><dt>Deliver to</dt><dd>{{ addressLine(d) }}</dd></div>
+          @if (d.landmark) {
+            <div id="delivery-landmark" class="kv-wide"><dt>Landmark</dt><dd>{{ d.landmark }}</dd></div>
+          }
         </dl>
 
         @if (d.status === 'requested' || d.status === 'returned') {
@@ -145,10 +151,7 @@ import { ToastService } from '../../shared/ui/toast.service';
           </div>
         }
       } @else {
-        <div id="delivery-choice">
-          <div class="delivery-how"><span class="badge">Pick up at the office</span></div>
-          <p class="small muted" style="margin:8px 0 0;">Claim it at the issuing office when it is ready.</p>
-        </div>
+        <p class="small muted" style="margin:0;">Claim it at the issuing office when it is ready.</p>
         @if (state().canChange) {
           <div class="delivery-actions">
             <button type="button" class="btn btn-secondary btn-sm" id="delivery-change" (click)="startEditing()">Change</button>
@@ -256,6 +259,21 @@ export class PermitDeliveryComponent {
     } finally {
       this.saving.set(false);
     }
+  }
+
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+
+  /**
+   * "I received my permit" from the page's Next step callout: opens this
+   * card's own confirmation and brings it into view, so the receipt is
+   * confirmed in one place.
+   */
+  askToConfirm(): void {
+    if (!this.state().canConfirmReceipt) return;
+    this.confirming.set(true);
+    const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.host.nativeElement.scrollIntoView?.({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    setTimeout(() => document.getElementById('delivery-received-yes')?.focus({ preventScroll: true }));
   }
 
   protected async confirmReceived(): Promise<void> {

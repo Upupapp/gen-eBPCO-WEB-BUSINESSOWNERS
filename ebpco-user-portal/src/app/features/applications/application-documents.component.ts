@@ -23,18 +23,34 @@ import { StatusPillComponent } from '../../shared/ui/status-pill.component';
   imports: [StatusPillComponent],
   template: `
     @if (chains().length === 0) {
-      <p class="muted small">No documents attached.</p>
+      <div class="empty-state empty-state--file">
+        <span class="empty-state-title">No documents attached</span>
+        <p>Documents you send with this application show here.</p>
+      </div>
     } @else {
+      <!-- One row per document: file icon, name over file name, status chip, actions on the right; notes under the name. -->
       <ul class="doc-list">
         @for (chain of chains(); track chain.current.id) {
-          <li class="doc-item">
-            <div class="doc-head">
-              <span class="doc-name">{{ chain.current.label }}</span>
-              <!-- The portal's one status palette: "Not yet reviewed" is grey, never the green of done. -->
-              <app-status-pill [label]="label(chain.current.reviewStatus)" kind="document" />
+          <li class="doc-row">
+            <span class="doc-icon" aria-hidden="true"></span>
+            <div class="doc-main">
+              <div class="doc-name">{{ chain.current.label }}</div>
+              <div class="doc-file" [title]="chain.current.fileName">{{ chain.current.fileName }}</div>
             </div>
-            <div class="small muted">{{ chain.current.fileName }}</div>
+            <!-- The portal's one status palette: "Not yet reviewed" is grey, never the green of done. -->
+            <app-status-pill [label]="label(chain.current.reviewStatus)" kind="document" />
+            <div class="doc-actions">
+              <button class="btn btn-secondary btn-sm" type="button" data-action="preview" (click)="preview.emit(chain.current)">
+                Preview
+              </button>
+              @if (canReplace(chain)) {
+                <button class="btn btn-primary btn-sm" type="button" data-action="replace" (click)="replace.emit(chain.current)">
+                  Replace
+                </button>
+              }
+            </div>
 
+            <div class="doc-extra">
             <!--
               The scanner is a DIFFERENT AXIS from the officer's verdict, so it
               is a separate line and only appears when there is something to
@@ -80,15 +96,6 @@ import { StatusPillComponent } from '../../shared/ui/status-pill.component';
               }
             }
 
-            <button class="btn btn-secondary btn-sm" type="button" data-action="preview" (click)="preview.emit(chain.current)">
-              Preview
-            </button>
-            @if (canReplace(chain)) {
-              <button class="btn btn-primary btn-sm" type="button" data-action="replace" (click)="replace.emit(chain.current)">
-                Replace this document
-              </button>
-            }
-
             <!--
               The pair. "What was wrong" and "what I sent instead" only make a
               rejection actionable together, so the superseded document stays
@@ -107,6 +114,7 @@ import { StatusPillComponent } from '../../shared/ui/status-pill.component';
                 }
               </details>
             }
+            </div>
           </li>
         }
       </ul>

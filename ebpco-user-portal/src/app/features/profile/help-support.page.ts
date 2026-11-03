@@ -46,17 +46,20 @@ interface Faq {
         <div class="card-title">Contact</div>
         <p class="small muted" style="margin-bottom:12px;">{{ hallAddress }}</p>
 
+        <!-- Each office's numbers as labelled facts (they were "Mobile: … Email: …" run-on lines). -->
         @for (office of offices; track office.shortName) {
-          <div style="border-top:1px solid var(--border-light); padding:10px 0;">
-            <div style="font-weight:600;">{{ office.name }}</div>
-            <div class="small muted" style="margin-bottom:4px;">{{ office.handles }}</div>
-            @if (office.mobile) {
-              <div class="small"><strong>Mobile:</strong> {{ office.mobile }}</div>
-            }
-            <!-- &nbsp;: a line break before the button is whitespace Angular drops, which read "Email:meocastilla…". -->
-            <div class="small">
-              <strong>Email:</strong>&nbsp;<button type="button" class="link-button" (click)="copyEmail(office.email)">{{ office.email }}</button>
-            </div>
+          <div style="border-top:1px solid var(--border-light); padding:12px 0;">
+            <div style="font-weight:600; color:var(--gray-900);">{{ office.name }}</div>
+            <div class="small muted" style="margin-bottom:10px;">{{ office.handles }}</div>
+            <dl class="kv kv-2">
+              @if (office.mobile) {
+                <div><dt>Mobile</dt><dd>{{ office.mobile }}</dd></div>
+              }
+              <div>
+                <dt>Email</dt>
+                <dd><button type="button" class="link-button" (click)="copyEmail(office.email)">{{ office.email }}</button></dd>
+              </div>
+            </dl>
           </div>
         }
 

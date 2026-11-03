@@ -51,7 +51,8 @@ interface RealPreview {
         </div>
         @if (!api.configured || realChecked()) {
           <label class="btn btn-primary" style="cursor:pointer;">
-            + Upload Document
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14" /></svg>
+            Upload a document
             <input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none;" (change)="onFileSelected($event)" [disabled]="uploading()" />
           </label>
         }
@@ -61,7 +62,10 @@ interface RealPreview {
         @if (!realChecked()) {
           <div class="card empty-state empty-state--loading">Loading your documents&hellip;</div>
         } @else if (realDocuments().length === 0) {
-          <div class="card empty-state">No documents uploaded yet.</div>
+          <div class="card empty-state empty-state--file">
+            <span class="empty-state-title">No documents yet</span>
+            <p>Upload a document once and attach it to any application.</p>
+          </div>
         } @else {
           <div class="doc-toolbar">
             <input
@@ -83,7 +87,10 @@ interface RealPreview {
           </div>
 
           @if (visibleRealDocuments().length === 0) {
-            <div class="card empty-state">No documents match &ldquo;{{ searchTerm() }}&rdquo;.</div>
+            <div class="card empty-state empty-state--search">
+              <span class="empty-state-title">No documents match &ldquo;{{ searchTerm() }}&rdquo;</span>
+              <p>Try another name or category.</p>
+            </div>
           } @else {
           <div class="doc-grid">
             @for (d of visibleRealDocuments(); track d.id) {
@@ -139,7 +146,10 @@ interface RealPreview {
         </div>
 
         @if (filtered().length === 0) {
-          <div class="card empty-state">No documents in this category yet.</div>
+          <div class="card empty-state empty-state--file">
+            <span class="empty-state-title">No documents in this category yet</span>
+            <p>Documents you upload under it show here.</p>
+          </div>
         } @else {
           <div class="doc-grid">
             @for (d of filtered(); track d.id) {
@@ -185,7 +195,7 @@ interface RealPreview {
 
       @if (api.configured && realChecked()) {
         <div class="archived-section">
-          <button type="button" class="btn btn-ghost btn-sm" (click)="toggleArchived()">
+          <button type="button" class="btn btn-ghost btn-sm btn-ghost-lead" (click)="toggleArchived()">
             {{ showArchived() ? 'Hide archived documents' : 'Show archived documents' }}
             @if (archivedDocuments().length > 0) {
               ({{ archivedDocuments().length }})
@@ -193,7 +203,10 @@ interface RealPreview {
           </button>
           @if (showArchived()) {
             @if (archivedDocuments().length === 0) {
-              <p class="small muted">You have not archived any documents.</p>
+              <div class="empty-state">
+                <span class="empty-state-title">No archived documents</span>
+                <p>Documents you archive stay here until you restore them.</p>
+              </div>
             } @else {
               <ul class="archived-list">
                 @for (d of archivedDocuments(); track d.id) {

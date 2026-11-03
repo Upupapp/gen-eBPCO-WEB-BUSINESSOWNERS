@@ -23,9 +23,8 @@ import { formatDate } from '../../core/utils/ids';
   selector: 'app-permit-release',
   styles: [`
     :host { display: block; }
-    .claim-rows { display: grid; gap: 6px; margin-top: 12px; font-size: 13.5px; color: var(--gray-800); }
-    .claim-label { color: var(--gray-500); font-weight: 500; }
-    .claim-rows ul { margin: 4px 0 0; padding-left: 18px; }
+    .claim-rows { margin-top: 16px; }
+    .claim-rows ul { margin: 0; padding-left: 18px; }
   `],
   template: `
     <div class="card">
@@ -52,25 +51,29 @@ import { formatDate } from '../../core/utils/ids';
         <!-- A delivery (migration 070) has nothing to collect, so no Where/When/Bring. -->
         @if (!byCourier() && release(); as r) {
           @if (r.status === 'Ready for Release') {
-            <div class="claim-rows">
-              <div><span class="claim-label">Where:</span> {{ r.claimLocation || ('the ' + engineer.name + ', ' + hallAddress) }}</div>
+            <dl class="kv claim-rows">
+              <div class="kv-wide"><dt>Where</dt><dd>{{ r.claimLocation || ('The ' + engineer.name + ', ' + hallAddress) }}</dd></div>
               @if (r.officeHours) {
-                <div><span class="claim-label">When:</span> {{ r.officeHours }}</div>
+                <div class="kv-wide"><dt>When</dt><dd>{{ r.officeHours }}</dd></div>
               }
-              <div>
-                <span class="claim-label">Bring:</span>
-                @if ((r.bringWithYou ?? []).length > 0) {
-                  <ul>
-                    @for (item of r.bringWithYou; track item) { <li>{{ item }}</li> }
-                  </ul>
-                } @else {
-                  a valid ID{{ r.method === 'Authorized Representative' ? ' and a letter of authorisation' : '' }}.
-                }
+              <div class="kv-wide">
+                <dt>Bring</dt>
+                <dd>
+                  @if ((r.bringWithYou ?? []).length > 0) {
+                    <ul>
+                      @for (item of r.bringWithYou; track item) { <li>{{ item }}</li> }
+                    </ul>
+                  } @else {
+                    A valid ID{{ r.method === 'Authorized Representative' ? ' and a letter of authorisation' : '' }}
+                  }
+                </dd>
               </div>
-            </div>
+            </dl>
           }
         }
       }
+      <!-- The page's own facts and actions for an issued permit (validity, Preview permit). -->
+      <ng-content />
     </div>
   `,
 })
@@ -111,7 +114,7 @@ export class PermitReleaseComponent {
     const r = this.release();
     if (this.byCourier()) {
       if (r?.status === 'Released') return r.releasedAt ? `Delivered on ${formatDate(r.releasedAt)}.` : 'This permit has been delivered.';
-      return 'Nothing to collect at the office: it comes to the address you gave. Where it stands is under Receiving your permit.';
+      return 'Nothing to collect at the office: it comes to the address you gave.';
     }
     // null and 'Not Ready' both mean "not yet", but they are different facts:
     // null is nobody has arranged it, 'Not Ready' is an officer saying so.

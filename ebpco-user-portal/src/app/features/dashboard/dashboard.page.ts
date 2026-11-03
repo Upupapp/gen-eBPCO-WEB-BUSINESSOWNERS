@@ -102,11 +102,36 @@ export class DashboardPage {
     return this.applications.myApplications().filter((a) => !isTerminalStatus(a.lifecycleStatus));
   }
 
+  /** The Active applications panel shows five rows at most, with a link to the rest. */
+  shownApplications() {
+    return this.activeApplications().slice(0, 5);
+  }
+
+  /**
+   * What is waiting on the citizen, for the Needs your attention callout:
+   * a returned application to fix, an Order of Payment to pay, a permit on
+   * its way to confirm. Read from the list's own statuses; display only.
+   */
+  attention(): { id: string; permitType: string; applicationNumber: string; reason: string; action: string; link: unknown[] }[] {
+    const items: { id: string; permitType: string; applicationNumber: string; reason: string; action: string; link: unknown[] }[] = [];
+    for (const a of this.applications.myApplications()) {
+      const base = { id: a.id, permitType: a.permitType, applicationNumber: a.applicationNumber };
+      if (a.lifecycleStatus === 'Revision Required') {
+        items.push({ ...base, reason: 'the office returned it for changes', action: 'Fix now', link: ['/applications', a.id] });
+      } else if (a.lifecycleStatus === 'Assessed' && (a.paymentStatus === 'Not Yet Available' || a.paymentStatus === 'Overdue')) {
+        items.push({ ...base, reason: a.paymentStatus === 'Overdue' ? 'payment is overdue' : 'ready for payment', action: 'Pay', link: ['/payments', a.id] });
+      } else if (a.lifecycleStatus === 'Out for Delivery') {
+        items.push({ ...base, reason: 'your permit is on its way by courier', action: 'Confirm receipt', link: ['/applications', a.id] });
+      }
+    }
+    return items.slice(0, 5);
+  }
+
   get kpis(): DashboardKpi[] {
     return [
       {
         theme: 'red',
-        label: 'My Businesses',
+        label: 'My businesses',
         value: this.businesses.myBusinesses().length,
         helper: 'View all businesses',
         icon: ICONS.store,
@@ -114,21 +139,21 @@ export class DashboardPage {
       },
       {
         theme: 'blue',
-        label: 'Total Applications',
+        label: 'All applications',
         value: this.applications.myApplications().length,
-        helper: 'This includes all statuses',
+        helper: 'Every status, including finished ones',
         icon: ICONS.clipboardCheck,
       },
       {
         theme: 'orange',
-        label: 'Awaiting Action',
+        label: 'Needs your action',
         value: this.awaitingAction(),
-        helper: 'Needs your action',
+        helper: 'Returned, to pay, or still a draft',
         icon: ICONS.clock,
       },
       {
         theme: 'green',
-        label: 'Ready for Release',
+        label: 'Ready for release',
         value: this.readyForRelease(),
         helper: 'Ready to claim, or on its way',
         icon: ICONS.checkCircle,

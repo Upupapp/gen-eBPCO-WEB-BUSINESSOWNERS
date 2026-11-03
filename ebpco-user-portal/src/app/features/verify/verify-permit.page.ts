@@ -1,7 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CitizenApiClient } from '../../core/api/citizen-api.client';
 import { PublicPermitRecord } from '../../core/api/citizen-api.models';
 import { requirementsFor, REQUIREMENTS_CATALOG } from '../../core/domain/requirements-catalog';
@@ -27,12 +27,12 @@ type LookupState = 'idle' | 'loading' | 'found' | 'not-found' | 'unavailable';
  */
 @Component({
   selector: 'app-verify-permit',
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink],
   template: `
-    <div style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; background:var(--bg);">
-      <div class="card" style="width:100%; max-width:440px; text-align:center;">
-        <img src="logo.png" alt="" style="width:56px; height:56px; object-fit:contain; margin-bottom:12px;" />
-        <h2 style="margin-bottom:4px;">Permit Verification</h2>
+    <div class="auth-screen" style="background:var(--bg);">
+      <div class="card auth-card" style="text-align:center;">
+        <img src="logo.png" alt="" class="auth-logo" />
+        <h2 style="margin-bottom:4px;">Permit verification</h2>
         <p class="muted small" style="margin-bottom:20px;">
           Municipality of Castilla, Sorsogon — Electronic Building Permit and Certificate of Occupancy
         </p>
@@ -126,17 +126,14 @@ type LookupState = 'idle' | 'loading' | 'found' | 'not-found' | 'unavailable';
         }
 
         <div class="callout callout-warning" style="margin-top:20px; text-align:left;">
-          <strong class="callout-title">What this page can and cannot tell you</strong>
+          <strong class="callout-title">This confirms only that the permit was issued</strong>
           <p>
-            It confirms only that the Municipality issued a permit with this number. It does not show whether the
-            permit is still in force, or who holds it.
-          </p>
-          <p>
-            To confirm a permit’s standing, contact the {{ engineer.name }}, Municipality of Castilla,
-            Sorsogon — <strong>{{ engineer.mobile }}</strong> or <strong>{{ engineer.email }}</strong>.
+            It does not show whether the permit is still in force, or who holds it. For that, contact the
+            {{ engineer.name }}: <strong>{{ engineer.mobile }}</strong> or <strong>{{ engineer.email }}</strong>.
           </p>
         </div>
       </div>
+      <a routerLink="/landing" class="auth-home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6" /></svg>Back to home</a>
     </div>
   `,
 })

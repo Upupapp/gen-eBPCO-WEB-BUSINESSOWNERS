@@ -501,7 +501,7 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
           -->
           <div class="docs-head">
             <div>
-              <div class="card-title">Required Documents</div>
+              <div class="card-title">Required documents</div>
               <p class="small muted">Upload a PDF, JPG or PNG for each one, or use a file already in My Documents.</p>
             </div>
             @if (requiredCount() > 0) {

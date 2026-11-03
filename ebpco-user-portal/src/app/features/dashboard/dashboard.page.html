@@ -10,13 +10,13 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             @for (d of icons.filePlus; track d) { <path [attr.d]="d" /> }
           </svg>
-          <span>Apply for Permit</span>
+          <span>Apply for a permit</span>
         </a>
         <a routerLink="/businesses/register" class="btn btn-secondary">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             @for (d of icons.store; track d) { <path [attr.d]="d" /> }
           </svg>
-          <span>Register Business</span>
+          <span>Register a business</span>
         </a>
       </div>
     </section>
@@ -24,39 +24,45 @@
     <!-- Account verification (migration 067): nothing for a verified account. -->
     <app-verification-banner />
 
+    <!-- What is waiting on the citizen, each with its one action. Nothing when nothing is. -->
+    @if (attention().length > 0) {
+      <div class="callout callout-warning attention" role="region" aria-label="Needs your attention">
+        <strong class="callout-title">Needs your attention</strong>
+        <ul class="attention-list">
+          @for (item of attention(); track item.id; let first = $first) {
+            <li class="attention-item">
+              <span class="attention-text">
+                <strong>{{ item.permitType }}</strong> · {{ item.applicationNumber }} · {{ item.reason }}
+              </span>
+              <a class="btn btn-sm" [class.btn-primary]="first" [class.btn-secondary]="!first" [routerLink]="item.link">{{ item.action }}</a>
+            </li>
+          }
+        </ul>
+      </div>
+    }
+
     <section class="kpi-grid">
       @for (item of kpis; track item.label) {
         <div class="kpi-card" [class]="'theme-' + item.theme">
-          <div class="kpi-main">
-            <div class="kpi-icon-shell">
-              <div class="kpi-icon-core">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  @for (d of item.icon; track d) { <path [attr.d]="d" /> }
-                </svg>
-              </div>
-            </div>
-            <div class="kpi-copy">
-              <div class="kpi-label">{{ item.label }}</div>
-              <div class="kpi-value">{{ item.value }}</div>
-            </div>
+          <div class="kpi-label">
+            <span class="kpi-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                @for (d of item.icon; track d) { <path [attr.d]="d" /> }
+              </svg>
+            </span>
+            {{ item.label }}
           </div>
-          <div class="kpi-footer">
-            @if (item.link) {
-              <a [routerLink]="item.link" class="kpi-footer-link">
-                <span>{{ item.helper }}</span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  @for (d of icons.chevronRight; track d) { <path [attr.d]="d" /> }
-                </svg>
-              </a>
-            } @else {
-              <span class="kpi-footer-text">
-                <span>{{ item.helper }}</span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  @for (d of icons.info; track d) { <path [attr.d]="d" /> }
-                </svg>
-              </span>
-            }
-          </div>
+          <div class="kpi-value">{{ item.value }}</div>
+          @if (item.link) {
+            <a [routerLink]="item.link" class="kpi-note">
+              <span>{{ item.helper }}</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                @for (d of icons.chevronRight; track d) { <path [attr.d]="d" /> }
+              </svg>
+            </a>
+          } @else {
+            <div class="kpi-note">{{ item.helper }}</div>
+          }
         </div>
       }
     </section>
@@ -70,7 +76,7 @@
                 @for (d of icons.clipboardCheck; track d) { <path [attr.d]="d" /> }
               </svg>
             </div>
-            <h2 class="panel-title">Active Applications</h2>
+            <h2 class="panel-title">Active applications</h2>
           </div>
           @if (applications.myApplications().length > 0) {
             <a routerLink="/applications" class="panel-view-all">
@@ -83,18 +89,20 @@
         </div>
 
         @if (applications.myApplications().length === 0) {
-          <div class="empty-state">
-            <strong class="empty-state-title">No applications yet.</strong>
-            <a routerLink="/permits">Start your first application.</a>
+          <div class="empty-state empty-state--file">
+            <strong class="empty-state-title">No applications yet</strong>
+            <p>Pick a permit and apply online; you can follow it here.</p>
+            <a routerLink="/permits" class="btn btn-secondary btn-sm">Apply for a permit</a>
           </div>
         } @else if (activeApplications().length === 0) {
           <div class="empty-state">
-            <strong class="empty-state-title">No application is in progress.</strong>
-            <a routerLink="/applications">See your past applications.</a>
+            <strong class="empty-state-title">No application in progress</strong>
+            <p>Your finished and withdrawn applications are under My Applications.</p>
+            <a routerLink="/applications" class="btn btn-secondary btn-sm">See past applications</a>
           </div>
         } @else {
           <div class="application-list">
-            @for (app of activeApplications(); track app.id) {
+            @for (app of shownApplications(); track app.id) {
               @let visual = applicationVisual(app.permitType);
               <a [routerLink]="['/applications', app.id]" class="application-row">
                 <div class="application-icon" [style.background]="visual.bg" [style.color]="visual.fg">
@@ -111,6 +119,15 @@
               </a>
             }
           </div>
+          <!-- Five rows at most; the rest are a click away. -->
+          @if (activeApplications().length > shownApplications().length) {
+            <a routerLink="/applications" class="panel-more">
+              <span>View all {{ activeApplications().length }} active applications</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                @for (d of icons.chevronRight; track d) { <path [attr.d]="d" /> }
+              </svg>
+            </a>
+          }
         }
       </article>
 
@@ -122,7 +139,7 @@
                 @for (d of icons.bell; track d) { <path [attr.d]="d" /> }
               </svg>
             </div>
-            <h2 class="panel-title">Recent Notifications</h2>
+            <h2 class="panel-title">Recent notifications</h2>
           </div>
           @if (notifications.all().length > 0) {
             <a routerLink="/notifications" class="panel-view-all">
@@ -136,7 +153,8 @@
 
         @if (notifications.all().length === 0) {
           <div class="empty-state empty-state--bell">
-            <strong class="empty-state-title">No notifications yet.</strong>
+            <strong class="empty-state-title">No notifications yet</strong>
+            <p>Updates on your applications show here.</p>
           </div>
         } @else {
           <div class="notification-list">

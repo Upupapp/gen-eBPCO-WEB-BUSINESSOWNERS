@@ -402,9 +402,11 @@
 .lp-card-green .lp-card-badge { background: var(--lp-soft-green); }
 .lp-card-green .lp-card-badge svg { color: var(--lp-brand-green); }
 
+// One line on every card at three across (card 1 wrapped to two at 23px).
 .lp-card-title {
   margin: 0;
-  font-size: 23px;
+  font-size: 21px;
+  text-wrap: balance;
   font-weight: 700;
   line-height: 1.2;
   color: var(--lp-ink);
@@ -429,12 +431,14 @@
   text-align: left;
 }
 
+// In the empty top-right corner, level with the badge: at the bottom it sat
+// under the last lines of the description.
 .lp-card-watermark {
   position: absolute;
-  bottom: -5px;
-  right: 5px;
-  width: 88px;
-  height: 88px;
+  top: 24px;
+  right: 24px;
+  width: 72px;
+  height: 72px;
   opacity: 0.1;
   pointer-events: none;
 }

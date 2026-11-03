@@ -20,14 +20,19 @@ type Filter = 'All' | 'Unread';
       </div>
 
       <div class="filter-chips" role="group" aria-label="Show">
-        <button type="button" class="filter-chip" [attr.aria-pressed]="filter() === 'All'" (click)="filter.set('All')">All</button>
+        <button type="button" class="filter-chip" [attr.aria-pressed]="filter() === 'All'" (click)="filter.set('All')">
+          All <span class="filter-chip-count">{{ store.all().length }}</span>
+        </button>
         <button type="button" class="filter-chip" [attr.aria-pressed]="filter() === 'Unread'" (click)="filter.set('Unread')">
           Unread <span class="filter-chip-count">{{ store.unreadCount() }}</span>
         </button>
       </div>
 
       @if (filtered().length === 0) {
-        <div class="card empty-state empty-state--bell"><strong class="empty-state-title">You're all caught up.</strong></div>
+        <div class="card empty-state empty-state--bell">
+          <strong class="empty-state-title">You're all caught up</strong>
+          <p>{{ filter() === 'Unread' ? 'You have read every notification.' : 'Updates on your applications show here.' }}</p>
+        </div>
       } @else {
         <div class="card" style="padding:0;">
           @for (n of filtered(); track n.id) {

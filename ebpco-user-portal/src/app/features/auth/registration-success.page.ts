@@ -6,8 +6,9 @@ import { AuthService } from '../../core/session/auth.service';
   selector: 'app-registration-success',
   imports: [RouterLink],
   template: `
-    <div style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;">
-      <div class="card auth-card anim-pop-in" style="width:100%; max-width:420px; text-align:center;">
+    <div class="auth-screen">
+      <div class="card auth-card anim-pop-in" style="text-align:center;">
+        <img src="logo.png" alt="eBPCO" class="auth-logo" />
         <div class="badge badge-green anim-flip-in" style="margin-bottom:12px; animation-delay:0.15s;">Account Created</div>
         <h2>Welcome to eBPCO</h2>
         <!--
@@ -73,6 +74,7 @@ import { AuthService } from '../../core/session/auth.service';
           <a routerLink="/dashboard" class="btn btn-primary btn-block" style="margin-top:12px;">Go to Dashboard</a>
         }
       </div>
+      <a routerLink="/landing" class="auth-home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6" /></svg>Back to home</a>
     </div>
   `,
 })

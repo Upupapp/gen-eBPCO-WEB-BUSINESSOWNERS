@@ -8,6 +8,7 @@ import { PaymentHistoryEntry } from '../../core/api/citizen-api.models';
 import { pesos } from '../../core/domain/assessment.model';
 import { PaymentStatus } from '../../core/domain/status.model';
 import { formatDate } from '../../core/utils/ids';
+import { StatusPillComponent } from '../../shared/ui/status-pill.component';
 
 type Tone = 'green' | 'amber' | 'red' | 'gray';
 
@@ -117,7 +118,7 @@ const HISTORY_FILTERS: ReadonlyArray<{ id: HistoryFilter; label: string }> = [
  */
 @Component({
   selector: 'app-payments-list',
-  imports: [RouterLink, FormsModule],
+  imports: [RouterLink, FormsModule, StatusPillComponent],
   styles: [`
     .pay-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 22px; }
     .pay-tile {
@@ -146,7 +147,7 @@ const HISTORY_FILTERS: ReadonlyArray<{ id: HistoryFilter; label: string }> = [
     .pay-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
     /* The chips themselves are the shared .filter-chip (styles.scss). */
     .pay-chips.filter-chips { margin-bottom: 0; }
-    .pay-search { position: relative; flex: 0 1 280px; min-width: 200px; }
+    .pay-search { position: relative; flex: 0 1 320px; min-width: 200px; }
     .pay-search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--gray-400); pointer-events: none; }
     .pay-search input { width: 100%; box-sizing: border-box; padding-left: 34px; }
 
@@ -165,7 +166,9 @@ const HISTORY_FILTERS: ReadonlyArray<{ id: HistoryFilter; label: string }> = [
     .order-last { margin-top: 6px; display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--gray-700);
       padding: 8px 10px; border-radius: var(--radius-md); background: var(--gray-50); }
     .order-last--red { background: var(--danger-100); color: var(--danger-text); }
-    .order-last--green { background: var(--success-100); color: var(--success-text); }
+    /* A settled order: a quiet receipt line, not a green strip. */
+    .order-receipt { margin-top: 4px; display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--gray-500); font-variant-numeric: tabular-nums; }
+    .order-receipt svg { flex: none; color: var(--success-text); }
     .order-side { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
     .order-amount { font-size: 20px; font-weight: 700; color: var(--gray-900); font-variant-numeric: tabular-nums; white-space: nowrap; }
     .order-actions { display: flex; gap: 8px; }
@@ -191,8 +194,6 @@ const HISTORY_FILTERS: ReadonlyArray<{ id: HistoryFilter; label: string }> = [
     .history-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
     .history-amount { font-weight: 700; color: var(--gray-900); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-    .pay-empty { padding: 34px 20px; text-align: center; color: var(--gray-500); border: 1px dashed var(--border-medium); border-radius: var(--radius-lg); }
-    .pay-empty button { all: unset; cursor: pointer; color: var(--primary-600); font-weight: 600; }
 
     @media (max-width: 760px) {
       /* Three small totals side by side, and chips that scroll sideways instead of wrapping into rows. */
@@ -223,7 +224,10 @@ const HISTORY_FILTERS: ReadonlyArray<{ id: HistoryFilter; label: string }> = [
       </div>
 
       @if (rows().length === 0) {
-        <div class="card empty-state">No assessments issued yet. Once your application is evaluated, its Order of Payment will appear here.</div>
+        <div class="card empty-state empty-state--file">
+          <span class="empty-state-title">No Orders of Payment yet</span>
+          <p>Once your application is evaluated, its Order of Payment will appear here.</p>
+        </div>
       } @else {
         <div class="pay-summary">
           <!-- Brand red only while something is owed: "To pay ₱0.00" in red read as a debt. -->
@@ -273,14 +277,17 @@ const HISTORY_FILTERS: ReadonlyArray<{ id: HistoryFilter; label: string }> = [
         <div class="pay-toolbar">
           <div class="pay-chips filter-chips" role="group" aria-label="Filter by status">
             @if (tab() === 'orders') {
+              <!-- A status with nothing in it offers no chip (it read "Rejected 0"), unless it is the one chosen. -->
               @for (f of orderFilters; track f.id) {
+                @if (f.id === 'all' || orderCount(f.id) > 0 || orderFilter() === f.id) {
                 <button type="button" class="filter-chip" [attr.aria-pressed]="orderFilter() === f.id" (click)="orderFilter.set(f.id)">
                   {{ f.label }}<span class="filter-chip-count">{{ orderCount(f.id) }}</span>
                 </button>
+                }
               }
             } @else {
               @for (f of historyFilters; track f.id) {
-                @if (f.id !== 'Other' || historyCount('Other') > 0) {
+                @if (f.id === 'all' || historyCount(f.id) > 0 || historyFilter() === f.id) {
                   <button type="button" class="filter-chip" [attr.aria-pressed]="historyFilter() === f.id" (click)="historyFilter.set(f.id)">
                     {{ f.label }}<span class="filter-chip-count">{{ historyCount(f.id) }}</span>
                   </button>
@@ -291,13 +298,17 @@ const HISTORY_FILTERS: ReadonlyArray<{ id: HistoryFilter; label: string }> = [
           <label class="pay-search">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
             <input class="input" type="search" [ngModel]="search()" (ngModelChange)="search.set($event)"
-                   placeholder="Search reference, receipt or permit" aria-label="Search payments" />
+                   placeholder="Search payments" aria-label="Search payments" title="Search by reference, receipt or permit" />
           </label>
         </div>
 
         @if (tab() === 'orders') {
           @if (visibleRows().length === 0) {
-            <div class="pay-empty">No Orders of Payment match. <button type="button" (click)="clearFilters()">Show all</button></div>
+            <div class="card empty-state empty-state--search">
+              <span class="empty-state-title">No Orders of Payment match</span>
+              <p>Try another status or search.</p>
+              <button type="button" class="btn btn-secondary btn-sm" (click)="clearFilters()">Show all</button>
+            </div>
           } @else {
             <div class="orders">
               @for (row of visibleRows(); track row.applicationId) {
@@ -308,7 +319,7 @@ const HISTORY_FILTERS: ReadonlyArray<{ id: HistoryFilter; label: string }> = [
                   <div class="order-main">
                     <div class="order-title">
                       <strong>{{ row.permitType }}</strong>
-                      <span class="badge" [class]="'badge-' + row.tone">{{ row.label }}</span>
+                      <app-status-pill [label]="row.label" />
                     </div>
                     <div class="order-meta">
                       {{ row.applicationNumber }}
@@ -317,15 +328,20 @@ const HISTORY_FILTERS: ReadonlyArray<{ id: HistoryFilter; label: string }> = [
                       @if (row.dueOn && row.canPay) { · Due {{ formatDate(row.dueOn) }} }
                     </div>
                     @if (lastPayment(row.applicationId); as last) {
-                      <div class="order-last" [class.order-last--red]="last.view.tone === 'red'" [class.order-last--green]="last.view.tone === 'green'">
-                        @if (last.view.label === 'Rejected') {
-                          <span><strong>Your last payment was rejected.</strong> {{ last.view.detail }}</span>
-                        } @else if (last.view.label === 'Paid') {
-                          <span><strong>Paid.</strong> {{ last.view.detail }}</span>
-                        } @else {
-                          <span>Payment sent {{ formatDate(last.entry.submittedAt) }} (Ref. {{ last.entry.referenceNumber }}). {{ last.view.detail }}</span>
-                        }
-                      </div>
+                      @if (last.view.label === 'Paid') {
+                        <div class="order-receipt">
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                          <span>{{ last.view.detail }}</span>
+                        </div>
+                      } @else {
+                        <div class="order-last" [class.order-last--red]="last.view.tone === 'red'">
+                          @if (last.view.label === 'Rejected') {
+                            <span><strong>Your last payment was rejected.</strong> {{ last.view.detail }}</span>
+                          } @else {
+                            <span>Payment sent {{ formatDate(last.entry.submittedAt) }} (Ref. {{ last.entry.referenceNumber }}). {{ last.view.detail }}</span>
+                          }
+                        </div>
+                      }
                     }
                   </div>
                   <div class="order-side">
@@ -346,13 +362,23 @@ const HISTORY_FILTERS: ReadonlyArray<{ id: HistoryFilter; label: string }> = [
           }
         } @else {
           @if (historyError()) {
-            <div class="pay-empty">Your payment history could not be loaded. Refresh the page to try again.</div>
+            <div class="card empty-state">
+              <span class="empty-state-title">Your payment history could not be loaded</span>
+              <p>Refresh the page to try again.</p>
+            </div>
           } @else if (history() === null) {
-            <div class="pay-empty">Loading your payment history…</div>
+            <div class="card empty-state empty-state--loading"><p>Loading your payment history…</p></div>
           } @else if (history()!.length === 0) {
-            <div class="pay-empty">No payments sent yet. Payments you send appear here, with their Official Receipts once confirmed.</div>
+            <div class="card empty-state">
+              <span class="empty-state-title">No payments sent yet</span>
+              <p>Payments you send appear here, with their Official Receipts once confirmed.</p>
+            </div>
           } @else if (visibleHistory().length === 0) {
-            <div class="pay-empty">No payments match. <button type="button" (click)="clearFilters()">Show all</button></div>
+            <div class="card empty-state empty-state--search">
+              <span class="empty-state-title">No payments match</span>
+              <p>Try another status or search.</p>
+              <button type="button" class="btn btn-secondary btn-sm" (click)="clearFilters()">Show all</button>
+            </div>
           } @else {
             <ul class="history">
               @for (item of visibleHistory(); track item.entry.id; let i = $index) {
@@ -371,7 +397,7 @@ const HISTORY_FILTERS: ReadonlyArray<{ id: HistoryFilter; label: string }> = [
                   <div class="history-body">
                     <div class="history-title">
                       <strong>{{ item.permitType }}</strong>
-                      <span class="badge" [class]="'badge-' + item.view.tone">{{ item.view.label }}</span>
+                      <app-status-pill [label]="item.view.label" />
                     </div>
                     <div class="history-meta">
                       {{ item.applicationNumber }} ·

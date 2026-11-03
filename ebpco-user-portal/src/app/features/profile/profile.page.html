@@ -27,7 +27,7 @@
         <div class="small muted profile-side-email">{{ u.email }}</div>
         @if (auth.photoUrl()) {
           <button type="button" class="btn btn-secondary btn-sm btn-block profile-remove-photo" [disabled]="photoBusy()" (click)="removePhoto()">
-            {{ photoBusy() ? 'Working…' : 'Remove Photo' }}
+            {{ photoBusy() ? 'Working…' : 'Remove photo' }}
           </button>
         }
 
@@ -40,11 +40,9 @@
           does not verify it, so a "Mobile: Unverified" label described a
           check that was never going to happen.
         -->
-        <div class="profile-side-badges">
-          <span class="badge" [class]="u.emailVerification.status === 'Verified' ? 'badge-green' : 'badge-amber'">Email: {{ u.emailVerification.status }}</span>
-          @if (u.verification; as v) {
-            <span class="badge" [class]="verificationBadge(v.status)">Account: {{ verificationStatusLabel(v.status) }}</span>
-          }
+        <!-- The email's status only: the account's is shown once, on Account verification. -->
+        <div class="profile-side-badges profile-email-status">
+          <span class="small muted">Email </span><span class="badge badge-dot" [class]="u.emailVerification.status === 'Verified' ? 'badge-green' : 'badge-amber'">{{ u.emailVerification.status }}</span>
         </div>
         <p class="small muted profile-side-note">
           @if (u.emailVerification.status === 'Verified') {
@@ -96,7 +94,7 @@
           <section class="card profile-verification" id="account-verification" aria-labelledby="account-verification-title">
             <div class="profile-verification-head">
               <h3 id="account-verification-title">Account verification</h3>
-              <span class="badge" [class]="verificationBadge(v.status)">{{ verificationStatusLabel(v.status) }}</span>
+              <span class="badge badge-dot" [class]="verificationBadge(v.status)">{{ verificationStatusLabel(v.status) }}</span>
             </div>
             @switch (v.status) {
               @case ('verified') {
@@ -137,27 +135,42 @@
           </section>
         }
 
-        <div class="profile-tabs">
-          <button class="btn btn-sm" [class.btn-primary]="tab() === 'profile'" [class.btn-secondary]="tab() !== 'profile'" (click)="selectTab('profile')">Edit Profile</button>
-          <button class="btn btn-sm" [class.btn-primary]="tab() === 'password'" [class.btn-secondary]="tab() !== 'password'" (click)="selectTab('password')">Change Password</button>
-          <button class="btn btn-sm" [class.btn-primary]="tab() === 'notifications'" [class.btn-secondary]="tab() !== 'notifications'" (click)="selectTab('notifications')">Notification Preferences</button>
-          <button class="btn btn-sm" [class.btn-primary]="tab() === 'privacy'" [class.btn-secondary]="tab() !== 'privacy'" (click)="selectTab('privacy')">Your Data</button>
-          <button class="btn btn-sm" [class.btn-primary]="tab() === 'legal'" [class.btn-secondary]="tab() !== 'legal'" (click)="selectTab('legal')">Legal</button>
+        <!-- Segmented tabs, as on Payments (they were five buttons, the chosen one solid red). -->
+        <div class="seg-tabs profile-tabs" role="tablist" aria-label="Profile and settings">
+          <button type="button" class="seg-tab" role="tab" [attr.aria-selected]="tab() === 'profile'" (click)="selectTab('profile')">Edit profile</button>
+          <button type="button" class="seg-tab" role="tab" [attr.aria-selected]="tab() === 'password'" (click)="selectTab('password')">Change password</button>
+          <button type="button" class="seg-tab" role="tab" [attr.aria-selected]="tab() === 'notifications'" (click)="selectTab('notifications')">Notifications</button>
+          <button type="button" class="seg-tab" role="tab" [attr.aria-selected]="tab() === 'privacy'" (click)="selectTab('privacy')">Your data</button>
+          <button type="button" class="seg-tab" role="tab" [attr.aria-selected]="tab() === 'legal'" (click)="selectTab('legal')">Legal</button>
         </div>
 
         @if (tab() === 'profile') {
           <div class="card">
             <div class="form-row">
-              <div class="field"><label for="profile-first-name-1">First Name</label><input id="profile-first-name-1" class="input" [(ngModel)]="firstName" appCapitalizeName /></div>
-              <div class="field"><label for="profile-middle-name-2">Middle Name</label><input id="profile-middle-name-2" class="input" [(ngModel)]="middleName" appCapitalizeName /></div>
+              <div class="field"><label for="profile-first-name-1">First name</label><input id="profile-first-name-1" class="input" [(ngModel)]="firstName" appCapitalizeName /></div>
+              <div class="field"><label for="profile-middle-name-2">Middle name</label><input id="profile-middle-name-2" class="input" [(ngModel)]="middleName" appCapitalizeName /></div>
             </div>
             <div class="form-row">
-              <div class="field"><label for="profile-last-name-3">Last Name</label><input id="profile-last-name-3" class="input" [(ngModel)]="lastName" appCapitalizeName /></div>
+              <div class="field"><label for="profile-last-name-3">Last name</label><input id="profile-last-name-3" class="input" [(ngModel)]="lastName" appCapitalizeName /></div>
               <div class="field"><label for="profile-email-read-only-4">Email <span class="small muted">(read-only)</span></label><input id="profile-email-read-only-4" class="input" [value]="u.email" disabled /></div>
             </div>
             <div class="form-row">
-              <div class="field"><label for="profile-mobile-number-5">Mobile Number</label><input id="profile-mobile-number-5" class="input" [(ngModel)]="mobileNumber" /></div>
-              <div class="field"><label for="profile-address-6">Address</label><input id="profile-address-6" class="input" [(ngModel)]="street" /></div>
+              <div class="field"><label for="profile-mobile-number-5">Mobile number</label><input id="profile-mobile-number-5" class="input" [(ngModel)]="mobileNumber" /></div>
+              <div class="field">
+                <label for="profile-address-6">Address</label>
+                <input id="profile-address-6" class="input" [(ngModel)]="street" [attr.aria-describedby]="addressNeverRecorded() ? 'profile-address-help' : null" />
+                <!--
+                  The office never had a place to record an address before, so a
+                  blank one is not something the citizen left out: said here, as
+                  the field's own help text, not as a paragraph above Save.
+                -->
+                @if (addressNeverRecorded()) {
+                  <div class="hint" id="profile-address-help">
+                    The Municipality has no address on file for you yet: there was nowhere to record it until now.
+                    Adding it lets the office write to you about an application.
+                  </div>
+                }
+              </div>
             </div>
             <!-- Same choices as sign-up (register.page.ts), so an address cannot be
                  spelled one way there and another way here. -->
@@ -191,7 +204,7 @@
                   }
                 </select>
               </div>
-              <div class="field"><label for="profile-zip-code-10">ZIP Code</label><input id="profile-zip-code-10" class="input" [(ngModel)]="postalCode" /></div>
+              <div class="field"><label for="profile-zip-code-10">ZIP code</label><input id="profile-zip-code-10" class="input" [(ngModel)]="postalCode" /></div>
             </div>
 
             <!--
@@ -203,14 +216,14 @@
               does not have this," which is the opposite of true.
             -->
             <div class="form-row">
-              <div class="field"><label for="profile-dob-20">Date of Birth <span class="small muted">(read-only)</span></label><input id="profile-dob-20" class="input" [value]="heldValue(u.dateOfBirth)" disabled /></div>
+              <div class="field"><label for="profile-dob-20">Date of birth <span class="small muted">(read-only)</span></label><input id="profile-dob-20" class="input" [value]="heldValue(u.dateOfBirth)" disabled /></div>
               <div class="field"><label for="profile-sex-21">Sex <span class="small muted">(read-only)</span></label><input id="profile-sex-21" class="input" [value]="heldValue(u.sex)" disabled /></div>
             </div>
             <div class="form-row">
-              <div class="field"><label for="profile-civil-status-22">Civil Status <span class="small muted">(read-only)</span></label><input id="profile-civil-status-22" class="input" [value]="heldValue(u.civilStatus)" disabled /></div>
+              <div class="field"><label for="profile-civil-status-22">Civil status <span class="small muted">(read-only)</span></label><input id="profile-civil-status-22" class="input" [value]="heldValue(u.civilStatus)" disabled /></div>
               <div class="field"><label for="profile-nationality-23">Nationality <span class="small muted">(read-only)</span></label><input id="profile-nationality-23" class="input" [value]="heldValue(u.nationality)" disabled /></div>
             </div>
-            <p class="small muted" style="margin:-8px 0 8px;">
+            <p class="hint" style="margin:-8px 0 0;">
               To correct any of these four, contact {{ engineer.shortName }} on {{ engineer.mobile }}.
             </p>
             <!--
@@ -224,46 +237,40 @@
               gone in four seconds, and this is the sentence that decides
               whether someone rings the office.
             -->
-            @if (addressNeverRecorded()) {
-              <div class="hint" style="margin:8px 0 4px;">
-                The Municipality has no address on file for you. This is not something you left
-                blank — until now there was nowhere in the system to record it, so you were never
-                asked. Filling it in lets the office write to you about an application.
-              </div>
-            }
-
             @if (saveError(); as err) {
               <div class="field error" style="margin:12px 0;">{{ err }}</div>
             }
 
             @if (!canReachTheOffice()) {
-            <div
-              class="card"
-              style="background:var(--warning-100); border:1px solid var(--warning-text); color:var(--warning-text); margin:12px 0;"
-            >
-              <strong>These details stay on this device.</strong>
-              eBPCO has no way yet to send a profile change to the Municipality, so changing your
-              address or mobile number here does <strong>not</strong> tell the office. If the
-              Municipality needs to reach you about an application, contact
-              {{ engineer.shortName }} on {{ engineer.mobile }} so they can update your record.
-            </div>
+              <div class="callout callout-warning" style="margin-top:16px;">
+                <strong class="callout-title">These details stay on this device.</strong>
+                <p>
+                  eBPCO has no way yet to send a profile change to the Municipality, so a new address or mobile
+                  number here does not tell the office. To update your record, contact {{ engineer.shortName }}
+                  on {{ engineer.mobile }}.
+                </p>
+              </div>
             }
-            <button class="btn btn-primary" (click)="saveProfile()">Save Changes</button>
+            <div class="form-footer">
+              <button class="btn btn-primary" (click)="saveProfile()">Save changes</button>
+            </div>
           </div>
         }
 
         @if (tab() === 'password') {
           <div class="card">
             <div class="form-row">
-              <div class="field"><label for="profile-current-password-11">Current Password</label><input id="profile-current-password-11" class="input" type="password" [(ngModel)]="currentPassword" [disabled]="changingPassword()" /></div>
-              <div class="field"><label for="profile-new-password-12">New Password</label><input id="profile-new-password-12" class="input" type="password" [(ngModel)]="newPassword" [disabled]="changingPassword()" /><div class="hint">At least 12 characters, with an uppercase letter, a lowercase letter, a number and a punctuation mark.</div></div>
+              <div class="field"><label for="profile-current-password-11">Current password</label><input id="profile-current-password-11" class="input" type="password" [(ngModel)]="currentPassword" [disabled]="changingPassword()" /></div>
+              <div class="field"><label for="profile-new-password-12">New password</label><input id="profile-new-password-12" class="input" type="password" [(ngModel)]="newPassword" [disabled]="changingPassword()" /><div class="hint">At least 12 characters, with an uppercase letter, a lowercase letter, a number and a punctuation mark.</div></div>
             </div>
-            <div class="field field-narrow"><label for="profile-confirm-new-password-13">Confirm New Password</label><input id="profile-confirm-new-password-13" class="input" type="password" [(ngModel)]="confirmPassword" [disabled]="changingPassword()" /></div>
+            <div class="field field-narrow"><label for="profile-confirm-new-password-13">Confirm new password</label><input id="profile-confirm-new-password-13" class="input" type="password" [(ngModel)]="confirmPassword" [disabled]="changingPassword()" /></div>
             @if (passwordError()) { <div class="field error">{{ passwordError() }}</div> }
-            <p class="small muted">Changing your password signs you out everywhere, including this tab — you'll sign in again with the new one.</p>
-            <button class="btn btn-primary" [disabled]="changingPassword()" (click)="changePassword()">
-              {{ changingPassword() ? 'Updating…' : 'Update Password' }}
-            </button>
+            <div class="form-footer">
+              <span class="small muted form-footer-note">Changing your password signs you out everywhere, including this tab — you'll sign in again with the new one.</span>
+              <button class="btn btn-primary" [disabled]="changingPassword()" (click)="changePassword()">
+                {{ changingPassword() ? 'Updating…' : 'Update password' }}
+              </button>
+            </div>
           </div>
         }
 
@@ -289,7 +296,7 @@
 
               <hr class="divider" />
 
-              <h4>Quiet Hours</h4>
+              <h4>Quiet hours</h4>
               <p class="small muted">A window nothing is sent in, regardless of the categories above.</p>
               <label class="checkbox-row">
                 <input
@@ -324,9 +331,11 @@
                 </div>
               </div>
 
-              <button class="btn btn-primary" [disabled]="preferencesBusy()" (click)="savePreferences()">
-                {{ preferencesBusy() ? 'Saving…' : 'Save Preferences' }}
-              </button>
+              <div class="form-footer">
+                <button class="btn btn-primary" [disabled]="preferencesBusy()" (click)="savePreferences()">
+                  {{ preferencesBusy() ? 'Saving…' : 'Save preferences' }}
+                </button>
+              </div>
             } @else {
               <p class="small muted">{{ preferencesBusy() ? 'Loading…' : 'Could not load your preferences.' }}</p>
             }
@@ -335,7 +344,7 @@
 
         @if (tab() === 'privacy') {
           <div class="card">
-            <h4>Export Your Data</h4>
+            <h4>Export your data</h4>
             <p class="small muted">
               Request a copy of everything the Municipality holds about you — your profile,
               applications, documents, payments, and notifications. This is your right under the
@@ -346,7 +355,7 @@
             } @else {
               @if (!exportRequestId()) {
                 <button class="btn btn-primary" [disabled]="exportBusy()" (click)="requestExport()">
-                  {{ exportBusy() ? 'Requesting…' : 'Request My Data' }}
+                  {{ exportBusy() ? 'Requesting…' : 'Request my data' }}
                 </button>
               } @else {
                 <div class="card" style="background:var(--secondary-50);">
@@ -354,10 +363,10 @@
                     Request status: <strong>{{ exportStatus()?.status ?? 'checking…' }}</strong>
                   </p>
                   @if (exportDownloadUrl(); as url) {
-                    <a [href]="url" target="_blank" rel="noopener" class="btn btn-primary btn-sm">Download My Data</a>
+                    <a [href]="url" target="_blank" rel="noopener" class="btn btn-primary btn-sm">Download my data</a>
                   } @else {
                     <button class="btn btn-secondary btn-sm" [disabled]="exportBusy()" (click)="checkExportStatus()">
-                      {{ exportBusy() ? 'Checking…' : 'Check Status' }}
+                      {{ exportBusy() ? 'Checking…' : 'Check status' }}
                     </button>
                     <p class="small muted" style="margin-top:8px;">
                       This can take a while to produce. Come back and check status again later —
@@ -371,7 +380,7 @@
 
             <hr class="divider" />
 
-            <h4 style="color:var(--danger-text);">Delete Your Account</h4>
+            <h4 style="color:var(--danger-text);">Delete your account</h4>
             <p class="small muted">
               This permanently erases your account and profile, as far as the law allows — some
               records (like a filed permit application) must be kept for a legal retention period
@@ -396,13 +405,13 @@
               </div>
               @if (deleteError(); as err) { <div class="field error">{{ err }}</div> }
               <button class="btn btn-danger" [disabled]="deleteBusy()" (click)="requestEraseAccount()">
-                {{ deleteBusy() ? 'Deleting…' : 'Permanently Delete My Account' }}
+                {{ deleteBusy() ? 'Deleting…' : 'Permanently delete my account' }}
               </button>
               @if (showDeleteConfirm()) {
                 <app-confirm-modal
                   title="Delete your account?"
                   [message]="deleteWarning"
-                  confirmLabel="Yes, Delete My Account"
+                  confirmLabel="Yes, delete my account"
                   cancelLabel="Cancel"
                   tone="danger"
                   (confirm)="eraseAccount()"

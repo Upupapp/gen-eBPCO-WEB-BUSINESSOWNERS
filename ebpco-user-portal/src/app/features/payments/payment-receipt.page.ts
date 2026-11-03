@@ -67,7 +67,7 @@ const FEE_LINES: ReadonlyArray<{ code: keyof NonNullable<ApplicationSummary['pay
   template: `
     @if (app(); as a) {
       <div class="page" style="max-width:900px;">
-        <div class="no-print" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <div class="no-print doc-toolbar">
           <app-back-link fallback="/payments" fallbackLabel="Payments" />
           @if (payment()) {
             <button class="btn btn-primary btn-sm" (click)="print()">Print / Download</button>
@@ -192,22 +192,22 @@ const FEE_LINES: ReadonlyArray<{ code: keyof NonNullable<ApplicationSummary['pay
               @if (amount(); as amt) {
                 <table class="doc-generated-table">
                   <thead>
-                    <tr><th>Fee</th><th>Amount</th></tr>
+                    <tr><th>Fee</th><th class="num">Amount</th></tr>
                   </thead>
                   <tbody>
                     @for (line of amt.lineItems; track line.code) {
                       <tr>
                         <td>{{ line.name }}</td>
-                        <td>{{ line.amountCentavos !== null ? pesos(line.amountCentavos) : 'Pending' }}</td>
+                        <td class="num">{{ line.amountCentavos !== null ? pesos(line.amountCentavos) : 'Pending' }}</td>
                       </tr>
                     }
                     <tr>
                       <td><strong>Amount Paid (this transaction)</strong></td>
-                      <td><strong>{{ pesos(tx.amountCentavos) }}</strong></td>
+                      <td class="num"><strong>{{ pesos(tx.amountCentavos) }}</strong></td>
                     </tr>
                     <tr>
                       <td>{{ gateCleared() ? 'Remaining Balance' : 'Remaining Balance (once verified)' }}</td>
-                      <td>{{ pesos(amt.balanceCentavos) }}</td>
+                      <td class="num">{{ pesos(amt.balanceCentavos) }}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -217,8 +217,9 @@ const FEE_LINES: ReadonlyArray<{ code: keyof NonNullable<ApplicationSummary['pay
             </section>
 
             <section class="doc-generated-section doc-generated-signature">
-              <h2 style="text-align:left; border:none;">Received By</h2>
+              <h2>Received By</h2>
               @if (gateCleared()) {
+                <div class="sig-space"></div>
                 <div class="sig-line"></div>
                 <div class="sig-name">Municipal Treasurer's Office Cashier</div>
                 <div class="sig-position">{{ header().officeLine }}</div>

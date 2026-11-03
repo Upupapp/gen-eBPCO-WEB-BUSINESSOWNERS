@@ -124,6 +124,6 @@ describe('PermitRelease — delivered by courier', () => {
   it('gives the claim instructions again once the courier brought it back (byCourier false)', () => {
     const el = render('FP-1', { ...SENT, claimLocation: 'Office of the Municipal Engineer', officeHours: 'Mon–Fri 8–5' }, false);
     expect(el.textContent).toContain('Ready to collect');
-    expect(el.textContent).toContain('Where:');
+    expect(el.querySelector('.claim-rows dt')?.textContent).toBe('Where');
   });
 });

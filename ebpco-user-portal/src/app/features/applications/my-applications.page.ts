@@ -48,7 +48,7 @@ const FILTERS: readonly ApplicationFilter[] = [
           <h1>My Applications</h1>
           <div class="subtitle">Track and manage every permit application you've filed.</div>
         </div>
-        <a routerLink="/permits" class="btn btn-primary">+ New Application</a>
+        <a routerLink="/permits" class="btn btn-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" /><path d="M14 3v4h4M12 12v6M9 15h6" /></svg> Apply for a permit</a>
       </div>
 
       <div class="filter-chips" role="group" aria-label="Filter by status">
@@ -60,7 +60,10 @@ const FILTERS: readonly ApplicationFilter[] = [
       </div>
 
       @if (filtered().length === 0) {
-        <div class="card empty-state empty-state--search">No applications match this filter.</div>
+        <div class="card empty-state empty-state--search">
+          <span class="empty-state-title">No applications match this filter</span>
+          <p>Choose another status to see the rest.</p>
+        </div>
       } @else {
         <div class="card" style="padding:0;">
           <table class="table">

@@ -51,7 +51,7 @@ import { BackLinkComponent } from '../../shared/ui/back-link.component';
           </div>
 
           <div class="card">
-            <div class="card-title">Payment Method</div>
+            <div class="card-title">Payment method</div>
             <!--
               Bank Transfer is offered only once the Municipality publishes a
               deposit account (DEFAULT_BANK_INFO). Until then it opened first
