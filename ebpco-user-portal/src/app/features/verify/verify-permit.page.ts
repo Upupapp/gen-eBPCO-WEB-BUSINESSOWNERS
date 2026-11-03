@@ -125,13 +125,13 @@ type LookupState = 'idle' | 'loading' | 'found' | 'not-found' | 'unavailable';
           }
         }
 
-        <div class="card" style="margin-top:20px; text-align:left; background:var(--warning-100, #fff4e5); border:1px solid var(--warning-text, #a15c00);">
-          <div class="card-title" style="margin-bottom:6px;">What this page can and cannot tell you</div>
-          <p class="small" style="margin:0 0 8px;">
+        <div class="callout callout-warning" style="margin-top:20px; text-align:left;">
+          <strong class="callout-title">What this page can and cannot tell you</strong>
+          <p>
             It confirms only that the Municipality issued a permit with this number. It does not show whether the
             permit is still in force, or who holds it.
           </p>
-          <p class="small" style="margin:0;">
+          <p>
             To confirm a permit’s standing, contact the {{ engineer.name }}, Municipality of Castilla,
             Sorsogon — <strong>{{ engineer.mobile }}</strong> or <strong>{{ engineer.email }}</strong>.
           </p>

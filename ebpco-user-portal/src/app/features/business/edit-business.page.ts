@@ -27,7 +27,7 @@ import { registrationDateProblem, registrationNumberProblem } from '../../core/d
   selector: 'app-edit-business',
   imports: [FormsModule, RouterLink],
   template: `
-    <div class="page" style="max-width:720px;">
+    <div class="page page-narrow">
       @if (found()) {
         <div class="page-header">
           <div>
@@ -101,13 +101,15 @@ import { registrationDateProblem, registrationNumberProblem } from '../../core/d
           }
 
           @if (openApplicationCount() > 0) {
-            <div class="card" style="background:var(--warning-100); border:1px solid var(--warning-text); color:var(--warning-text); margin-top:6px;">
-              <strong>This will not change applications already filed.</strong>
-              You have {{ openApplicationCount() }}
-              {{ openApplicationCount() === 1 ? 'application' : 'applications' }} in progress. The
-              Municipality assessed {{ openApplicationCount() === 1 ? 'it' : 'them' }} under the
-              details on file at the time. To change the details on an application already
-              submitted, file an <strong>Amendment</strong> for it.
+            <div class="callout callout-warning" style="margin-top:6px;">
+              <strong class="callout-title">This will not change applications already filed.</strong>
+              <p>
+                You have {{ openApplicationCount() }}
+                {{ openApplicationCount() === 1 ? 'application' : 'applications' }} in progress. The
+                Municipality assessed {{ openApplicationCount() === 1 ? 'it' : 'them' }} under the
+                details on file at the time. To change the details on an application already
+                submitted, file an <strong>Amendment</strong> for it.
+              </p>
             </div>
           }
 

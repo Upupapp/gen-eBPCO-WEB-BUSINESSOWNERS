@@ -25,13 +25,14 @@ import { ToastService } from '../../shared/ui/toast.service';
   selector: 'app-permit-delivery',
   imports: [DeliveryChoiceComponent],
   styles: [`
-    .delivery-rows { display: grid; gap: 4px; margin-top: 10px; }
-    .delivery-tracking { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .delivery-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
-    .delivery-confirm {
-      margin-top: 12px; padding: 10px 12px; border-radius: 8px;
-      border: 1px solid var(--success-text); background: var(--success-100);
-    }
+    :host { display: block; }
+    .delivery-how { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .delivery-facts { margin-top: 16px; }
+    .delivery-tracking dd { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+    .delivery-tracking .btn { margin: -6px 0; }
+    .delivery-note { margin: 12px 0 0; }
+    .delivery-actions { display: flex; gap: 8px 12px; flex-wrap: wrap; align-items: center; margin-top: 16px; }
+    .delivery-confirm { margin-top: 16px; }
   `],
   template: `
     <div class="card" id="permit-delivery-card">
@@ -53,51 +54,56 @@ import { ToastService } from '../../shared/ui/toast.service';
           </button>
         </div>
       } @else if (delivery(); as d) {
-        <div id="delivery-choice"><strong>Delivery by courier</strong></div>
-        <div class="release-state" id="delivery-status" [class]="toneClass()" [attr.data-status]="d.status">
-          <strong id="delivery-status-title">{{ statusText().title }}</strong>
-          <p class="small" style="margin:4px 0 0;">{{ statusText().detail }}</p>
+        <div id="delivery-choice" class="delivery-how"><span class="badge badge-violet">Delivery by courier</span></div>
+        <div class="callout release-state" id="delivery-status" [class]="toneClass()" [attr.data-status]="d.status">
+          <strong class="callout-title" id="delivery-status-title">{{ statusText().title }}</strong>
+          <p>{{ statusText().detail }}</p>
         </div>
 
         @if (d.status === 'returned' && d.returnReason) {
-          <p class="small" id="delivery-return-reason" style="margin:10px 0 0;">
+          <p class="small delivery-note" id="delivery-return-reason">
             <span class="muted">Reason:</span> {{ d.returnReason }}
           </p>
           <p class="small muted" style="margin:4px 0 0;">Where and when to claim it are under Your permit.</p>
         }
 
-        <div class="small delivery-rows">
+        <dl class="kv delivery-facts">
           @if (d.courier) {
-            <div id="delivery-courier"><span class="muted">Courier:</span> {{ d.courier }}</div>
+            <div id="delivery-courier"><dt>Courier</dt><dd>{{ d.courier }}</dd></div>
           }
           @if (d.trackingNumber) {
             <div class="delivery-tracking">
-              <span><span class="muted">Tracking no.:&nbsp;</span><strong id="delivery-tracking-number">{{ d.trackingNumber }}</strong></span>
-              <button type="button" class="btn btn-secondary btn-sm" id="delivery-copy-tracking"
-                aria-label="Copy tracking number" (click)="copyTracking(d.trackingNumber)">
-                {{ copied() ? 'Copied' : 'Copy' }}
-              </button>
+              <dt>Tracking no.</dt>
+              <dd>
+                <strong id="delivery-tracking-number">{{ d.trackingNumber }}</strong>
+                <button type="button" class="btn btn-ghost btn-sm" id="delivery-copy-tracking"
+                  aria-label="Copy tracking number" (click)="copyTracking(d.trackingNumber)">
+                  {{ copied() ? 'Copied' : 'Copy' }}
+                </button>
+              </dd>
             </div>
           }
           @if (d.sentOn) {
-            <div id="delivery-sent-on"><span class="muted">Date sent:</span> {{ formatDay(d.sentOn) }}</div>
+            <div id="delivery-sent-on"><dt>Date sent</dt><dd>{{ formatDay(d.sentOn) }}</dd></div>
           }
           @if (d.deliveredOn && d.status !== 'returned') {
-            <div id="delivery-delivered-on"><span class="muted">Delivered:</span> {{ formatDay(d.deliveredOn) }}</div>
+            <div id="delivery-delivered-on"><dt>Delivered</dt><dd>{{ formatDay(d.deliveredOn) }}</dd></div>
           }
-          <div id="delivery-address" style="margin-top:6px;">
-            <span class="muted">Deliver to:</span>
-            {{ d.recipientName }} · {{ d.recipientMobile }}<br />
-            {{ addressLine(d) }}
-            @if (d.landmark) { <br /><span class="muted">Landmark:</span> {{ d.landmark }} }
+          <div id="delivery-address" class="kv-wide">
+            <dt>Deliver to</dt>
+            <dd>
+              {{ d.recipientName }} · {{ d.recipientMobile }}<br />
+              {{ addressLine(d) }}
+              @if (d.landmark) { <br /><span class="muted">Landmark:</span> {{ d.landmark }} }
+            </dd>
           </div>
-        </div>
+        </dl>
 
         @if (d.status === 'requested' || d.status === 'returned') {
-          <p class="small muted" id="delivery-fee-reminder" style="margin:10px 0 0;">{{ state().feeNote }}</p>
+          <p class="small muted delivery-note" id="delivery-fee-reminder">{{ state().feeNote }}</p>
         }
         @if (d.status === 'delivered' && d.closableFrom) {
-          <p class="small muted" style="margin:10px 0 0;">
+          <p class="small muted delivery-note">
             If you do not confirm, the office may close it from the courier’s proof of delivery from {{ formatDay(d.closableFrom) }}.
           </p>
         }
@@ -111,17 +117,17 @@ import { ToastService } from '../../shared/ui/toast.service';
               <span class="small muted">Confirm once the permit is in your hands.</span>
             </div>
           } @else {
-            <div class="delivery-confirm" id="delivery-received-confirm" role="group" aria-labelledby="delivery-received-confirm-title">
-              <strong class="small" id="delivery-received-confirm-title">
+            <div class="callout callout-success delivery-confirm" id="delivery-received-confirm" role="group" aria-labelledby="delivery-received-confirm-title">
+              <strong class="callout-title" id="delivery-received-confirm-title">
                 Confirm that you received {{ permitNumber() ? 'permit ' + permitNumber() : 'your permit' }}?
               </strong>
-              <p class="small" style="margin:4px 0 8px;">This closes the delivery and completes your application.</p>
-              <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                <button type="button" class="btn btn-primary btn-sm" id="delivery-received-yes" [disabled]="confirmingBusy()" (click)="confirmReceived()">
-                  {{ confirmingBusy() ? 'Confirming…' : 'Yes, I received it' }}
-                </button>
+              <p>This closes the delivery and completes your application.</p>
+              <div class="callout-actions">
                 <button type="button" class="btn btn-secondary btn-sm" id="delivery-received-cancel" [disabled]="confirmingBusy()" (click)="confirming.set(false)">
                   Not yet
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" id="delivery-received-yes" [disabled]="confirmingBusy()" (click)="confirmReceived()">
+                  {{ confirmingBusy() ? 'Confirming…' : 'Yes, I received it' }}
                 </button>
               </div>
             </div>
@@ -140,8 +146,8 @@ import { ToastService } from '../../shared/ui/toast.service';
         }
       } @else {
         <div id="delivery-choice">
-          <strong>Pick up at the office</strong>
-          <p class="small muted" style="margin:4px 0 0;">Claim it at the issuing office when it is ready.</p>
+          <div class="delivery-how"><span class="badge">Pick up at the office</span></div>
+          <p class="small muted" style="margin:8px 0 0;">Claim it at the issuing office when it is ready.</p>
         </div>
         @if (state().canChange) {
           <div class="delivery-actions">
@@ -190,9 +196,24 @@ export class PermitDeliveryComponent {
     return d ? deliveryStatusText(d) : { title: '', detail: '' };
   });
 
+  /**
+   * The status callout's tone: grey while it waits to be sent, violet on its
+   * way (it must not look like "not yet ready"), green once delivered, amber
+   * when the courier brought it back and the citizen has to act.
+   */
   protected readonly toneClass = computed(() => {
-    const status = this.delivery()?.status;
-    return status === 'delivered' || status === 'received' || status === 'closed' ? 'release-ready' : 'release-waiting';
+    switch (this.delivery()?.status) {
+      case 'delivered':
+      case 'received':
+      case 'closed':
+        return 'release-ready callout-success';
+      case 'out-for-delivery':
+        return 'release-waiting callout-violet';
+      case 'returned':
+        return 'release-waiting callout-warning';
+      default:
+        return 'release-waiting callout-neutral';
+    }
   });
 
   /**

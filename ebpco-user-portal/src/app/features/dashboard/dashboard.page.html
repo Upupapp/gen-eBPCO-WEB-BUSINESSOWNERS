@@ -1,18 +1,18 @@
 <div class="dashboard-page">
-  <main class="dashboard-content">
+  <main class="page dashboard-content">
     <section class="dashboard-hero">
       <div class="hero-text">
         <h1 class="hero-heading">Welcome back, {{ firstName() }}<span class="hero-wave" aria-hidden="true">👋</span></h1>
         <p class="hero-subtitle">Here's what's happening with your applications.</p>
       </div>
       <div class="hero-actions">
-        <a routerLink="/permits" class="action-btn primary">
+        <a routerLink="/permits" class="btn btn-primary">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             @for (d of icons.filePlus; track d) { <path [attr.d]="d" /> }
           </svg>
           <span>Apply for Permit</span>
         </a>
-        <a routerLink="/businesses/register" class="action-btn secondary">
+        <a routerLink="/businesses/register" class="btn btn-secondary">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             @for (d of icons.store; track d) { <path [attr.d]="d" /> }
           </svg>
@@ -83,9 +83,15 @@
         </div>
 
         @if (applications.myApplications().length === 0) {
-          <div class="empty-state">No applications yet. <a routerLink="/permits">Start your first application.</a></div>
+          <div class="empty-state">
+            <strong class="empty-state-title">No applications yet.</strong>
+            <a routerLink="/permits">Start your first application.</a>
+          </div>
         } @else if (activeApplications().length === 0) {
-          <div class="empty-state">No application is in progress. <a routerLink="/applications">See your past applications.</a></div>
+          <div class="empty-state">
+            <strong class="empty-state-title">No application is in progress.</strong>
+            <a routerLink="/applications">See your past applications.</a>
+          </div>
         } @else {
           <div class="application-list">
             @for (app of activeApplications(); track app.id) {
@@ -129,7 +135,9 @@
         </div>
 
         @if (notifications.all().length === 0) {
-          <div class="empty-state">No notifications yet.</div>
+          <div class="empty-state empty-state--bell">
+            <strong class="empty-state-title">No notifications yet.</strong>
+          </div>
         } @else {
           <div class="notification-list">
             @for (n of notifications.all().slice(0, 4); track n.id) {

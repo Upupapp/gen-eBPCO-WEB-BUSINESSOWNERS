@@ -64,6 +64,14 @@ describe('MyApplicationsPage filters', () => {
     const text = (render().nativeElement as HTMLElement).textContent ?? '';
     expect(text).not.toContain('Expired');
   });
+
+  it('hides every tab with nothing in it, and always keeps All', () => {
+    const el = render().nativeElement as HTMLElement;
+    const tabs = Array.from(el.querySelectorAll('button[aria-pressed]')).map((b) => b.textContent?.replace(/\s+/g, ' ').trim() ?? '');
+    expect(tabs).toContain(`All ${ROWS.length}`);
+    expect(tabs.some((t) => t.startsWith('Under Review'))).toBe(false);
+    expect(tabs.some((t) => t.startsWith('Rejected'))).toBe(false);
+  });
 });
 
 /**
@@ -118,8 +126,9 @@ describe('MyApplicationsPage: Issued before eBPCO', () => {
     expect(el.querySelectorAll('tbody tr')).toHaveLength(1);
     expect(el.querySelector('tbody')?.textContent).not.toContain('BP-2019-0412');
     expect(el.querySelector('.earlier-card .earlier-card__number')?.textContent).toContain('BP-2019-0412');
+    // Filter chips show the count in a counter after the label (house style 2026-11-03), not "(1)".
     const tabs = Array.from(el.querySelectorAll('button[aria-pressed]')).map((b) => b.textContent?.replace(/\s+/g, ' ').trim());
-    expect(tabs).toContain('All (1)');
-    expect(tabs).toContain('Completed (1)');
+    expect(tabs).toContain('All 1');
+    expect(tabs).toContain('Completed 1');
   });
 });

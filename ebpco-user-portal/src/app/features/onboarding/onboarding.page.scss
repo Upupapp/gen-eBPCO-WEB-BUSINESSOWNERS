@@ -6,8 +6,8 @@
 // shared variables (which are used across ~20 other pages).
 :host {
   display: block;
-  --ob-brand-red: #c81e2c;
-  --ob-brand-red-dark: #a91622;
+  --ob-brand-red: var(--primary-500);
+  --ob-brand-red-dark: var(--primary-600);
   --ob-ink: #101828;
   --ob-body-text: #667085;
   --ob-body-text-2: #7c8798;

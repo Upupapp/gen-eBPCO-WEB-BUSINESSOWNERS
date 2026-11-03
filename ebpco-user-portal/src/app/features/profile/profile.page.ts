@@ -192,7 +192,7 @@ export class ProfilePage {
   protected verificationBadge(status: AccountVerificationStatus): string {
     switch (status) {
       case 'verified': return 'badge-green';
-      case 'pending': return 'badge-blue';
+      case 'pending': return 'badge-indigo';
       case 'rejected': return 'badge-red';
       default: return 'badge-amber';
     }

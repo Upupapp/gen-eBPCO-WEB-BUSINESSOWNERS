@@ -126,7 +126,7 @@ const HISTORY_FILTERS: ReadonlyArray<{ id: HistoryFilter; label: string }> = [
       box-shadow: var(--shadow-sm);
     }
     .pay-tile-label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--gray-600); }
-    .pay-tile-icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; }
+    .pay-tile-icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--gray-100); color: var(--gray-600); }
     .pay-tile-amount { margin-top: 10px; font-size: 24px; font-weight: 700; letter-spacing: -.01em; color: var(--gray-900); font-variant-numeric: tabular-nums; }
     .pay-tile-note { margin-top: 2px; font-size: 12.5px; color: var(--gray-500); }
     .pay-tile--due { border-color: var(--primary-100); background: linear-gradient(135deg, #fff 55%, var(--primary-50)); }
@@ -144,17 +144,8 @@ const HISTORY_FILTERS: ReadonlyArray<{ id: HistoryFilter; label: string }> = [
     .pay-tab-count { margin-left: 6px; font-weight: 500; color: var(--gray-500); }
 
     .pay-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
-    .pay-chips { display: flex; gap: 8px; flex-wrap: wrap; }
-    .pay-chip {
-      all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
-      padding: 7px 12px; border-radius: 99px; border: 1px solid var(--border-medium); background: var(--surface);
-      font-size: 13px; font-weight: 600; color: var(--gray-700);
-    }
-    .pay-chip:hover { border-color: var(--gray-300); }
-    .pay-chip:focus-visible { outline: 2px solid var(--primary-500); outline-offset: 1px; }
-    .pay-chip[aria-pressed="true"] { background: var(--primary-500); border-color: var(--primary-500); color: #fff; }
-    .pay-chip-count { min-width: 18px; padding: 0 6px; border-radius: 99px; font-size: 11.5px; text-align: center; background: var(--gray-100); color: var(--gray-600); }
-    .pay-chip[aria-pressed="true"] .pay-chip-count { background: rgba(255, 255, 255, .22); color: #fff; }
+    /* The chips themselves are the shared .filter-chip (styles.scss). */
+    .pay-chips.filter-chips { margin-bottom: 0; }
     .pay-search { position: relative; flex: 0 1 280px; min-width: 200px; }
     .pay-search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--gray-400); pointer-events: none; }
     .pay-search input { width: 100%; box-sizing: border-box; padding-left: 34px; }
@@ -214,7 +205,7 @@ const HISTORY_FILTERS: ReadonlyArray<{ id: HistoryFilter; label: string }> = [
       .pay-toolbar { flex-direction: column; align-items: stretch; }
       .pay-chips { flex-wrap: nowrap; overflow-x: auto; margin: 0 -16px; padding: 2px 16px; scrollbar-width: none; }
       .pay-chips::-webkit-scrollbar { display: none; }
-      .pay-chip { flex: none; }
+      .pay-chips .filter-chip { flex: none; }
       .order { grid-template-columns: 40px minmax(0, 1fr); }
       .order-side { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: space-between; }
       .history-item { grid-template-columns: 32px minmax(0, 1fr); padding: 14px 16px; }
@@ -235,7 +226,8 @@ const HISTORY_FILTERS: ReadonlyArray<{ id: HistoryFilter; label: string }> = [
         <div class="card empty-state">No assessments issued yet. Once your application is evaluated, its Order of Payment will appear here.</div>
       } @else {
         <div class="pay-summary">
-          <div class="pay-tile pay-tile--due">
+          <!-- Brand red only while something is owed: "To pay ₱0.00" in red read as a debt. -->
+          <div class="pay-tile" [class.pay-tile--due]="totalOf(stateRows('awaiting', 'rejected')) > 0">
             <div class="pay-tile-label">
               <span class="pay-tile-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 10h18M7 15h3" /></svg>
@@ -279,18 +271,18 @@ const HISTORY_FILTERS: ReadonlyArray<{ id: HistoryFilter; label: string }> = [
         </div>
 
         <div class="pay-toolbar">
-          <div class="pay-chips" role="group" aria-label="Filter by status">
+          <div class="pay-chips filter-chips" role="group" aria-label="Filter by status">
             @if (tab() === 'orders') {
               @for (f of orderFilters; track f.id) {
-                <button class="pay-chip" [attr.aria-pressed]="orderFilter() === f.id" (click)="orderFilter.set(f.id)">
-                  {{ f.label }}<span class="pay-chip-count">{{ orderCount(f.id) }}</span>
+                <button type="button" class="filter-chip" [attr.aria-pressed]="orderFilter() === f.id" (click)="orderFilter.set(f.id)">
+                  {{ f.label }}<span class="filter-chip-count">{{ orderCount(f.id) }}</span>
                 </button>
               }
             } @else {
               @for (f of historyFilters; track f.id) {
                 @if (f.id !== 'Other' || historyCount('Other') > 0) {
-                  <button class="pay-chip" [attr.aria-pressed]="historyFilter() === f.id" (click)="historyFilter.set(f.id)">
-                    {{ f.label }}<span class="pay-chip-count">{{ historyCount(f.id) }}</span>
+                  <button type="button" class="filter-chip" [attr.aria-pressed]="historyFilter() === f.id" (click)="historyFilter.set(f.id)">
+                    {{ f.label }}<span class="filter-chip-count">{{ historyCount(f.id) }}</span>
                   </button>
                 }
               }

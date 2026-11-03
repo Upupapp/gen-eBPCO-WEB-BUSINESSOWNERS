@@ -25,7 +25,7 @@ import { BackLinkComponent } from '../../shared/ui/back-link.component';
   `],
   template: `
     @if (app(); as a) {
-      <div class="page" style="max-width:560px;">
+      <div class="page page-narrow">
         <app-back-link fallback="/payments" fallbackLabel="Payments" />
         <div class="page-header">
           <div>
@@ -87,15 +87,15 @@ import { BackLinkComponent } from '../../shared/ui/back-link.component';
                   DEFAULT_BANK_INFO — this screen asks a user to move real money,
                   so "not yet available" is the only safe empty state.
                 -->
-                <div class="card" style="background:var(--warning-100, #fff4e5); border:1px solid var(--warning-text, #a15c00);">
-                  <div class="card-title" style="margin-bottom:6px;">Bank transfer is not available yet</div>
-                  <p class="small" style="margin:0 0 8px;">
+                <div class="callout callout-warning">
+                  <strong class="callout-title">Bank transfer is not available yet</strong>
+                  <p>
                     The Municipality of Castilla has not published a deposit account for permit fees,
                     so this portal has no account details to show you.
                     <strong>Do not transfer permit fees to any account you have not confirmed with the
                     Municipality directly.</strong>
                   </p>
-                  <p class="small" style="margin:0;">
+                  <p>
                     Use <strong>Onsite Payment</strong> instead, or confirm the current payment
                     arrangements with the {{ engineer.name }} — {{ engineer.mobile }} or
                     <a [href]="'mailto:' + engineer.email">{{ engineer.email }}</a>.
@@ -139,7 +139,7 @@ import { BackLinkComponent } from '../../shared/ui/back-link.component';
         }
       </div>
     } @else {
-      <div class="page" style="max-width:560px;">
+      <div class="page page-narrow">
         <div class="card empty-state">
           <p>We couldn't find that application. This can happen after a page refresh, since this demo build keeps data in memory only (no backend yet — see the project README).</p>
           <a routerLink="/payments" class="btn btn-primary">Back to Payments</a>

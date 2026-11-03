@@ -11,6 +11,7 @@ import { CASTILLA_BARANGAYS, NATIONALITIES } from '../../core/domain/ph-referenc
 import { firstPasswordRejectionMessage, passwordChecks } from '../../core/domain/password-policy';
 import { LegalDocument, LegalModalComponent } from '../../shared/ui/legal-modal.component';
 import { ValidIdDraft, ValidIdFieldsComponent } from '../../shared/ui/valid-id-fields.component';
+import { StepperComponent } from '../../shared/ui/stepper.component';
 
 /**
  * Sign Up → Select Applicant Type → Enter Required Information → Create
@@ -28,7 +29,7 @@ const APPLICANT_TYPES: readonly { value: RegisteredAs; title: string; descriptio
 
 @Component({
   selector: 'app-register',
-  imports: [FormsModule, RouterLink, CapitalizeNameDirective, NgTemplateOutlet, LegalModalComponent, ValidIdFieldsComponent],
+  imports: [FormsModule, RouterLink, CapitalizeNameDirective, NgTemplateOutlet, LegalModalComponent, ValidIdFieldsComponent, StepperComponent],
   template: `
     <div style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;">
       <div class="card auth-card anim-pop-in" style="width:100%; max-width:520px;">
@@ -36,17 +37,7 @@ const APPLICANT_TYPES: readonly { value: RegisteredAs; title: string; descriptio
           <h2>Create Your Account</h2>
           <p class="muted small">Step {{ step() }} of 5</p>
         </div>
-        <div class="steps compact" style="justify-content:center;">
-          <div class="step-item" [class.active]="step() === 1" [class.done]="step() > 1"><span class="dot">1</span> Applicant</div>
-          <div class="step-sep"></div>
-          <div class="step-item" [class.active]="step() === 2" [class.done]="step() > 2"><span class="dot">2</span> Personal</div>
-          <div class="step-sep"></div>
-          <div class="step-item" [class.active]="step() === 3" [class.done]="step() > 3"><span class="dot">3</span> Contact</div>
-          <div class="step-sep"></div>
-          <div class="step-item" [class.active]="step() === 4" [class.done]="step() > 4"><span class="dot">4</span> Valid ID</div>
-          <div class="step-sep"></div>
-          <div class="step-item" [class.active]="step() === 5"><span class="dot">5</span> Security</div>
-        </div>
+        <app-stepper [steps]="signUpSteps" [current]="step() - 1" label="Sign-up steps" />
 
         @if (step() === 1) {
           <fieldset class="choice-cards">
@@ -241,13 +232,14 @@ const APPLICANT_TYPES: readonly { value: RegisteredAs; title: string; descriptio
               </button>
             </div>
           </div>
-          <label class="checkbox-row" style="margin-bottom:8px;">
-            <input type="checkbox" [(ngModel)]="acceptedTerms" /> I agree to the
-            <button type="button" class="link-button" (click)="openLegalModal.set('terms')">Terms &amp; Conditions</button>
+          <!-- The words sit in one <span>: as loose flex items they came apart around the link. -->
+          <label class="checkbox-row" style="margin-bottom:10px;">
+            <input type="checkbox" [(ngModel)]="acceptedTerms" />
+            <span>I agree to the <button type="button" class="link-button" (click)="openLegalModal.set('terms')">Terms &amp; Conditions</button></span>
           </label>
-          <label class="checkbox-row" style="margin-bottom:14px;">
-            <input type="checkbox" [(ngModel)]="acceptedPrivacy" /> I agree to the
-            <button type="button" class="link-button" (click)="openLegalModal.set('privacy')">Privacy Policy</button>
+          <label class="checkbox-row" style="margin-bottom:16px;">
+            <input type="checkbox" [(ngModel)]="acceptedPrivacy" />
+            <span>I agree to the <button type="button" class="link-button" (click)="openLegalModal.set('privacy')">Privacy Policy</button></span>
           </label>
           @if (error()) { <div class="field error">{{ error() }}</div> }
           <div style="display:flex; gap:10px;">
@@ -289,6 +281,8 @@ export class RegisterPage {
   private readonly router = inject(Router);
 
   readonly step = signal<Step>(1);
+  /** The step bar's names, in order (step() is 1-based). */
+  protected readonly signUpSteps = ['Applicant', 'Personal', 'Contact', 'Valid ID', 'Security'] as const;
   readonly error = signal<string | null>(null);
   /** Field-level, shown directly under Email/Mobile Number rather than the shared step-level `error` banner or a floating toast — the same "typical warning" placement every other field-format check in this app already uses. */
   readonly emailError = signal<string | null>(null);

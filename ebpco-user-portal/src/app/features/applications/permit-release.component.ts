@@ -21,6 +21,12 @@ import { formatDate } from '../../core/utils/ids';
  */
 @Component({
   selector: 'app-permit-release',
+  styles: [`
+    :host { display: block; }
+    .claim-rows { display: grid; gap: 6px; margin-top: 12px; font-size: 13.5px; color: var(--gray-800); }
+    .claim-label { color: var(--gray-500); font-weight: 500; }
+    .claim-rows ul { margin: 4px 0 0; padding-left: 18px; }
+  `],
   template: `
     <div class="card">
       <div class="card-title">Your permit</div>
@@ -38,23 +44,23 @@ import { formatDate } from '../../core/utils/ids';
           <p class="muted small">No permit has been issued for this application yet.</p>
         }
 
-        <div class="release-state" [class]="toneClass()">
-          <strong>{{ headline() }}</strong>
-          <p class="small" style="margin:4px 0 0;">{{ detail() }}</p>
+        <div class="callout release-state" [class]="toneClass()">
+          <strong class="callout-title">{{ headline() }}</strong>
+          <p>{{ detail() }}</p>
         </div>
 
         <!-- A delivery (migration 070) has nothing to collect, so no Where/When/Bring. -->
         @if (!byCourier() && release(); as r) {
           @if (r.status === 'Ready for Release') {
-            <div class="small" style="margin-top:10px; display:grid; gap:4px;">
-              <div><span class="muted">Where:</span> {{ r.claimLocation || ('the ' + engineer.name + ', ' + hallAddress) }}</div>
+            <div class="claim-rows">
+              <div><span class="claim-label">Where:</span> {{ r.claimLocation || ('the ' + engineer.name + ', ' + hallAddress) }}</div>
               @if (r.officeHours) {
-                <div><span class="muted">When:</span> {{ r.officeHours }}</div>
+                <div><span class="claim-label">When:</span> {{ r.officeHours }}</div>
               }
               <div>
-                <span class="muted">Bring:</span>
+                <span class="claim-label">Bring:</span>
                 @if ((r.bringWithYou ?? []).length > 0) {
-                  <ul style="margin:4px 0 0; padding-left:18px;">
+                  <ul>
                     @for (item of r.bringWithYou; track item) { <li>{{ item }}</li> }
                   </ul>
                 } @else {
@@ -125,7 +131,16 @@ export class PermitReleaseComponent {
     }
   });
 
-  protected readonly toneClass = computed(() =>
-    !this.byCourier() && this.release()?.status === 'Ready for Release' ? 'release-ready' : 'release-waiting',
-  );
+  /**
+   * The state line's callout tone. `release-ready` marks the one collectable
+   * state and nothing else: violet while it travels by courier, green when it
+   * can be collected or has been, grey while it is not ready yet.
+   */
+  protected readonly toneClass = computed(() => {
+    const status = this.release()?.status;
+    if (this.byCourier()) return status === 'Released' ? 'release-waiting callout-success' : 'release-waiting callout-violet';
+    if (status === 'Ready for Release') return 'release-ready callout-success';
+    if (status === 'Released') return 'release-waiting callout-success';
+    return 'release-waiting callout-neutral';
+  });
 }

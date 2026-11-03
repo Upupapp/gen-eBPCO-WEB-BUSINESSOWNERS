@@ -16,7 +16,7 @@ interface Faq {
 @Component({
   selector: 'app-help-support',
   template: `
-    <div class="page" style="max-width:700px;">
+    <div class="page page-narrow">
       <div class="page-header">
         <div>
           <h1>Help &amp; Support</h1>
@@ -53,9 +53,9 @@ interface Faq {
             @if (office.mobile) {
               <div class="small"><strong>Mobile:</strong> {{ office.mobile }}</div>
             }
+            <!-- &nbsp;: a line break before the button is whitespace Angular drops, which read "Email:meocastilla…". -->
             <div class="small">
-              <strong>Email:</strong>
-              <button type="button" class="link-button" (click)="copyEmail(office.email)">{{ office.email }}</button>
+              <strong>Email:</strong>&nbsp;<button type="button" class="link-button" (click)="copyEmail(office.email)">{{ office.email }}</button>
             </div>
           </div>
         }

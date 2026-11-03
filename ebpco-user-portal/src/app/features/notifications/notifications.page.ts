@@ -15,16 +15,19 @@ type Filter = 'All' | 'Unread';
           <h1>Notifications</h1>
           <div class="subtitle">{{ store.unreadCount() }} unread</div>
         </div>
-        <button class="btn btn-secondary" (click)="markAllRead()">Mark all as read</button>
+        <!-- Nothing to mark at 0 unread, so the button says so by being unavailable. -->
+        <button type="button" class="btn btn-secondary" [disabled]="store.unreadCount() === 0" (click)="markAllRead()">Mark all as read</button>
       </div>
 
-      <div style="display:flex; gap:8px; margin-bottom:16px;">
-        <button class="btn btn-sm" [class.btn-primary]="filter() === 'All'" [class.btn-secondary]="filter() !== 'All'" (click)="filter.set('All')">All</button>
-        <button class="btn btn-sm" [class.btn-primary]="filter() === 'Unread'" [class.btn-secondary]="filter() !== 'Unread'" (click)="filter.set('Unread')">Unread</button>
+      <div class="filter-chips" role="group" aria-label="Show">
+        <button type="button" class="filter-chip" [attr.aria-pressed]="filter() === 'All'" (click)="filter.set('All')">All</button>
+        <button type="button" class="filter-chip" [attr.aria-pressed]="filter() === 'Unread'" (click)="filter.set('Unread')">
+          Unread <span class="filter-chip-count">{{ store.unreadCount() }}</span>
+        </button>
       </div>
 
       @if (filtered().length === 0) {
-        <div class="card empty-state">You're all caught up.</div>
+        <div class="card empty-state empty-state--bell"><strong class="empty-state-title">You're all caught up.</strong></div>
       } @else {
         <div class="card" style="padding:0;">
           @for (n of filtered(); track n.id) {

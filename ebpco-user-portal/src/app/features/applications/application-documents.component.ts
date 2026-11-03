@@ -5,6 +5,7 @@ import {
   rejectionExplanation, reviewLabel, securityState,
 } from '../../core/api/document-chains';
 import { formatDate } from '../../core/utils/ids';
+import { StatusPillComponent } from '../../shared/ui/status-pill.component';
 
 /**
  * The application's documents, and the office's verdict on each.
@@ -19,6 +20,7 @@ import { formatDate } from '../../core/utils/ids';
  */
 @Component({
   selector: 'app-application-documents',
+  imports: [StatusPillComponent],
   template: `
     @if (chains().length === 0) {
       <p class="muted small">No documents attached.</p>
@@ -28,9 +30,8 @@ import { formatDate } from '../../core/utils/ids';
           <li class="doc-item">
             <div class="doc-head">
               <span class="doc-name">{{ chain.current.label }}</span>
-              <span class="badge" [class]="badgeClass(chain.current.reviewStatus)">
-                {{ label(chain.current.reviewStatus) }}
-              </span>
+              <!-- The portal's one status palette: "Not yet reviewed" is grey, never the green of done. -->
+              <app-status-pill [label]="label(chain.current.reviewStatus)" kind="document" />
             </div>
             <div class="small muted">{{ chain.current.fileName }}</div>
 
@@ -154,20 +155,11 @@ export class ApplicationDocumentsComponent {
     return v.state === 'no-expiry' ? null : v;
   }
 
-  protected readonly formatDate = formatDate;
-
   /**
-   * `null` is grey — "not yet reviewed". It must never take the green a citizen
-   * reads as "this one is done"; the contract is explicit that null means
-   * nobody has looked, not that nothing is wrong.
+   * `null` reads "Not yet reviewed" and is grey in the shared tone map
+   * (status-pill.component.ts). It must never take the green a citizen reads
+   * as "this one is done"; the contract is explicit that null means nobody
+   * has looked, not that nothing is wrong.
    */
-  protected badgeClass(status: ApplicationDocumentResponse['reviewStatus']): string {
-    switch (status) {
-      case 'Accepted': return 'badge-green';
-      case 'Rejected': return 'badge-red';
-      case 'Revision Required':
-      case 'Expired': return 'badge-amber';
-      default: return 'badge-gray';
-    }
-  }
+  protected readonly formatDate = formatDate;
 }

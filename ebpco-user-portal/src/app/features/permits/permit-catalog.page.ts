@@ -35,20 +35,24 @@ import { VerificationBannerComponent } from '../../shared/ui/verification-banner
         Municipality sent citizens to the wrong office. They are uploaded as
         documents instead, and the Fire Safety stage verifies them.
       -->
-      <div class="card bfp-notice">
-        <h3>Fire Safety clearances come from the BFP</h3>
-        <p class="small">
-          The <strong>Fire Safety Evaluation Clearance (FSEC)</strong> for a building permit and the
-          <strong>Fire Safety Inspection Certificate (FSIC)</strong> for occupancy are issued by the Bureau of Fire
-          Protection, not by the Municipality. Apply for them on
-          <a [href]="bfpFsisUrl" target="_blank" rel="noopener noreferrer">BFP-FSIS (fsis.e-bfp.com)</a>
-          or at the Castilla Fire Station. Upload the FSEC with your Building Permit application here; a
-          Certificate of Occupancy application asks for the Fire Safety Compliance and Commissioning Report
-          (FSCCR) instead. Our Fire Safety officer checks both.
+      <!-- One line, with the rest a click away: it used to be a tinted card of two paragraphs. -->
+      <div class="callout callout-info bfp-notice">
+        <p>
+          <strong>Fire Safety clearances (FSEC, FSIC) come from the BFP, not the Municipality.</strong>
+          Apply on <a [href]="bfpFsisUrl" target="_blank" rel="noopener noreferrer">BFP-FSIS (fsis.e-bfp.com)</a>
+          or at the Castilla Fire Station.
         </p>
-        <p class="small muted">
-          Permits with nothing for the BFP to check, like a Fencing or Sign Permit, skip the Fire Safety stage.
-        </p>
+        <details class="bfp-notice__more">
+          <summary>What to upload here</summary>
+          <p>
+            The <strong>Fire Safety Evaluation Clearance (FSEC)</strong> for a building permit and the
+            <strong>Fire Safety Inspection Certificate (FSIC)</strong> for occupancy are issued by the Bureau of Fire
+            Protection. Upload the FSEC with your Building Permit application here; a Certificate of Occupancy
+            application asks for the Fire Safety Compliance and Commissioning Report (FSCCR) instead. Our Fire
+            Safety officer checks both.
+          </p>
+          <p>Permits with nothing for the BFP to check, like a Fencing or Sign Permit, skip the Fire Safety stage.</p>
+        </details>
       </div>
 
       @for (group of groups; track group.label) {
@@ -58,38 +62,36 @@ import { VerificationBannerComponent } from '../../shared/ui/verification-banner
             @let visual = permitVisual(type);
             @let kinds = permitTypes.kindsFor(type);
             <div class="card card-fill permit-card">
-              <div class="permit-card__header">
-                <div class="permit-card__icon" [style.background]="visual.bg" [style.color]="visual.fg">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    @for (d of visual.icon; track d) { <path [attr.d]="d" /> }
-                  </svg>
+              <div class="permit-card__body">
+                <div class="permit-card__header">
+                  <div class="permit-card__icon" [style.background]="visual.bg" [style.color]="visual.fg">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      @for (d of visual.icon; track d) { <path [attr.d]="d" /> }
+                    </svg>
+                  </div>
+                  <div class="permit-card__identity">
+                    <h4 class="permit-card__name">{{ type }}</h4>
+                    <p class="small muted permit-card__subtitle">{{ office(type) }}</p>
+                  </div>
                 </div>
                 <!--
                   Who may apply (migration 068): every type is open to homes and
-                  businesses unless the Municipality restricted it.
+                  businesses unless the Municipality restricted it. Facts, not
+                  statuses, so quiet neutral tags.
                 -->
-                <span
-                  class="badge permit-status permit-card__kinds"
-                  [class.badge-gray]="kinds.length > 1"
-                  [class.badge-blue]="kinds.length === 1 && kinds[0] === 'business'"
-                  [class.badge-green]="kinds.length === 1 && kinds[0] === 'residential'"
-                >{{ applicantKindsChip(kinds) }}</span>
-              </div>
-              <div class="permit-card__identity">
-                <h4 class="permit-card__name">{{ type }}</h4>
-                <p class="small muted permit-card__subtitle">{{ office(type) }} &middot; {{ documentCount(type) }} documents</p>
+                <div class="permit-card__tags">
+                  <span class="tag permit-card__kinds">{{ applicantKindsChip(kinds) }}</span>
+                  <span class="tag">{{ documentCount(type) }} documents</span>
+                </div>
                 @if (usualUseNote(type, kinds); as note) {
                   <p class="small permit-card__note">{{ note }}</p>
                 }
               </div>
 
-              <hr class="permit-card__divider" />
-
-              <div class="card-footer permit-card__footer" style="display:flex; flex-direction:column; gap:8px;">
-                <button class="btn btn-secondary btn-sm btn-block" (click)="openRequirements(type)">
-                  View Requirements
-                </button>
-                <a class="btn btn-primary btn-sm btn-block" [routerLink]="['/permits/apply']" [queryParams]="startParams(type)">Start Application</a>
+              <!-- A quiet Requirements beside one compact Start: these were two full-width bars on every card. -->
+              <div class="permit-card__footer">
+                <button type="button" class="btn btn-ghost btn-sm" [attr.aria-label]="'Requirements for ' + type" (click)="openRequirements(type)">Requirements</button>
+                <a class="btn btn-primary btn-sm" [attr.aria-label]="'Start Application for ' + type" [routerLink]="['/permits/apply']" [queryParams]="startParams(type)">Start Application</a>
               </div>
             </div>
           }
@@ -98,8 +100,8 @@ import { VerificationBannerComponent } from '../../shared/ui/verification-banner
 
       <!--
         Migration: this used to be an inline expand-in-place list per card.
-        Now a single popup over a grayed-out backdrop, same for every "View
-        Requirements" button on the page — see RequirementsModalComponent's
+        Now a single popup over a grayed-out backdrop, same for every
+        "Requirements" button on the page — see RequirementsModalComponent's
         own doc comment for why it always offers the New/Renewal/Amendment
         picker rather than only for Building Permit.
       -->
@@ -110,48 +112,34 @@ import { VerificationBannerComponent } from '../../shared/ui/verification-banner
   `,
   styles: [
     `
-    .permit-group-heading { margin-top: 24px; }
+    .permit-group-heading { margin: 28px 0 12px; }
 
-    .bfp-notice { background: var(--info-100, #e8f1fb); border: none; }
-    .bfp-notice h3 { margin: 0 0 6px; }
-    .bfp-notice p { margin: 0; }
-    .bfp-notice p + p { margin-top: 6px; }
+    .bfp-notice { margin-bottom: 8px; }
+    .bfp-notice__more summary { cursor: pointer; width: fit-content; color: var(--gray-700); font-weight: 600; }
+    .bfp-notice__more p { margin: 6px 0 0; }
 
     .permit-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
       gap: 16px;
       align-items: stretch;
     }
     // The shared .card + .card { margin-top: 16px } rule (styles.scss) is
-    // meant for cards stacked in normal block flow; its grid override
-    // (.grid > .card + .card) only targets the shared .grid class, so
-    // .permit-grid needs its own — otherwise every card but the first in a
-    // row gets an extra 16px pushing it down within its cell, throwing the
-    // row out of alignment even though each card's own height matches.
+    // for cards stacked in block flow; in this grid the gap spaces them.
     .permit-grid > .card + .card {
       margin-top: 0;
-    }
-
-    .permit-card {
-      position: relative;
-      border: 1px solid #e4e8ed;
-      border-radius: 9px;
-      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02), 0 5px 14px rgba(15, 23, 42, 0.045);
     }
 
     .permit-card__header {
       display: flex;
       align-items: flex-start;
-      justify-content: space-between;
       gap: 12px;
-      margin-bottom: 14px;
     }
 
     .permit-card__icon {
-      width: 44px;
-      height: 44px;
-      min-width: 44px;
+      width: 40px;
+      height: 40px;
+      min-width: 40px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -161,29 +149,20 @@ import { VerificationBannerComponent } from '../../shared/ui/verification-banner
 
     .permit-card__identity { min-width: 0; }
     .permit-card__name { margin: 0; }
-    .permit-card__subtitle { margin: 5px 0 0; }
-    .permit-card__note { margin: 8px 0 0; color: var(--gray-600); }
+    .permit-card__subtitle { margin: 2px 0 0; }
+    .permit-card__tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+    .permit-card__note { margin: 10px 0 0; color: var(--gray-600); }
 
-    .badge.permit-status {
-      padding: 3px 11px;
-      border-radius: 6px;
-      min-height: 23px;
-      flex-shrink: 0;
-      white-space: nowrap;
-    }
-
-    .permit-card__divider {
-      width: 100%;
-      height: 1px;
-      background: #e9ecf0;
-      margin: 17px 0 16px;
-      border: none;
-    }
-
-    .permit-card__footer { margin-top: auto; padding-top: 16px; }
-
-    @media (max-width: 480px) {
-      .permit-card__icon { width: 40px; height: 40px; min-width: 40px; }
+    // The body grows, so the divider and the buttons sit at the same height on
+    // every card in a row, whatever each card holds (card-fill).
+    .permit-card__body { flex: 1 0 auto; padding-bottom: 16px; }
+    .permit-card__footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border-light);
     }
     `,
   ],

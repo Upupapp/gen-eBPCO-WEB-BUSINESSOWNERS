@@ -36,6 +36,7 @@ import { LegalDocument, LegalModalComponent } from '../../shared/ui/legal-modal.
 import { DocumentPreviewComponent } from '../../shared/ui/document-preview.component';
 import { VerificationBannerComponent } from '../../shared/ui/verification-banner.component';
 import { DeliveryChoiceComponent } from '../../shared/ui/delivery-choice.component';
+import { StepperComponent } from '../../shared/ui/stepper.component';
 import {
   DELIVERY_FEE_NOTE, DeliveryChoiceDraft, ReceiveBy, addressFromDelivery, addressFromProfile, deliveryAddressProblem,
   deliveryChoiceRequest,
@@ -130,7 +131,7 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
   selector: 'app-application-wizard',
   imports: [
     FormsModule, RouterLink, CapitalizeNameDirective, LegalModalComponent, DocumentPreviewComponent,
-    VerificationBannerComponent, DeliveryChoiceComponent,
+    VerificationBannerComponent, DeliveryChoiceComponent, StepperComponent,
   ],
   // The blank form on a document row that is a form, set apart like the
   // mobile app's: a tinted box with room around it, the form's own name, and
@@ -141,11 +142,15 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
     .blank-form-link {
       display: flex; flex-direction: column; gap: 2px;
       margin: 10px 0 2px; padding: 10px 12px;
-      background: var(--primary-50); border: 1px solid var(--primary-100); border-radius: var(--radius-md);
+      background: var(--gray-50); border: 1px solid var(--border-light); border-radius: var(--radius-md);
     }
-    .blank-form-link strong { color: var(--primary-600, #a5182a); }
+    .blank-form-link strong { color: var(--gray-900); }
     .blank-form-link a { font-weight: 600; }
-    .review-head { display: flex; justify-content: space-between; align-items: center; margin: 18px 0 6px; }
+    .review-head {
+      display: flex; justify-content: space-between; align-items: center;
+      margin: 20px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border-light);
+    }
+    .review-title { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--gray-500); }
     /* An "Applying as" choice the Municipality does not accept for this permit type (migration 068). */
     .choice-cards .choice-card.choice-card--closed { cursor: not-allowed; opacity: .65; background: var(--gray-50); }
     .choice-cards .choice-card.choice-card--closed:hover { border-color: var(--border-medium); }
@@ -180,9 +185,7 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
     .req-file-input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; }
     .req-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
     .req-action { display: inline-flex; align-items: center; gap: 7px; }
-    /* Tinted rather than solid: a Building Permit lists twenty-two of these. */
-    .req-upload { background: var(--primary-50); color: var(--primary-600); border-color: var(--primary-100); }
-    .req-upload:hover:not(:disabled) { background: var(--primary-100); border-color: var(--primary-500); }
+    /* Secondary, never solid or tinted red: a Building Permit lists twenty-two of these. */
     .req-busy { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 13px; color: var(--gray-600); }
     .req-spinner {
       width: 14px; height: 14px; border-radius: 50%;
@@ -229,7 +232,7 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
     }
   `],
   template: `
-    <div class="page" style="max-width:760px;">
+    <div class="page page-narrow">
       <div class="page-header">
         <div>
           <h1>{{ isGeneric ? 'New Business Permit Application' : permitType }}</h1>
@@ -255,15 +258,7 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
       <!-- Account verification (migration 067): prepare and save freely; Submit waits for it. -->
       <app-verification-banner />
 
-      <div class="steps">
-        <div class="step-item" [class.active]="step() === 1" [class.done]="step() > 1"><span class="dot">1</span> Applicant &amp; Type</div>
-        <div class="step-sep"></div>
-        <div class="step-item" [class.active]="step() === 2" [class.done]="step() > 2"><span class="dot">2</span> Details</div>
-        <div class="step-sep"></div>
-        <div class="step-item" [class.active]="step() === 3" [class.done]="step() > 3"><span class="dot">3</span> Documents</div>
-        <div class="step-sep"></div>
-        <div class="step-item" [class.active]="step() === 4"><span class="dot">4</span> Review &amp; Submit</div>
-      </div>
+      <app-stepper [steps]="wizardSteps" [current]="step() - 1" label="Application steps" />
 
       @if (step() === 1) {
         <div class="card">
@@ -446,7 +441,7 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
                       } @else if (attached[proofReq.id]; as slot) {
                         <button
                           type="button" class="badge badge-green"
-                          style="border:none; cursor:pointer; font:inherit; margin-right:8px;"
+                          style="border:none; cursor:pointer; font:inherit; margin-right:8px; white-space:normal; text-align:left;"
                           [disabled]="previewingId() === proofReq.id"
                           [attr.aria-label]="'View ' + slot.fileName"
                           (click)="previewAttached(proofReq)"
@@ -529,12 +524,14 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
               file are carried over. Neutral styling, not a warning: being asked
               for the full list is the normal case, not a problem.
             -->
-            <div class="card" style="background:var(--secondary-50); margin:12px 0 0;">
-              <strong>Your documents are already attached.</strong>
-              {{ reusedCount() }} of your
-              {{ applicationAction === 'Renewal' ? 'existing permit' : 'permit' }}'s documents have
-              been carried over, so you do not need to upload them again. You can replace any of
-              them with a newer copy if something has changed.
+            <div class="callout callout-neutral" style="margin:12px 0 0;">
+              <strong class="callout-title">Your documents are already attached.</strong>
+              <p>
+                {{ reusedCount() }} of your
+                {{ applicationAction === 'Renewal' ? 'existing permit' : 'permit' }}'s documents have
+                been carried over, so you do not need to upload them again. You can replace any of
+                them with a newer copy if something has changed.
+              </p>
             </div>
           }
           @for (group of documentGroups(); track group.required) {
@@ -633,7 +630,7 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
                     </div>
                   } @else {
                     <div class="req-actions">
-                      <button type="button" class="btn btn-sm req-action req-upload" (click)="fileInput.click()">
+                      <button type="button" class="btn btn-secondary btn-sm req-action req-upload" (click)="fileInput.click()">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14" /></svg>
                         Upload file
                       </button>
@@ -685,42 +682,43 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
       @if (step() === 4) {
         <div class="card">
           <div class="card-title">Review &amp; Declaration</div>
-          <table class="table">
-            <tbody>
-              <tr><td class="muted">Applying as</td><td>{{ applyingAs === 'residential' ? 'Residential / Private Individual' : 'Business' }}</td></tr>
-              @if (applyingAs === 'business') {
-                <tr><td class="muted">Business</td><td>{{ selectedBusinessName() }}</td></tr>
-              }
-              <tr><td class="muted">Permit Type</td><td>{{ isGeneric ? 'New Business Permit (Generic)' : permitType }}</td></tr>
-              <tr><td class="muted">Application Type</td><td>{{ applicationAction }}</td></tr>
-              @if (needsExistingPermit() && relatedPermitNumber) {
-                <tr><td class="muted">{{ existingPermitPrompt(applicationAction) }}</td><td><strong>{{ relatedPermitNumber }}</strong></td></tr>
-              }
-              @if (needsExistingPermit() && priorPermitClaim) {
-                <tr>
-                  <td class="muted">{{ existingPermitPrompt(applicationAction) }}</td>
-                  <td><strong>{{ priorPermitClaim }}</strong> <span class="small muted">(not on file in eBPCO — unverified)</span></td>
-                </tr>
-              }
-              <tr><td class="muted">Documents Attached</td><td>{{ attachedCount() }} of {{ documents.length }}</td></tr>
-            </tbody>
-          </table>
+          <!-- Each section says what it holds and offers its own Edit (it was a pair of indented tables, one with Edit). -->
+          <div class="review-head">
+            <span class="review-title">Application</span>
+            <button type="button" class="link-button" (click)="step.set(1)">Edit</button>
+          </div>
+          <dl class="kv">
+            <div><dt>Applying as</dt><dd>{{ applyingAs === 'residential' ? 'Residential / Private Individual' : 'Business' }}</dd></div>
+            @if (applyingAs === 'business') {
+              <div><dt>Business</dt><dd>{{ selectedBusinessName() }}</dd></div>
+            }
+            <div><dt>Permit Type</dt><dd>{{ isGeneric ? 'New Business Permit (Generic)' : permitType }}</dd></div>
+            <div><dt>Application Type</dt><dd>{{ applicationAction }}</dd></div>
+            @if (needsExistingPermit() && relatedPermitNumber) {
+              <div><dt>{{ existingPermitPrompt(applicationAction) }}</dt><dd>{{ relatedPermitNumber }}</dd></div>
+            }
+            @if (needsExistingPermit() && priorPermitClaim) {
+              <div>
+                <dt>{{ existingPermitPrompt(applicationAction) }}</dt>
+                <dd>{{ priorPermitClaim }} <span class="small muted" style="font-weight:400;">(not on file in eBPCO — unverified)</span></dd>
+              </div>
+            }
+            <div><dt>Documents Attached</dt><dd>{{ attachedCount() }} of {{ documents.length }}</dd></div>
+          </dl>
           <!--
             What the citizen typed in Details, to check before submitting (QA
             TC-22, 2026-10-03): the review used to leave all of it out.
           -->
           <div class="review-head">
-            <span class="card-title" style="margin:0;">Project details</span>
+            <span class="review-title">Project details</span>
             <button type="button" class="link-button" (click)="step.set(2)">Edit</button>
           </div>
-          <table class="table">
-            <tbody>
-              <tr><td class="muted">Project / Property Address</td><td>{{ projectAddress || '—' }}</td></tr>
-              <tr><td class="muted">Scope of Work / Purpose</td><td style="white-space:pre-line;">{{ scopeOfWork || '—' }}</td></tr>
-              <tr><td class="muted">Professional in Charge</td><td>{{ professionalName || 'None named' }}</td></tr>
-              <tr><td class="muted">PRC License No.</td><td>{{ prcNumber || 'None given' }}</td></tr>
-            </tbody>
-          </table>
+          <dl class="kv">
+            <div class="kv-wide"><dt>Project / Property Address</dt><dd>{{ projectAddress || '—' }}</dd></div>
+            <div class="kv-wide"><dt>Scope of Work / Purpose</dt><dd style="white-space:pre-line;">{{ scopeOfWork || '—' }}</dd></div>
+            <div><dt>Professional in Charge</dt><dd>{{ professionalName || 'None named' }}</dd></div>
+            <div><dt>PRC License No.</dt><dd>{{ prcNumber || 'None given' }}</dd></div>
+          </dl>
           <!--
             Pick up at the office, or delivery by courier (server migration
             070, owner request 2026-11-03). Saved on the draft just before it
@@ -736,19 +734,24 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
             />
           </section>
           <hr class="divider" />
-          <label class="checkbox-row" style="margin-bottom:8px;">
-            <input type="checkbox" [(ngModel)]="understandRequirements" /> I understand the application requirements and certify the information provided is true and correct.
+          <!-- The words sit in one <span>: as loose flex items they came apart around the links. -->
+          <label class="checkbox-row" style="margin-bottom:10px;">
+            <input type="checkbox" [(ngModel)]="understandRequirements" />
+            <span>I understand the application requirements and certify the information provided is true and correct.</span>
           </label>
           <!--
             Same overlay the sign-up form uses (legal-modal.component.ts) —
             a citizen asked to agree to terms mid-application must be able to
             read them without leaving the form, and this used to be plain text.
           -->
-          <label class="checkbox-row" style="margin-bottom:14px;">
-            <input type="checkbox" [(ngModel)]="agreeTerms" /> I agree to the
-            <button type="button" class="link-button" (click)="openLegalModal.set('terms')">Terms &amp; Conditions</button>
-            and have read the
-            <button type="button" class="link-button" (click)="openLegalModal.set('privacy')">Privacy Notice</button>
+          <label class="checkbox-row" style="margin-bottom:16px;">
+            <input type="checkbox" [(ngModel)]="agreeTerms" />
+            <span>
+              I agree to the
+              <button type="button" class="link-button" (click)="openLegalModal.set('terms')">Terms &amp; Conditions</button>
+              and have read the
+              <button type="button" class="link-button" (click)="openLegalModal.set('privacy')">Privacy Notice</button>
+            </span>
           </label>
           @if (openLegalModal(); as doc) {
             <app-legal-modal [document]="doc" (close)="openLegalModal.set(null)" />
@@ -761,9 +764,9 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
             The server refuses the filing regardless.
           -->
           @if (submitBlocked(); as why) {
-            <div class="card" style="background:var(--warning-100); border:none; margin:0 0 12px;">
-              <p class="small" style="color:var(--warning-text); margin:0 0 4px;">{{ why }}</p>
-              <a routerLink="/profile" fragment="account-verification" class="small">Go to Account verification</a>
+            <div class="callout callout-warning" style="margin:0 0 16px;">
+              <p>{{ why }}</p>
+              <p><a routerLink="/profile" fragment="account-verification">Go to Account verification</a></p>
             </div>
           }
           <div style="display:flex; gap:10px; flex-wrap:wrap;">
@@ -793,6 +796,8 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
 export class ApplicationWizardPage {
   /** The blank form a document row asks the citizen to sign and upload, if it is one. */
   protected readonly blankFormFor = blankFormFor;
+  /** The step bar's names, in order (step() is 1-based). */
+  protected readonly wizardSteps = ['Applicant & Type', 'Details', 'Documents', 'Review & Submit'] as const;
   private readonly route = inject(ActivatedRoute);
   private readonly injector = inject(Injector);
   private readonly router = inject(Router);

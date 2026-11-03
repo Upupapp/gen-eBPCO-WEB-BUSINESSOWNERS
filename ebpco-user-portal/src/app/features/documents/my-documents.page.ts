@@ -59,7 +59,7 @@ interface RealPreview {
 
       @if (api.configured) {
         @if (!realChecked()) {
-          <div class="card empty-state">Loading your documents&hellip;</div>
+          <div class="card empty-state empty-state--loading">Loading your documents&hellip;</div>
         } @else if (realDocuments().length === 0) {
           <div class="card empty-state">No documents uploaded yet.</div>
         } @else {

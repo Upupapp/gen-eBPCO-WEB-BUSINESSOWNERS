@@ -9,8 +9,8 @@
 // below instead of reusing the shared button classes.
 :host {
   display: block;
-  --lp-brand-red: #c81e2c;
-  --lp-brand-red-dark: #a91622;
+  --lp-brand-red: var(--primary-500);
+  --lp-brand-red-dark: var(--primary-600);
   --lp-brand-gold: #d89a00;
   --lp-brand-green: #168a45;
   --lp-ink: #101828;

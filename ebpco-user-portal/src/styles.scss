@@ -33,21 +33,46 @@
   --secondary-100: #f4f4f7;
   --secondary-500: #6b7080;
 
-  --success-100: #e7fbef;
+  // Status tones, house style 2026-11-03 (DESIGN-SPEC.md, both portals).
+  // Per tone: -100 chip background, -text chip text and icon, -200 callout
+  // border, -50 callout background. Danger used to share brand red's values
+  // (--danger-100 == --primary-100), so "Under Review" and "Rejected" looked
+  // alike; every tone now has its own hue, and brand red is for actions only.
+  --success-50: #f3fcf6;
+  --success-100: #dcfce7;
+  --success-200: #bbf7d0;
   --success-500: #16a34a;
-  --success-text: #166534;
+  --success-text: #15803d;
 
-  --warning-100: #fef8ea;
+  --warning-50: #fffbeb;
+  --warning-100: #fef3c7;
+  --warning-200: #fde68a;
   --warning-500: #b45309;
   --warning-text: #b45309;
 
-  --danger-100: #fdeceb;
+  --danger-50: #fef5f5;
+  --danger-100: #fee2e2;
+  --danger-200: #fecaca;
   --danger-500: #dc2626;
-  --danger-text: #a5182a;
+  --danger-text: #b91c1c;
 
+  --info-50: #f5f9ff;
   --info-100: #e8f1ff;
+  --info-200: #cfe0ff;
   --info-500: #2563eb;
   --info-text: #1d4ed8;
+
+  // Indigo: work in progress at the office.
+  --progress-50: #f7f8ff;
+  --progress-100: #eef2ff;
+  --progress-200: #c7d2fe;
+  --progress-text: #4338ca;
+
+  // Violet: on its way by courier; records imported from before eBPCO.
+  --violet-50: #f8f6ff;
+  --violet-100: #ede9fe;
+  --violet-200: #ddd6fe;
+  --violet-text: #6d28d9;
 
   --gray-50: #fafafc;
   --gray-100: #f4f4f7;
@@ -66,13 +91,39 @@
   --border-light: #eeeef2;
   --border-medium: #e6e6ec;
 
-  --radius-sm: 0.4rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.85rem;
+  // Radii: 6 chip/tag, 8 control, 12 card, 16 modal.
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
   --shadow-sm: 0 1px 2px rgba(20, 20, 40, 0.04);
   --shadow-md: 0 10px 22px rgba(20, 20, 40, 0.08);
+  --focus-ring: 0 0 0 3px rgba(200, 30, 44, 0.25);
   --ease-base: 0.2s ease;
   --ease-slow: 0.3s ease;
+
+  // One frame for every signed-in page: the same width and the same left edge.
+  --page-max: 1120px;
+  --page-narrow: 720px;
+  --page-pad-x: 32px;
+
+  // Line icons (24px grid, 2px stroke), drawn in the muted ink so they also
+  // work as a plain background image. As a CSS mask (callouts, icon tiles,
+  // form errors) only their shape counts and they take the tone's colour.
+  --icon-info: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7080' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5M12 8h.01'/%3E%3C/svg%3E");
+  --icon-check: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7080' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='m8.5 12.5 2.5 2.5 4.5-5'/%3E%3C/svg%3E");
+  --icon-warning: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7080' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z'/%3E%3Cpath d='M12 9v4M12 17h.01'/%3E%3C/svg%3E");
+  --icon-alert: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7080' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7.5v5.5M12 16.5h.01'/%3E%3C/svg%3E");
+  --icon-clock: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7080' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E");
+  --icon-truck: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7080' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 17V6H3v11h2M14 9h4l3 3v5h-2M9 17h6'/%3E%3Ccircle cx='7' cy='17' r='2'/%3E%3Ccircle cx='17' cy='17' r='2'/%3E%3C/svg%3E");
+  --icon-inbox: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7080' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 12h-6l-2 3h-4l-2-3H2'/%3E%3Cpath d='M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z'/%3E%3C/svg%3E");
+  --icon-bell: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7080' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9a6 6 0 0 1 12 0c0 4 1.5 5.5 2 6H4c.5-.5 2-2 2-6zM10 19a2 2 0 0 0 4 0'/%3E%3C/svg%3E");
+  --icon-search: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7080' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");
+  --icon-file: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7080' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 3v5h5'/%3E%3C/svg%3E");
+}
+
+@media (max-width: 640px) {
+  :root { --page-pad-x: 16px; }
 }
 
 * { box-sizing: border-box; }
@@ -87,6 +138,24 @@ html, body {
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+// Form controls do not inherit the page font on their own: every
+// <button class="btn"> rendered in Arial at the browser's line-height while an
+// <a class="btn"> beside it used Gothic A1, so the two were different sizes.
+button, input, select, textarea { font: inherit; }
+
+// Present to a screen reader, invisible on screen (not display:none).
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 // Heading scale. This is the authority the brand guideline now documents
@@ -122,10 +191,21 @@ a:hover { text-decoration: underline; }
 }
 .link-button:hover { text-decoration: underline; }
 
+// The page frame. Every signed-in page shares one width and one left edge
+// (house style 2026-11-03); pages used to set their own max-width inline, so
+// the content jumped sideways from screen to screen (dashboard 1320px, lists
+// 1080px, Help 700px centred, the wizard 760px centred). A narrow form keeps
+// a 720px column, aligned to the same left edge rather than centred.
 .page {
-  max-width: 1080px;
+  width: 100%;
+  max-width: calc(var(--page-max) + 2 * var(--page-pad-x));
   margin: 0 auto;
-  padding: 24px;
+  padding: 28px var(--page-pad-x) 48px;
+}
+.page.page-narrow {
+  max-width: calc(var(--page-narrow) + 2 * var(--page-pad-x));
+  margin-left: max(0px, calc((100% - var(--page-max) - 2 * var(--page-pad-x)) / 2));
+  margin-right: auto;
 }
 
 .page-header {
@@ -136,7 +216,10 @@ a:hover { text-decoration: underline; }
   margin-bottom: 20px;
   flex-wrap: wrap;
 }
-.page-header .subtitle { color: var(--gray-500); font-size: 13px; }
+.page-header .subtitle { color: var(--gray-500); font-size: 14px; margin-top: 2px; }
+// The record's status sits beside its title, not at the far edge of the page.
+.page-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.page-title-row h1 { margin: 0; }
 
 .card {
   background: var(--surface);
@@ -147,15 +230,46 @@ a:hover { text-decoration: underline; }
   transition: box-shadow var(--ease-base), border-color var(--ease-base);
 }
 .card + .card { margin-top: 16px; }
-// The rule above is for cards stacked vertically in normal block flow
-// (e.g. two sequential <div class="card"> sections on a details page). It
-// also matches cards that are merely DOM-adjacent but laid out side by
-// side in a CSS Grid — that selector can't tell the difference — which
-// silently gave every card but the first in a row extra height/width via
-// its own margin, on top of the grid's own `gap`. Grid children never
-// need it: `gap` already spaces them.
+// A stack of sections: the container's gap spaces them. Prefer it to the
+// sibling rule above wherever a page mixes cards with components that render
+// their own card (<app-permit-release>, <app-permit-delivery>): `.card + .card`
+// cannot see across a component's host element, so those cards touched.
+.stack { display: flex; flex-direction: column; gap: 16px; }
+// Inside a stack or a grid the gap already spaces the cards; the sibling
+// margin would double it (and in a grid push every card but the first in a
+// row out of line).
+.stack > .card + .card,
 .grid > .card + .card { margin-top: 0; }
 .card-title { font-size: 16px; font-weight: 700; color: var(--gray-900); margin-bottom: 12px; }
+// Card header: an optional 32px icon tile, the title (and a line under it),
+// and actions on the right.
+.card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.card-head .card-title { margin: 0; }
+.card-head-text { flex: 1; min-width: 0; }
+.card-subtitle { margin: 2px 0 0; font-size: 13px; color: var(--gray-500); }
+.card-head-action { margin-left: auto; flex: none; }
+.icon-tile {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
+.icon-tile::before {
+  content: '';
+  width: 18px;
+  height: 18px;
+  background-color: currentColor;
+  -webkit-mask: var(--tile-icon, var(--icon-info)) center / contain no-repeat;
+  mask: var(--tile-icon, var(--icon-info)) center / contain no-repeat;
+}
+.icon-tile-success { background: var(--success-100); color: var(--success-text); --tile-icon: var(--icon-check); }
+.icon-tile-warning { background: var(--warning-100); color: var(--warning-text); --tile-icon: var(--icon-warning); }
+.icon-tile-info { background: var(--info-100); color: var(--info-text); }
+.icon-tile-danger { background: var(--danger-100); color: var(--danger-text); --tile-icon: var(--icon-alert); }
 
 // Auth cards (login/register/forgot-password) get a thin gold accent
 // stripe across the top — castilla's seal-derived accent, used here as
@@ -211,37 +325,138 @@ a:hover { text-decoration: underline; }
 .card-fill { height: 100%; display: flex; flex-direction: column; }
 .card-footer { margin-top: auto; padding-top: 12px; }
 
-// Buttons
+// Key–value facts: a small grey label above each value, up to three columns.
+// Replaces the 40%-label tables and "Label: value" run-on lines.
+//   <dl class="kv"><div><dt>Courier</dt><dd>LBC Express</dd></div>…</dl>
+// The column minimum is a third of the row, so it never goes past three.
+.kv {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(max(180px, calc((100% - 48px) / 3)), 1fr));
+  gap: 16px 24px;
+  margin: 0;
+}
+.kv.kv-2 { grid-template-columns: repeat(auto-fill, minmax(max(180px, calc((100% - 24px) / 2)), 1fr)); }
+.kv > div { min-width: 0; }
+.kv dt { margin: 0 0 4px; font-size: 12px; font-weight: 500; line-height: 1.4; color: var(--gray-500); }
+.kv dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--gray-900);
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.kv .kv-wide { grid-column: 1 / -1; }
+
+// Callout: a tone border and a light tone background, a tone icon, an ink
+// title and grey body text (the body is never coloured). At most one per
+// section. Its children each take a row of the second column, so wrap any
+// loose text in an element:
+//   <div class="callout callout-warning">
+//     <strong class="callout-title">…</strong> <p>…</p>
+//     <div class="callout-actions"><button class="btn …">…</button></div>
+//   </div>
+// A `.callout-aside` child sits on the right instead (below, on a phone).
+.callout {
+  --callout-tone: var(--gray-600);
+  --callout-icon: var(--icon-info);
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: start;
+  padding: 12px 14px;
+  border: 1px solid var(--gray-200);
+  border-radius: 10px;
+  background: var(--gray-50);
+  color: var(--gray-700);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.callout::before {
+  content: '';
+  grid-column: 1;
+  grid-row: 1;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  background-color: var(--callout-tone);
+  -webkit-mask: var(--callout-icon) center / contain no-repeat;
+  mask: var(--callout-icon) center / contain no-repeat;
+}
+.callout > * { grid-column: 2; margin: 0; }
+.callout > * + * { margin-top: 4px; }
+.callout-title { display: block; font-size: 14px; font-weight: 600; color: var(--gray-900); }
+.callout-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.callout > .callout-actions { margin-top: 10px; }
+.callout:has(> .callout-aside) { grid-template-columns: 18px minmax(0, 1fr) auto; }
+.callout > .callout-aside { grid-column: 3; grid-row: 1 / span 2; align-self: center; margin: 0 0 0 8px; }
+@media (max-width: 560px) {
+  .callout:has(> .callout-aside) { grid-template-columns: 18px minmax(0, 1fr); }
+  .callout > .callout-aside { grid-column: 2; grid-row: auto; justify-self: start; margin: 10px 0 0; }
+}
+.callout-neutral { --callout-tone: var(--gray-600); }
+.callout-info { --callout-tone: var(--info-text); border-color: var(--info-200); background: var(--info-50); }
+.callout-progress { --callout-tone: var(--progress-text); --callout-icon: var(--icon-clock); border-color: var(--progress-200); background: var(--progress-50); }
+.callout-success { --callout-tone: var(--success-text); --callout-icon: var(--icon-check); border-color: var(--success-200); background: var(--success-50); }
+.callout-warning { --callout-tone: var(--warning-text); --callout-icon: var(--icon-warning); border-color: var(--warning-200); background: var(--warning-50); }
+.callout-danger { --callout-tone: var(--danger-text); --callout-icon: var(--icon-alert); border-color: var(--danger-200); background: var(--danger-50); }
+.callout-violet { --callout-tone: var(--violet-text); --callout-icon: var(--icon-truck); border-color: var(--violet-200); background: var(--violet-50); }
+
+// Buttons. Three sizes: 32px (.btn-sm), 38px (default), 44px (.btn-lg, the
+// sign-in screens). The line-height is fixed so an <a class="btn"> and a
+// <button class="btn"> come out the same height. One primary per area;
+// repeated per-row actions are secondary or ghost; a destructive action is
+// .btn-danger-outline, and solid .btn-danger is only the confirm button of a
+// destructive confirmation.
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
+  min-height: 38px;
+  padding: 8px 14px;
   font-size: 14px;
-  font-weight: 700;
-  padding: 9px 18px;
+  font-weight: 600;
+  line-height: 20px;
   border-radius: var(--radius-md);
   border: 1px solid transparent;
   cursor: pointer;
-  transition: background var(--ease-base), border-color var(--ease-base), box-shadow var(--ease-base), transform 0.15s ease, opacity 0.15s ease;
+  transition: background-color var(--ease-base), border-color var(--ease-base), color var(--ease-base), box-shadow var(--ease-base);
   text-decoration: none;
   white-space: nowrap;
 }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:hover { text-decoration: none; }
+.btn svg { width: 16px; height: 16px; flex: none; }
+.btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+// Never opacity: a faded button reads as broken, and its text drops below
+// contrast against whatever is behind it.
+.btn:disabled,
+.btn:disabled:hover {
+  background: var(--gray-100);
+  color: var(--gray-300);
+  border-color: var(--gray-200);
+  box-shadow: none;
+  cursor: not-allowed;
+}
 .btn-primary { background: var(--primary-500); color: #fff; border-color: var(--primary-500); }
-.btn-primary:hover:not(:disabled) { background: var(--primary-600); border-color: var(--primary-600); box-shadow: 0 8px 18px rgba(165, 24, 42, 0.28); transform: translateY(-1px); }
-.btn-secondary { background: var(--surface); color: var(--gray-700); border-color: var(--border-medium); }
-.btn-secondary:hover:not(:disabled) { background: var(--gray-50); border-color: var(--gray-300); }
-.btn-danger { background: var(--danger-500); color: #fff; }
-.btn-danger:hover:not(:disabled) { background: var(--primary-600); }
-.btn-ghost { background: transparent; color: var(--primary-600); }
-.btn-ghost:hover:not(:disabled) { background: var(--primary-50); }
+.btn-primary:hover:not(:disabled) { background: var(--primary-600); border-color: var(--primary-600); color: #fff; }
+.btn-secondary { background: var(--surface); color: var(--gray-800); border-color: var(--border-medium); }
+.btn-secondary:hover:not(:disabled) { border-color: var(--primary-500); color: var(--primary-500); }
+.btn-ghost { background: transparent; color: var(--gray-700); border-color: transparent; }
+.btn-ghost:hover:not(:disabled) { background: var(--gray-100); color: var(--gray-900); }
+.btn-ghost:disabled { background: transparent; border-color: transparent; }
+.btn-danger-outline { background: var(--surface); color: var(--danger-text); border-color: var(--danger-200); }
+.btn-danger-outline:hover:not(:disabled) { background: var(--danger-100); border-color: var(--danger-200); color: var(--danger-text); }
+.btn-danger { background: var(--danger-text); color: #fff; border-color: var(--danger-text); }
+.btn-danger:hover:not(:disabled) { background: #991b1b; border-color: #991b1b; color: #fff; }
 .btn-block { width: 100%; }
-.btn-sm { padding: 6px 12px; font-size: 13px; }
+.btn-sm { min-height: 32px; padding: 5px 12px; font-size: 13px; }
+.btn-lg { min-height: 44px; padding: 11px 18px; font-size: 15px; }
 
 // Forms
 .field { margin-bottom: 16px; }
-.field label { display: block; font-size: 13px; font-weight: 600; color: var(--gray-700); margin-bottom: 5px; }
+.field label { display: block; font-size: 13px; font-weight: 600; color: var(--gray-800); margin-bottom: 6px; }
 // The marker on a required field's label — smaller and red, distinct from the
 // label text itself rather than reading as part of the field's name.
 .field label .required { color: var(--danger-500); font-size: 11px; font-weight: 700; }
@@ -253,33 +468,55 @@ a:hover { text-decoration: underline; }
 // (login, register, password change, application wizard, payments...). This
 // compound selector matches the markup as it actually exists, and renders it
 // as a visible red alert rather than text indistinguishable from a hint.
+// Drawn like a danger callout (tone border, light background, alert icon);
+// the icon is a pseudo-element on padding, so the message markup is untouched.
 .field.error {
+  position: relative;
   display: block;
   font-size: 13px;
   font-weight: 600;
+  line-height: 1.45;
   color: var(--danger-text);
-  background: var(--danger-100);
-  border: 1px solid var(--danger-500);
-  border-radius: var(--radius-sm);
-  padding: 9px 12px;
+  background: var(--danger-50);
+  border: 1px solid var(--danger-200);
+  border-radius: var(--radius-md);
+  padding: 9px 12px 9px 36px;
 }
+.field.error::before {
+  content: '';
+  position: absolute;
+  left: 12px;
+  top: 10px;
+  width: 16px;
+  height: 16px;
+  background-color: currentColor;
+  -webkit-mask: var(--icon-alert) center / contain no-repeat;
+  mask: var(--icon-alert) center / contain no-repeat;
+}
+// Every text field, select and date field is 40px tall; textareas grow.
 .input, select.input, textarea.input {
   width: 100%;
   font-size: 14px;
   font-family: inherit;
-  padding: 9px 12px;
+  padding: 0 12px;
   border: 1px solid var(--border-medium);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--gray-900);
   transition: border-color var(--ease-base), box-shadow var(--ease-base);
 }
+input.input, select.input { height: 40px; }
+textarea.input { padding: 9px 12px; line-height: 1.5; }
 .input:focus, select.input:focus, textarea.input:focus {
   outline: none;
   border-color: var(--primary-500);
-  box-shadow: 0 0 0 3px var(--primary-100);
+  box-shadow: var(--focus-ring);
 }
 .input.invalid { border-color: var(--danger-500); }
+.input:disabled { background: var(--gray-100); color: var(--gray-500); cursor: not-allowed; }
+// Read-only values must not look like fields waiting for input.
+.input[readonly] { background: var(--gray-50); color: var(--gray-700); }
+input[type='checkbox'], input[type='radio'] { accent-color: var(--primary-500); }
 
 // A bare `<input type="file">` renders as raw OS chrome — a system-styled
 // "Choose File" button glued to "No file chosen" text, sized and fonted by
@@ -385,7 +622,12 @@ select.input {
   border: 1px solid var(--gray-300);
 }
 .password-checklist li.met .check-icon { background: var(--success-text); border-color: var(--success-text); color: #fff; }
-.checkbox-row { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--gray-700); }
+// A checkbox and its words. Keep the words in ONE element (a <span>): as flex
+// items, each loose text node and inline link came apart with gaps around the
+// link ("I agree to the  Terms  and have read the  Privacy Notice").
+.checkbox-row { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.5; color: var(--gray-700); }
+.checkbox-row > input { flex: none; width: 16px; height: 16px; margin: 3px 0 0; }
+.checkbox-row > span { flex: 1; min-width: 0; }
 .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
 
 // Radio cards: one choice among a few, each with a line saying what it means —
@@ -410,7 +652,7 @@ select.input {
 
 // Touch targets.
 //
-// `.btn` renders 36px tall and `.btn-sm` about 30px. That clears WCAG 2.2
+// `.btn` renders 38px tall and `.btn-sm` 32px. That clears WCAG 2.2
 // SC 2.5.8 Target Size (Minimum), which is 24x24 and the AA bar, so it is not a
 // conformance failure - which is exactly why axe does not flag it. It is under
 // SC 2.5.5 (44x44, AAA) and under both platform touch guidelines: Apple HIG
@@ -466,17 +708,92 @@ select.input {
   }
 }
 
-// Badges / status pills
-.badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; }
-.badge-req { background: var(--danger-100); color: var(--danger-text); }
-.badge-opt { background: var(--gray-100); color: var(--gray-600); }
-.badge-gray { background: var(--gray-100); color: var(--gray-700); }
+// Badges / status pills. One shape everywhere (24px, round, 12px/600) and one
+// tone per meaning; which status takes which tone is decided in ONE place,
+// shared/ui/status-pill.component.ts. Tone classes:
+//   gray = neutral, blue = info, indigo = in progress at the office,
+//   amber = waiting on the citizen, green = done, violet = by courier /
+//   imported, red = failure.
+// A badge with no tone class is neutral.
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+  vertical-align: middle;
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
+// The small status dot (status pills), in the tone's own colour.
+.badge-dot::before { content: ''; flex: none; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.badge-gray { background: var(--gray-100); color: var(--gray-600); }
 .badge-blue { background: var(--info-100); color: var(--info-text); }
-.badge-primary { background: var(--primary-100); color: var(--primary-700); }
-.badge-gold { background: var(--gold-100); color: var(--gold-700); border: 1px solid var(--gold-border); }
+.badge-indigo { background: var(--progress-100); color: var(--progress-text); }
 .badge-amber { background: var(--warning-100); color: var(--warning-text); }
 .badge-green { background: var(--success-100); color: var(--success-text); }
+.badge-violet { background: var(--violet-100); color: var(--violet-text); }
 .badge-red { background: var(--danger-100); color: var(--danger-text); }
+
+// A category that is not a status (who may apply, a document count, Required /
+// Optional): a quiet outlined tag, so it never competes with a status pill.
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 22px;
+  padding: 1px 8px;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--gray-600);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.tag-strong { color: var(--gray-800); border-color: #d5d7de; }
+
+// Filter chips with counts (Payments, My Applications, Notifications). The
+// chosen one is brand red, like the active page in the sidebar.
+.filter-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  margin: 0;
+  padding: 5px 12px;
+  border: 1px solid var(--border-medium);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--gray-700);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.filter-chip:hover { border-color: var(--gray-300); color: var(--gray-900); }
+.filter-chip:focus-visible { outline: 2px solid var(--primary-500); outline-offset: 1px; }
+.filter-chip[aria-pressed='true'] { background: var(--primary-500); border-color: var(--primary-500); color: #fff; }
+.filter-chip-count {
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--gray-100);
+  color: var(--gray-600);
+  font-size: 11.5px;
+  line-height: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.filter-chip[aria-pressed='true'] .filter-chip-count { background: rgba(255, 255, 255, 0.22); color: #fff; }
 
 // Tables
 // A card holding a table scrolls HORIZONTALLY rather than clipping it. On a
@@ -492,10 +809,27 @@ select.input {
   overflow-x: auto;
 }
 
-table.table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-table.table th { text-align: left; color: var(--primary-700); background: var(--primary-50); padding: 10px 12px; font-weight: 700; white-space: nowrap; }
-table.table td { padding: 10px 12px; border-bottom: 1px solid var(--border-light); }
+// Neutral header (it used to be red on pink, the same as a primary action):
+// small grey capitals on the subtle surface. Numbers and money: class="num".
+table.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.table th {
+  text-align: left;
+  color: var(--gray-500);
+  background: var(--gray-50);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+table.table td { padding: 12px 14px; border-bottom: 1px solid var(--border-light); color: var(--gray-800); vertical-align: middle; }
 table.table tr:last-child td { border-bottom: none; }
+table.table tbody tr:hover td { background: var(--gray-50); }
+table.table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.table tfoot td { border-top: 1px solid var(--border-medium); border-bottom: none; font-weight: 600; color: var(--gray-900); }
+table.table tfoot tr + tr td { border-top: none; padding-top: 0; font-weight: 500; color: var(--gray-500); }
 
 // A long reference number or permit type name was the single biggest
 // contributor to a table needing the horizontal scroll above at all — this
@@ -531,18 +865,58 @@ table.table tr:last-child td { border-bottom: none; }
   }
 }
 
-// Steps
-.steps { display: flex; align-items: center; gap: 4px; margin-bottom: 24px; flex-wrap: wrap; }
-.step-item { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--gray-400); }
-.step-item .dot { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--gray-100); color: var(--gray-500); font-weight: 700; font-size: 11px; }
-.step-item.active { color: var(--primary-700); font-weight: 700; }
-.step-item.active .dot { background: var(--primary-500); color: #fff; }
-.step-item.done .dot { background: var(--success-500); color: #fff; }
-.step-sep { width: 20px; height: 1px; background: var(--border-medium); }
-/* Five steps in a sign-up card (migration 067): tighter, and a label never leaves its number. */
-.steps.compact { gap: 3px; }
-.steps.compact .step-item { white-space: nowrap; gap: 5px; }
-.steps.compact .step-sep { width: 12px; }
+// Stepper (shared/ui/stepper.component.ts): 26px circles joined by 2px
+// connectors, labels under them, one row that never wraps. Done = green with a
+// check, current = brand with a ring, upcoming = outlined. The item and state
+// class names (.step-item, .active, .done, .dot) are the ones scripts/
+// check-journeys.mjs reads the wizard's current step from.
+.stepper { display: flex; margin: 0 0 24px; padding: 0; list-style: none; }
+.stepper .step-item {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--gray-500);
+}
+// The connector from the previous circle to this one, clear of both rings.
+.stepper .step-item + .step-item::before {
+  content: '';
+  position: absolute;
+  top: 12px;
+  left: calc(-50% + 21px);
+  right: calc(50% + 21px);
+  height: 2px;
+  border-radius: 2px;
+  background: var(--gray-200);
+}
+.stepper .step-item.done + .step-item::before { background: var(--success-text); }
+.stepper .dot {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid var(--gray-200);
+  background: var(--surface);
+  color: var(--gray-500);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+.stepper .dot svg { width: 14px; height: 14px; }
+.stepper .step-item.done { color: var(--gray-700); }
+.stepper .step-item.done .dot { border-color: var(--success-text); background: var(--success-text); color: #fff; }
+.stepper .step-item.active { color: var(--gray-900); font-weight: 700; }
+.stepper .step-item.active .dot { border-color: var(--primary-500); background: var(--primary-500); color: #fff; box-shadow: 0 0 0 4px var(--primary-100); }
 
 // ---------------------------------------------------------------------------
 // Generated permit document — formal, restrained, printable A4 layout.
@@ -641,9 +1015,9 @@ table.table tr:last-child td { border-bottom: none; }
 .doc-generated-conditions li { margin-bottom: 4px; }
 // Application documents, rendered as chains (task 25).
 .permit-number { font-size: 22px; font-weight: 800; letter-spacing: 0.02em; color: var(--gray-900); }
-.release-state { margin-top: 12px; padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-medium); }
-.release-state.release-ready { background: var(--success-100); border-color: var(--success-text); color: var(--success-text); }
-.release-state.release-waiting { background: var(--gray-50); color: var(--gray-700); }
+// The state line on Your permit and Receiving your permit: a .callout, whose
+// tone the component picks. .release-ready marks the one collectable state.
+.release-state { margin-top: 12px; }
 .doc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
 .doc-item { border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 12px 14px; }
 .doc-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
@@ -768,7 +1142,27 @@ label a:not(.btn) {
   font-size: 15px;
 }
 
-.empty-state { text-align: center; padding: 48px 20px; color: var(--gray-500); }
+// Empty states: centred, a 48px circle with an icon, then the words (an
+// optional .empty-state-title over one short sentence) and at most one action.
+// The icon is drawn by the class, so every empty state in the portal has it.
+// Variants pick a fitting icon: --bell, --search, --loading, --file.
+.empty-state { text-align: center; padding: 40px 16px; color: var(--gray-500); font-size: 13px; line-height: 1.5; }
+.empty-state::before {
+  content: '';
+  display: block;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+  background: var(--gray-100) var(--empty-icon, var(--icon-inbox)) center / 22px 22px no-repeat;
+}
+.empty-state-title { display: block; margin: 0 0 4px; font-size: 15px; font-weight: 600; color: var(--gray-900); }
+.empty-state > p { max-width: 460px; margin-left: auto; margin-right: auto; }
+.empty-state .btn { margin-top: 12px; }
+.empty-state--bell { --empty-icon: var(--icon-bell); }
+.empty-state--search { --empty-icon: var(--icon-search); }
+.empty-state--loading { --empty-icon: var(--icon-clock); }
+.empty-state--file { --empty-icon: var(--icon-file); }
 .muted { color: var(--gray-500); }
 .small { font-size: 12.5px; }
 .divider { height: 1px; background: var(--border-light); margin: 16px 0; border: none; }

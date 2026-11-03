@@ -116,7 +116,7 @@ const FEE_LINES: ReadonlyArray<{ code: keyof Order['fees']; name: string }> = [
         } @else if (checked()) {
           <div class="card empty-state">No Order of Payment has been issued for this application yet.</div>
         } @else {
-          <div class="card empty-state">Loading the Order of Payment…</div>
+          <div class="card empty-state empty-state--loading">Loading the Order of Payment…</div>
         }
       </div>
     } @else {

@@ -15,8 +15,10 @@
   --ds-ink: #101828;
   --ds-ink-secondary: #344054;
   --ds-body: #667085;
-  --ds-red: #d7192d;
-  --ds-red-dark: #b31626;
+  // Brand red is the global token (house style 2026-11-03): this used to be a
+  // brighter #d7192d, one of eight reds across the portal.
+  --ds-red: var(--primary-500);
+  --ds-red-dark: var(--primary-600);
   --ds-border: #e8eaee;
 }
 
@@ -157,6 +159,7 @@
 .ds-nav-badge {
   margin-left: auto;
   min-width: 20px;
+  min-height: 0;
   height: 20px;
   padding: 0 6px;
   display: inline-flex;
@@ -168,7 +171,7 @@
 
 .ds-nav-link:hover { background: #f8f9fb; text-decoration: none; transform: translateX(1px); }
 .ds-nav-link.active {
-  background: #fff3f4;
+  background: var(--primary-50);
   color: var(--ds-red);
   font-weight: 600;
 }

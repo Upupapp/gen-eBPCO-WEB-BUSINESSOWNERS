@@ -13,26 +13,30 @@ import { rejectedHeadline } from '../../core/domain/account-verification';
 @Component({
   selector: 'app-verification-banner',
   imports: [RouterLink],
+  // A callout (styles.scss): amber while the citizen has something to do,
+  // indigo while the Municipality checks the ID, red when it was not accepted.
+  // The way to the ID upload is a secondary button on the right, so the page's
+  // own primary action stays the only one.
   template: `
     @if (verification(); as v) {
       @switch (v.status) {
         @case ('unsubmitted') {
-          <div class="verify-banner" role="status">
-            <p><strong>Verify your account to submit applications.</strong>
-              Send a photo of a valid government ID. You can prepare applications while the Municipality checks it.</p>
-            <a routerLink="/profile" fragment="account-verification" class="btn btn-primary btn-sm">Verify my account</a>
+          <div class="callout callout-warning verify-banner" role="status">
+            <strong class="callout-title">Verify your account to submit applications.</strong>
+            <p>Send a photo of a valid government ID. You can prepare applications while the Municipality checks it.</p>
+            <a routerLink="/profile" fragment="account-verification" class="btn btn-secondary btn-sm callout-aside">Verify my account</a>
           </div>
         }
         @case ('pending') {
-          <div class="verify-banner verify-banner--waiting" role="status">
-            <p><strong>Your account is being verified.</strong>
-              You can prepare applications now and submit once it is verified.</p>
+          <div class="callout callout-progress verify-banner" role="status">
+            <strong class="callout-title">Your account is being verified.</strong>
+            <p>You can prepare applications now and submit once it is verified.</p>
           </div>
         }
         @case ('rejected') {
-          <div class="verify-banner verify-banner--rejected" role="status">
-            <p><strong>{{ rejectedHeadline(v.note) }}</strong></p>
-            <a routerLink="/profile" fragment="account-verification" class="btn btn-primary btn-sm">Upload again</a>
+          <div class="callout callout-danger verify-banner" role="status">
+            <strong class="callout-title">{{ rejectedHeadline(v.note) }}</strong>
+            <a routerLink="/profile" fragment="account-verification" class="btn btn-secondary btn-sm callout-aside">Upload again</a>
           </div>
         }
       }
@@ -40,14 +44,7 @@ import { rejectedHeadline } from '../../core/domain/account-verification';
   `,
   styles: `
     :host { display: block; }
-    .verify-banner {
-      display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-      margin-bottom: 16px; padding: 12px 16px; border-radius: var(--radius-md);
-      background: var(--warning-100); color: var(--warning-text);
-    }
-    .verify-banner p { margin: 0; font-size: 13px; flex: 1 1 260px; }
-    .verify-banner--waiting { background: var(--info-100); color: var(--info-text); }
-    .verify-banner--rejected { background: var(--danger-100); color: var(--danger-text); }
+    .verify-banner { margin-bottom: 16px; }
   `,
 })
 export class VerificationBannerComponent {

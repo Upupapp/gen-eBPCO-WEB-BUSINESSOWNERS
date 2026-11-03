@@ -11,15 +11,15 @@ interface ApplicationFilter {
   label: string;
   /** null: every application. */
   statuses: readonly ApplicationLifecycleStatus[] | null;
-  /** Shown only while some application is in it. */
-  onlyWhenUsed?: boolean;
 }
 
 /**
  * One tab for every status a citizen can see on a row (QA TC-35, 2026-10-03:
  * Completed, Cancelled and Revision Required had none, so a returned,
  * withdrawn or finished application could not be listed on its own). Each
- * tab names the words on the pills it lists.
+ * tab names the words on the pills it lists. A tab with nothing in it is
+ * hidden (All always shows): twelve chips, seven or eight of them at 0, were
+ * a wall to read through (house style 2026-11-03).
  */
 const FILTERS: readonly ApplicationFilter[] = [
   { label: 'All', statuses: null },
@@ -35,7 +35,7 @@ const FILTERS: readonly ApplicationFilter[] = [
   { label: 'Completed', statuses: ['Completed'] },
   { label: 'Rejected', statuses: ['Rejected'] },
   { label: 'Cancelled', statuses: ['Cancelled'] },
-  { label: 'Expired', statuses: ['Expired'], onlyWhenUsed: true },
+  { label: 'Expired', statuses: ['Expired'] },
 ];
 
 @Component({
@@ -51,17 +51,16 @@ const FILTERS: readonly ApplicationFilter[] = [
         <a routerLink="/permits" class="btn btn-primary">+ New Application</a>
       </div>
 
-      <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
+      <div class="filter-chips" role="group" aria-label="Filter by status">
         @for (f of visibleFilters(); track f.label) {
-          <button class="btn btn-sm" [class.btn-primary]="filter() === f.label" [class.btn-secondary]="filter() !== f.label"
-                  [attr.aria-pressed]="filter() === f.label" (click)="filter.set(f.label)">
-            {{ f.label }} <span style="opacity:.75;">({{ countIn(f) }})</span>
+          <button type="button" class="filter-chip" [attr.aria-pressed]="filter() === f.label" (click)="filter.set(f.label)">
+            {{ f.label }} <span class="filter-chip-count">{{ countIn(f) }}</span>
           </button>
         }
       </div>
 
       @if (filtered().length === 0) {
-        <div class="card empty-state">No applications match this filter.</div>
+        <div class="card empty-state empty-state--search">No applications match this filter.</div>
       } @else {
         <div class="card" style="padding:0;">
           <table class="table">
@@ -112,8 +111,9 @@ export class MyApplicationsPage {
   protected readonly applyingAsLabel = applyingAsLabel;
   readonly filter = signal<string>('All');
 
+  /** All, every tab something is in, and the chosen one (so it never vanishes under the citizen). */
   protected visibleFilters(): readonly ApplicationFilter[] {
-    return FILTERS.filter((f) => !f.onlyWhenUsed || this.countIn(f) > 0 || this.filter() === f.label);
+    return FILTERS.filter((f) => f.statuses === null || this.countIn(f) > 0 || this.filter() === f.label);
   }
 
   protected countIn(f: ApplicationFilter): number {

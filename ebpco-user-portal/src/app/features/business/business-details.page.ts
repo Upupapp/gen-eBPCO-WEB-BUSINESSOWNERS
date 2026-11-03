@@ -18,14 +18,23 @@ import { REGISTERED_BEFORE_EBPCO_LABEL } from '../../core/domain/earlier-records
         <app-back-link fallback="/businesses" fallbackLabel="My Businesses" />
         <div class="page-header">
           <div>
-            <h1>{{ b.name }}</h1>
+            <!-- The business's status beside its name (it sat inside the address card). -->
+            <div class="page-title-row">
+              <h1>{{ b.name }}</h1>
+              <app-status-pill [label]="b.status" />
+              @if (b.importedBeforeEbpco) {
+                <span class="badge badge-violet business-before-ebpco"
+                      title="Registered in the Municipality's registry before eBPCO">{{ beforeEbpco }}</span>
+              }
+            </div>
             <div class="subtitle">{{ b.category }} · Reg. No. {{ b.registrationNumber }} · Registered {{ formatDate(b.dateRegistered) }}</div>
           </div>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <a [routerLink]="['/businesses', b.id, 'edit']" class="btn btn-secondary">Edit Business</a>
             @if (b.status === 'Active') {
+              <!-- Destructive, so it must not look like Edit: a red outline. -->
               <button
-                class="btn btn-secondary"
+                class="btn btn-danger-outline"
                 type="button"
                 [disabled]="changingStatus()"
                 (click)="deactivate(b.id)"
@@ -47,19 +56,14 @@ import { REGISTERED_BEFORE_EBPCO_LABEL } from '../../core/domain/earlier-records
         </div>
 
         @if (statusError(); as err) {
-          <div class="card" style="background:var(--danger-50, #fff5f5); border:1px solid var(--danger-200, #f5c2c7); margin-bottom:16px;">
-            {{ err }}
+          <div class="callout callout-danger" style="margin-bottom:16px;">
+            <p>{{ err }}</p>
           </div>
         }
 
         <div class="card" style="margin-bottom:16px;">
           <div class="card-title">Business Address</div>
-          <p>{{ b.street }}, Barangay {{ b.barangay }}, {{ b.city }}, {{ b.province }}</p>
-          <span class="badge" [class]="b.status === 'Active' ? 'badge-green' : 'badge-gray'">{{ b.status }}</span>
-          @if (b.importedBeforeEbpco) {
-            <span class="badge badge-gold business-before-ebpco" style="margin-left:6px;"
-                  title="Registered in the Municipality's registry before eBPCO">{{ beforeEbpco }}</span>
-          }
+          <p style="margin:0;">{{ b.street }}, Barangay {{ b.barangay }}, {{ b.city }}, {{ b.province }}</p>
         </div>
 
         <div class="card">

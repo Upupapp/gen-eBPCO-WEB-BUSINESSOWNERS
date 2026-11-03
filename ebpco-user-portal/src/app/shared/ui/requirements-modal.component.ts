@@ -78,7 +78,7 @@ const ACTION_LABEL: Record<ApplicationAction, string> = {
           <ul class="req-modal-list">
             @for (d of documents(); track d.id) {
               <li class="small">
-                <span class="badge" [class]="d.required ? 'badge-req' : 'badge-opt'">{{ d.required ? 'Required' : 'Optional' }}</span>
+                <span class="tag" [class.tag-strong]="d.required">{{ d.required ? 'Required' : 'Optional' }}</span>
                 <span>
                   {{ d.label }}
                   @if (d.description) { <span class="muted"> — {{ d.description }}</span> }
@@ -137,7 +137,7 @@ const ACTION_LABEL: Record<ApplicationAction, string> = {
       padding-left: 0; margin: 0 0 18px;
     }
     .req-modal-list li { display: flex; align-items: flex-start; gap: 8px; }
-    .req-modal-list .badge { border-radius: 6px; flex-shrink: 0; margin-top: 1px; }
+    .req-modal-list .tag { flex-shrink: 0; min-width: 64px; justify-content: center; }
 
     .req-modal-form-link { display: inline-block; }
 

@@ -18,10 +18,7 @@ import { CASTILLA_BARANGAYS, CITIES, PH_PROVINCES } from '../../core/domain/ph-r
   selector: 'app-delivery-choice',
   imports: [FormsModule],
   styles: [`
-    .delivery-fee-note {
-      margin: 0 0 14px; padding: 10px 12px; border-radius: var(--radius-md);
-      background: var(--info-100); color: var(--info-text); font-size: 13px;
-    }
+    .delivery-fee-note { margin: 0 0 14px; }
   `],
   template: `
     <fieldset class="choice-cards choice-cards--row" id="receive-by">
@@ -46,7 +43,7 @@ import { CASTILLA_BARANGAYS, CITIES, PH_PROVINCES } from '../../core/domain/ph-r
 
     @if (value.receiveBy === 'delivery') {
       <div id="delivery-address-form">
-        <p class="delivery-fee-note" id="delivery-fee-note">{{ feeNote || defaultFeeNote }}</p>
+        <div class="callout callout-info delivery-fee-note"><p id="delivery-fee-note">{{ feeNote || defaultFeeNote }}</p></div>
         <div class="form-row">
           <div class="field">
             <label for="delivery-recipient-name">Recipient's name<span class="required">*</span></label>

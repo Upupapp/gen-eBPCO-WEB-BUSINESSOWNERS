@@ -18,11 +18,13 @@ import { NavigationHistory } from '../../core/utils/navigation-history';
   selector: 'app-back-link',
   template: `
     <button type="button" class="back-link" (click)="go()">
-      <span aria-hidden="true">&larr;</span> {{ text() }}
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6" /></svg>
+      {{ text() }}
     </button>
   `,
   styles: `
-    :host { display: inline-block; }
+    /* House style: a quiet grey link above the page title, never a red or solid button. */
+    :host { display: inline-block; margin-bottom: 8px; }
     .back-link {
       display: inline-flex;
       align-items: center;
@@ -30,13 +32,14 @@ import { NavigationHistory } from '../../core/utils/navigation-history';
       padding: 4px 0;
       border: 0;
       background: none;
-      color: var(--primary-600);
+      color: var(--gray-600);
       font: inherit;
-      font-size: 0.875rem;
+      font-size: 14px;
       font-weight: 600;
       cursor: pointer;
     }
-    .back-link:hover { text-decoration: underline; }
+    .back-link svg { width: 16px; height: 16px; flex: none; }
+    .back-link:hover { color: var(--gray-900); text-decoration: underline; }
     .back-link:focus-visible { outline: 2px solid var(--primary-500); outline-offset: 2px; border-radius: 4px; }
   `,
 })

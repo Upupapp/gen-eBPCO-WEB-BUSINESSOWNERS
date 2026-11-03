@@ -12,7 +12,7 @@ import { registrationDateProblem, registrationNumberProblem } from '../../core/d
   selector: 'app-register-business',
   imports: [FormsModule, RouterLink],
   template: `
-    <div class="page" style="max-width:600px;">
+    <div class="page page-narrow">
       <div class="page-header">
         <div>
           <h1>Register a Business</h1>

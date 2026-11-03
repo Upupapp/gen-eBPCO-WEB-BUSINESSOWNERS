@@ -4,6 +4,7 @@ import { BusinessStore } from '../../core/stores/business.store';
 import { BusinessCategory } from '../../core/domain/business.model';
 import { formatDate } from '../../core/utils/ids';
 import { REGISTERED_BEFORE_EBPCO_LABEL } from '../../core/domain/earlier-records';
+import { statusBadgeClass } from '../../shared/ui/status-pill.component';
 
 /** Small outline-icon path set, drawn in the Lucide visual style (24x24, round caps/joins) — same convention as the dashboard's ICONS, so this page doesn't need an extra icon-library dependency (lucide-angular doesn't support this app's Angular version yet). */
 const ICONS = {
@@ -62,7 +63,7 @@ const ICONS = {
           load (found live 2026-09-25, alongside the same bug on Permit
           Services and the application wizard's own Business dropdown).
         -->
-        <div class="card empty-state">Loading your businesses…</div>
+        <div class="card empty-state empty-state--loading">Loading your businesses…</div>
       } @else if (store.myBusinesses().length === 0) {
         <div class="card empty-state">
           You haven't registered a business yet.
@@ -88,10 +89,10 @@ const ICONS = {
                     <div class="muted small business-card__type">{{ b.category }}</div>
                     @if (b.importedBeforeEbpco) {
                       <!-- In the Municipality's registry before eBPCO, matched to this account (migration 069). -->
-                      <span class="badge badge-gold business-before-ebpco" title="Registered in the Municipality's registry before eBPCO">{{ beforeEbpco }}</span>
+                      <span class="badge badge-violet business-before-ebpco" title="Registered in the Municipality's registry before eBPCO">{{ beforeEbpco }}</span>
                     }
                   </div>
-                  <span class="badge business-status" [class]="b.status === 'Active' ? 'badge-green' : 'badge-gray'">{{ b.status }}</span>
+                  <span class="badge badge-dot business-status" [class]="statusClass(b.status)">{{ b.status }}</span>
                 </div>
 
                 <hr class="business-card__divider" />
@@ -201,12 +202,8 @@ const ICONS = {
     }
 
     .badge.business-status {
-      padding: 3px 11px;
-      border-radius: 6px;
-      min-height: 23px;
       margin-left: 12px;
       flex-shrink: 0;
-      white-space: nowrap;
     }
 
     .business-card__divider {
@@ -254,6 +251,8 @@ export class BusinessListPage {
   protected readonly formatDate = formatDate;
   protected readonly icons = ICONS;
   protected readonly beforeEbpco = REGISTERED_BEFORE_EBPCO_LABEL;
+  /** The business's status in the portal's one status palette (Active green, Inactive grey). */
+  protected readonly statusClass = statusBadgeClass;
 
   businessIcon(category: BusinessCategory): readonly string[] {
     switch (category) {

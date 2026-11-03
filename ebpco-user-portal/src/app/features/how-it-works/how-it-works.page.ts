@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { StatusPillComponent } from '../../shared/ui/status-pill.component';
 
 interface ProcessStep {
   label: string;
@@ -46,7 +47,7 @@ const STEPS: ProcessStep[] = [
 
 @Component({
   selector: 'app-how-it-works',
-  imports: [RouterLink],
+  imports: [RouterLink, StatusPillComponent],
   template: `
     <div style="min-height:100vh; display:flex; flex-direction:column;">
       <header style="display:flex; align-items:center; justify-content:space-between; padding:18px 32px; background:#fff; border-bottom:1px solid var(--border-light);">
@@ -69,12 +70,14 @@ const STEPS: ProcessStep[] = [
           </p>
         </div>
 
-        <div style="display:flex; flex-direction:column; gap:16px;">
+        <!-- A stack: its gap alone spaces the cards (the gap plus .card + .card made it 32px). -->
+        <div class="stack">
           @for (step of steps; track step.label; let i = $index) {
             <div class="card anim-fade-rise" style="display:flex; gap:16px; align-items:flex-start;" [style.animation-delay]="i * 0.08 + 's'">
               <div class="hiw-step-number anim-flip-in" [style.animation-delay]="i * 0.08 + 0.1 + 's'">{{ i + 1 }}</div>
               <div style="flex:1;">
-                <div class="badge badge-gold" style="margin-bottom:6px;">{{ step.label }}</div>
+                <!-- The status a citizen will see at this step, in its own colour (they were all gold). -->
+                <div style="margin-bottom:6px;"><app-status-pill [label]="step.label" /></div>
                 <h3 style="margin-bottom:4px;">{{ step.title }}</h3>
                 <p class="muted small" style="margin:0;">{{ step.description }}</p>
               </div>
@@ -82,8 +85,8 @@ const STEPS: ProcessStep[] = [
           }
         </div>
 
-        <div class="card" style="margin-top:24px; background:var(--info-100); border:none;">
-          <p class="small" style="color:var(--info-text); margin:0;">
+        <div class="callout callout-info" style="margin-top:24px;">
+          <p>
             <strong>If revision is needed:</strong> your application may be sent back with remarks at the
             Document/Under Review stage — just address the requested items and resubmit. No need to start over.
           </p>

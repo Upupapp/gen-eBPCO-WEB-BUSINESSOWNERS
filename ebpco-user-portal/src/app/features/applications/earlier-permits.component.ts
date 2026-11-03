@@ -35,7 +35,7 @@ import { formatDate } from '../../core/utils/ids';
           @for (p of store.permits(); track p.id) {
             <article class="card earlier-card" [attr.data-permit-number]="p.permitNumber">
               <div class="earlier-card__badges">
-                <span class="badge badge-gold earlier-badge">{{ label }}</span>
+                <span class="badge badge-violet earlier-badge">{{ label }}</span>
                 @if (standing(p); as s) {
                   <span class="badge earlier-validity" [class.badge-green]="s === 'Valid'" [class.badge-gray]="s === 'Expired'">{{ s }}</span>
                 }

@@ -44,7 +44,8 @@ describe('PermitDocumentPage (F-2: demo permits cannot print clean)', () => {
     const fixture = renderFor('app-seed-2');
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('QR verification not yet available');
-    expect((fixture.nativeElement as HTMLElement).querySelector('svg')).toBeNull();
+    // The QR is the only svg in the QR box; the back link's arrow icon is another svg on the page.
+    expect((fixture.nativeElement as HTMLElement).querySelector('.doc-generated-qr svg')).toBeNull();
   });
 
   it('does not claim an uncleared document was issued by the Municipality', () => {
