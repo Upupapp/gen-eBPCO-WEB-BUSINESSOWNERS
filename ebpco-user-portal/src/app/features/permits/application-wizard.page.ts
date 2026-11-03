@@ -681,7 +681,7 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
 
       @if (step() === 4) {
         <div class="card">
-          <div class="card-title">Review &amp; Declaration</div>
+          <div class="card-title">Review &amp; declaration</div>
           <!-- Each section says what it holds and offers its own Edit (it was a pair of indented tables, one with Edit). -->
           <div class="review-head">
             <span class="review-title">Application</span>
@@ -797,7 +797,7 @@ export class ApplicationWizardPage {
   /** The blank form a document row asks the citizen to sign and upload, if it is one. */
   protected readonly blankFormFor = blankFormFor;
   /** The step bar's names, in order (step() is 1-based). */
-  protected readonly wizardSteps = ['Applicant & Type', 'Details', 'Documents', 'Review & Submit'] as const;
+  protected readonly wizardSteps = ['Applicant & type', 'Details', 'Documents', 'Review & submit'] as const;
   private readonly route = inject(ActivatedRoute);
   private readonly injector = inject(Injector);
   private readonly router = inject(Router);
