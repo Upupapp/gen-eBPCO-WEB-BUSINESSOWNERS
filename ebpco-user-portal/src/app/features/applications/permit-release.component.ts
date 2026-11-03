@@ -25,37 +25,44 @@ import { formatDate } from '../../core/utils/ids';
     <div class="card">
       <div class="card-title">Your permit</div>
 
-      @if (permitNumber()) {
-        <div class="permit-number">{{ permitNumber() }}</div>
-        @if (issuedDate()) { <div class="small muted">Issued {{ issuedDate() }}</div> }
+      <!-- Until the permit and the delivery are read, nothing true can be said
+           yet: "No permit has been issued" flashed for a second on every issued
+           permit while they loaded (demo recording, 3 Nov 2026). -->
+      @if (loading()) {
+        <p class="muted small" id="permit-checking">Checking your permit…</p>
       } @else {
-        <p class="muted small">No permit has been issued for this application yet.</p>
-      }
+        @if (permitNumber()) {
+          <div class="permit-number">{{ permitNumber() }}</div>
+          @if (issuedDate()) { <div class="small muted">Issued {{ issuedDate() }}</div> }
+        } @else {
+          <p class="muted small">No permit has been issued for this application yet.</p>
+        }
 
-      <div class="release-state" [class]="toneClass()">
-        <strong>{{ headline() }}</strong>
-        <p class="small" style="margin:4px 0 0;">{{ detail() }}</p>
-      </div>
+        <div class="release-state" [class]="toneClass()">
+          <strong>{{ headline() }}</strong>
+          <p class="small" style="margin:4px 0 0;">{{ detail() }}</p>
+        </div>
 
-      <!-- A delivery (migration 070) has nothing to collect, so no Where/When/Bring. -->
-      @if (!byCourier() && release(); as r) {
-        @if (r.status === 'Ready for Release') {
-          <div class="small" style="margin-top:10px; display:grid; gap:4px;">
-            <div><span class="muted">Where:</span> {{ r.claimLocation || ('the ' + engineer.name + ', ' + hallAddress) }}</div>
-            @if (r.officeHours) {
-              <div><span class="muted">When:</span> {{ r.officeHours }}</div>
-            }
-            <div>
-              <span class="muted">Bring:</span>
-              @if ((r.bringWithYou ?? []).length > 0) {
-                <ul style="margin:4px 0 0; padding-left:18px;">
-                  @for (item of r.bringWithYou; track item) { <li>{{ item }}</li> }
-                </ul>
-              } @else {
-                a valid ID{{ r.method === 'Authorized Representative' ? ' and a letter of authorisation' : '' }}.
+        <!-- A delivery (migration 070) has nothing to collect, so no Where/When/Bring. -->
+        @if (!byCourier() && release(); as r) {
+          @if (r.status === 'Ready for Release') {
+            <div class="small" style="margin-top:10px; display:grid; gap:4px;">
+              <div><span class="muted">Where:</span> {{ r.claimLocation || ('the ' + engineer.name + ', ' + hallAddress) }}</div>
+              @if (r.officeHours) {
+                <div><span class="muted">When:</span> {{ r.officeHours }}</div>
               }
+              <div>
+                <span class="muted">Bring:</span>
+                @if ((r.bringWithYou ?? []).length > 0) {
+                  <ul style="margin:4px 0 0; padding-left:18px;">
+                    @for (item of r.bringWithYou; track item) { <li>{{ item }}</li> }
+                  </ul>
+                } @else {
+                  a valid ID{{ r.method === 'Authorized Representative' ? ' and a letter of authorisation' : '' }}.
+                }
+              </div>
             </div>
-          </div>
+          }
         }
       }
     </div>
@@ -74,6 +81,8 @@ export class PermitReleaseComponent {
    * After a return the claim instructions apply again, so this is false.
    */
   readonly byCourier = input<boolean>(false);
+  /** The permit, or how it reaches the citizen, is still being read. */
+  readonly loading = input<boolean>(false);
 
   protected readonly engineer = MUNICIPAL_ENGINEER;
   protected readonly hallAddress = MUNICIPAL_HALL_ADDRESS;

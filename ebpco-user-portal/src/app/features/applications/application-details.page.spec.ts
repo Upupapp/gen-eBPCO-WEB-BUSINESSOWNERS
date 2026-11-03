@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import { EMPTY, of } from 'rxjs';
+import { EMPTY, Subject, of } from 'rxjs';
 import { ApplicationDetailsPage } from './application-details.page';
 import { CitizenApiClient } from '../../core/api/citizen-api.client';
 import {
@@ -249,5 +249,50 @@ describe('ApplicationDetailsPage — receiving the permit', () => {
     expect(text).not.toContain('Ready to collect');
     expect(text).not.toContain('Where:');
     expect((fixture.nativeElement as HTMLElement).querySelector('#delivery-received')).not.toBeNull();
+  });
+
+  it('says nothing about the permit until it is read: never "No permit has been issued" on an issued one', async () => {
+    const permitAnswer = new Subject<PermitResponse>();
+    const deliveryAnswer = new Subject<PermitDeliveryState>();
+    TestBed.configureTestingModule({
+      imports: [ApplicationDetailsPage],
+      providers: [
+        provideRouter([]),
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: 'app-real-1' }) } } },
+        {
+          provide: CitizenApiClient,
+          useValue: {
+            configured: true,
+            listApplications: () => of({ data: [summary('Out for Delivery')], nextCursor: null }),
+            listDocuments: () => of([]),
+            getTimeline: () => EMPTY,
+            getInstructions: () => of([]),
+            getRequirementsForPermitType: () => EMPTY,
+            getPermit: () => permitAnswer,
+            getDelivery: () => deliveryAnswer,
+          } as Partial<CitizenApiClient>,
+        },
+      ],
+    });
+    const fixture = TestBed.createComponent(ApplicationDetailsPage);
+    fixture.detectChanges();
+    await TestBed.inject(ApplicationStore).refreshMine();
+    fixture.detectChanges();
+    const text = () => (fixture.nativeElement as HTMLElement).textContent ?? '';
+
+    expect(text()).toContain('Checking your permit');
+    expect(text()).not.toContain('No permit has been issued');
+    expect(text()).not.toContain('Not yet ready to collect');
+
+    // The permit alone is not enough: whether it says "Delivered by courier" waits on the delivery.
+    permitAnswer.next(permit({ status: 'Ready for Release', method: null, releasedAt: null }));
+    fixture.detectChanges();
+    expect(text()).toContain('Checking your permit');
+
+    deliveryAnswer.next(onItsWay);
+    fixture.detectChanges();
+    expect(text()).not.toContain('Checking your permit');
+    expect(text()).toContain('FP-2026-000001');
+    expect(text()).toContain('Delivered by courier');
   });
 });

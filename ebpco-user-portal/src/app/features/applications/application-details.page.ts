@@ -224,6 +224,7 @@ const PERMIT_STATUSES: ReadonlySet<ApplicationLifecycleStatus> = new Set<Applica
             [issuedDate]="permit() ? formatDate(permit()!.issuedDate) : null"
             [release]="release()"
             [byCourier]="byCourier()"
+            [loading]="permitLoading()"
           />
           <!-- Pick up or delivery by courier (migration 070). -->
           @if (deliveryState(); as delivery) {
@@ -590,11 +591,28 @@ export class ApplicationDetailsPage {
   /** `GET /applications/{id}/delivery` (migration 070): null until read, or when it cannot be (a local demo id). */
   protected readonly deliveryState = signal<PermitDeliveryState | null>(null);
 
+  /** `GET /applications/{id}/delivery` has answered once, with a state or an error. */
+  private readonly deliveryAnswered = signal(false);
+
   private refreshDelivery(): void {
     this.api.getDelivery(this.id()).subscribe({
-      next: (state) => this.deliveryState.set(state),
-      error: () => {},
+      next: (state) => {
+        this.deliveryState.set(state);
+        this.deliveryAnswered.set(true);
+      },
+      error: () => this.deliveryAnswered.set(true),
     });
+  }
+
+  /**
+   * Once a permit can exist, the Your permit card waits for both answers it
+   * depends on: the permit (its number) and the delivery (whether it says
+   * "Delivered by courier" or where to collect it).
+   */
+  protected permitLoading(): boolean {
+    const status = this.app()?.lifecycleStatus;
+    if (status === undefined || !PERMIT_STATUSES.has(status)) return false;
+    return !this.store.permitAnsweredFor(this.id()) || !this.deliveryAnswered();
   }
 
   /**

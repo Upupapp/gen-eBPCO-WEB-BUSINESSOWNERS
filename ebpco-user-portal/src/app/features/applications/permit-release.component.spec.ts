@@ -6,13 +6,14 @@ import { CONTRACT_SAMPLES } from '../../core/api/contract-samples.fixture';
 const READY = CONTRACT_SAMPLES['applicant.applications.permit'].body as unknown as PermitResponse;
 const BEFORE = CONTRACT_SAMPLES['applicant.applications.permit.beforeRelease'].body as unknown as PermitResponse;
 
-function render(permitNumber: string | null, release: PermitRelease | null, byCourier = false) {
+function render(permitNumber: string | null, release: PermitRelease | null, byCourier = false, loading = false) {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({ imports: [PermitReleaseComponent] });
   const f = TestBed.createComponent(PermitReleaseComponent);
   f.componentRef.setInput('permitNumber', permitNumber);
   f.componentRef.setInput('release', release);
   f.componentRef.setInput('byCourier', byCourier);
+  f.componentRef.setInput('loading', loading);
   f.detectChanges();
   return (f.nativeElement as HTMLElement);
 }
@@ -80,6 +81,13 @@ describe('PermitRelease — can the citizen collect it? (task 21)', () => {
   it('says plainly when no permit has been issued', () => {
     const el = render(null, null);
     expect(el.textContent).toContain('No permit has been issued');
+  });
+
+  it('while the permit is still being read, says so and nothing else', () => {
+    const el = render(null, null, false, true);
+    expect(el.textContent).toContain('Checking your permit');
+    expect(el.textContent).not.toContain('No permit has been issued');
+    expect(el.textContent).not.toContain('Not yet ready to collect');
   });
 });
 

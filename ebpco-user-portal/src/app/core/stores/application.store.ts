@@ -170,6 +170,9 @@ export class ApplicationStore {
    */
   private readonly realPermitResponses = signal<Record<string, PermitResponse>>({});
 
+  /** Ids whose `GET /applications/{id}/permit` has answered: a permit, or none yet (the 404). */
+  private readonly permitAnswered = signal<Record<string, true>>({});
+
   constructor(
     private readonly auth: AuthService,
     private readonly notifications: NotificationStore,
@@ -471,10 +474,23 @@ export class ApplicationStore {
    */
   fetchPermit(applicationId: string): void {
     if (!this.api.configured) return;
+    const answered = () => this.permitAnswered.update((map) => ({ ...map, [applicationId]: true }));
     this.api.getPermit(applicationId).subscribe({
-      next: (p) => this.realPermitResponses.update((map) => ({ ...map, [applicationId]: p })),
-      error: () => {},
+      next: (p) => {
+        this.realPermitResponses.update((map) => ({ ...map, [applicationId]: p }));
+        answered();
+      },
+      error: answered,
     });
+  }
+
+  /**
+   * Whether the permit of this application has been asked for and answered
+   * at least once. A later re-read keeps showing the last answer, so only the
+   * first read can leave the Your permit card with nothing to say yet.
+   */
+  permitAnsweredFor(applicationId: string): boolean {
+    return !this.api.configured || this.permitAnswered()[applicationId] === true;
   }
 
   /**
