@@ -8,7 +8,7 @@ import { CitizenIdentityApi } from '../../core/api/citizen-identity.api';
 import { AuthService } from '../../core/session/auth.service';
 
 /**
- * Registration wizard's own email verification (Step 3, Contact): the citizen enters
+ * Registration wizard's own email verification (Step 2, Contact): the citizen enters
  * an email, sends a real 6-digit code, and must confirm it before Continue
  * moves on — mirroring the server's own gate in
  * `RegistrationVerificationService`/`consumeConfirmedProof`. These tests
@@ -37,7 +37,7 @@ class ScriptedIdentityApi {
   }
 }
 
-describe('RegisterPage — Step 3 email verification', () => {
+describe('RegisterPage — Step 2 email verification', () => {
   let api: ScriptedIdentityApi;
 
   function render() {
@@ -57,9 +57,9 @@ describe('RegisterPage — Step 3 email verification', () => {
   }
   afterEach(() => TestBed.resetTestingModule());
 
-  /** Fills every Contact (Step 3) field Continue requires other than email verification itself. */
+  /** Fills every Contact (Step 2) field Continue requires other than email verification itself. */
   function fillStep2Contact(page: RegisterPage): void {
-    page.step.set(3);
+    page.step.set(2);
     page.email = 'juan@example.com';
     page.mobileNumber = '09171234567';
     page.street = 'Purok 3';
@@ -79,7 +79,7 @@ describe('RegisterPage — Step 3 email verification', () => {
     expect(page.emailVerified()).toBe(false);
 
     page.toValidId();
-    expect(page.step()).toBe(3);
+    expect(page.step()).toBe(2);
     expect(page.emailError()).toContain('Enter the 6-digit code');
   });
 
@@ -96,7 +96,7 @@ describe('RegisterPage — Step 3 email verification', () => {
     expect(api.confirmedCodes).toEqual(['123456']);
 
     page.toValidId();
-    expect(page.step()).toBe(4);
+    expect(page.step()).toBe(3);
   });
 
   it('a wrong code reports the server’s refusal and does not verify', async () => {
@@ -142,7 +142,7 @@ describe('RegisterPage — Step 3 email verification', () => {
     expect(page.skipVerification()).not.toContain('continue without verifying');
 
     page.toValidId();
-    expect(page.step()).toBe(3);
+    expect(page.step()).toBe(2);
   });
 
   it('still blocks Continue when a real provider just failed to send', async () => {
@@ -153,7 +153,7 @@ describe('RegisterPage — Step 3 email verification', () => {
 
     await page.sendVerificationCode();
     page.toValidId();
-    expect(page.step()).toBe(3);
+    expect(page.step()).toBe(2);
   });
 
   it('blocks Continue when the email was never verified at all, and says what to do', () => {
@@ -162,7 +162,7 @@ describe('RegisterPage — Step 3 email verification', () => {
     fillStep2Contact(page);
 
     page.toValidId();
-    expect(page.step()).toBe(3);
+    expect(page.step()).toBe(2);
     expect(page.emailError()).toContain('Verify Email');
     expect(api.requestedEmails).toEqual([]);
   });
@@ -199,7 +199,6 @@ describe('RegisterPage — applicant type, valid ID, and Create Account', () => 
 
   /** Every step filled in and passed, as if the citizen clicked through to Security. */
   async function readyToCreate(page: RegisterPage): Promise<void> {
-    page.registeredAs = 'business';
     page.firstName = 'Juan';
     page.lastName = 'Dela Cruz';
     page.dateOfBirth = '1990-05-12';
@@ -217,7 +216,7 @@ describe('RegisterPage — applicant type, valid ID, and Create Account', () => 
     page.confirmPassword = PASSWORD;
     page.acceptedTerms = true;
     page.acceptedPrivacy = true;
-    page.step.set(5);
+    page.step.set(4);
   }
 
   function spies() {
@@ -230,26 +229,23 @@ describe('RegisterPage — applicant type, valid ID, and Create Account', () => 
     };
   }
 
-  it('opens on the applicant type, and needs a choice before going on', () => {
-    const page = render();
-    expect(page.step()).toBe(1);
-
-    page.toPersonal();
-    expect(page.step()).toBe(1);
-    expect(page.error()).toContain('Choose what you will apply for');
-
-    page.registeredAs = 'both';
-    page.toPersonal();
-    expect(page.step()).toBe(2);
-    expect(page.error()).toBeNull();
+  it('opens on the personal details: there is no applicant type to choose (4 Nov 2026)', () => {
+    render();
+    const fixture = TestBed.createComponent(RegisterPage);
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(fixture.componentInstance.step()).toBe(1);
+    expect(text).toContain('Step 1 of 4');
+    expect(text).toContain('First name');
+    expect(text).not.toContain('What will you apply for');
   });
 
   it('the Valid ID step needs the ID type, its number and a photo of the front; the back is optional', async () => {
     const page = render();
-    page.step.set(4);
+    page.step.set(3);
 
     page.toSecurity();
-    expect(page.step()).toBe(4);
+    expect(page.step()).toBe(3);
     expect(page.error()).toContain('type of ID');
 
     page.idDraft.idType.set('Passport');
@@ -264,7 +260,7 @@ describe('RegisterPage — applicant type, valid ID, and Create Account', () => 
     await page.idDraft.choose('front', png());
     expect(page.idDraft.front()?.preview).toMatch(/^data:image\/png;base64,/);
     page.toSecurity();
-    expect(page.step()).toBe(5);
+    expect(page.step()).toBe(4);
     expect(page.idDraft.back()).toBeNull();
   });
 
@@ -280,7 +276,7 @@ describe('RegisterPage — applicant type, valid ID, and Create Account', () => 
     expect(page.idDraft.photoError()).toContain('8 MB');
   });
 
-  it('Create Account registers with the applicant type, signs in with the same email and password, sends the ID, then shows success', async () => {
+  it('Create Account registers (no applicant type sent), signs in with the same email and password, sends the ID, then shows success', async () => {
     const page = render();
     const s = spies();
     await readyToCreate(page);
@@ -288,7 +284,7 @@ describe('RegisterPage — applicant type, valid ID, and Create Account', () => 
     await page.submit();
 
     expect(s.register).toHaveBeenCalledTimes(1);
-    expect(s.register.mock.calls[0][3]).toBe('business');
+    expect(s.register.mock.calls[0][3]).toBeUndefined();
     expect(s.login).toHaveBeenCalledWith('juan@example.com', PASSWORD);
     expect(s.submitVerification).toHaveBeenCalledTimes(1);
     const sent = s.submitVerification.mock.calls[0][0];

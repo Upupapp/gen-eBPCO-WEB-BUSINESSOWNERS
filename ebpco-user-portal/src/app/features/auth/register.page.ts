@@ -5,7 +5,6 @@ import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/session/auth.service';
 import { CitizenIdentityApi } from '../../core/api/citizen-identity.api';
 import { CivilStatus, Sex } from '../../core/domain/user.model';
-import { RegisteredAs } from '../../core/domain/account-verification';
 import { CapitalizeNameDirective } from '../../core/utils/capitalize-name.directive';
 import { CASTILLA_BARANGAYS, NATIONALITIES } from '../../core/domain/ph-reference-data';
 import { firstPasswordRejectionMessage, passwordChecks } from '../../core/domain/password-policy';
@@ -14,18 +13,12 @@ import { ValidIdDraft, ValidIdFieldsComponent } from '../../shared/ui/valid-id-f
 import { StepperComponent } from '../../shared/ui/stepper.component';
 
 /**
- * Sign Up → Select Applicant Type → Enter Required Information → Create
- * Account (owner request, 2026-10-21): 1 Applicant type, 2 Personal,
- * 3 Contact, 4 Valid ID, 5 Security.
+ * Sign Up → Enter Required Information → Create Account: 1 Personal,
+ * 2 Contact, 3 Valid ID, 4 Security. The "Applicant type" step (2026-10-21)
+ * was dropped on 4 Nov 2026 (owner): it only pre-selected "Applying as", and
+ * every application asks that itself, which is the answer that counts.
  */
-type Step = 1 | 2 | 3 | 4 | 5;
-
-/** Step 1's three cards. What they choose never restricts anything: every application asks again. */
-const APPLICANT_TYPES: readonly { value: RegisteredAs; title: string; description: string }[] = [
-  { value: 'residential', title: 'Residential / Private Individual', description: 'For your home or other private property.' },
-  { value: 'business', title: 'Business', description: 'For a business or commercial establishment.' },
-  { value: 'both', title: 'Both', description: 'You’ll apply for both.' },
-];
+type Step = 1 | 2 | 3 | 4;
 
 @Component({
   selector: 'app-register',
@@ -36,30 +29,11 @@ const APPLICANT_TYPES: readonly { value: RegisteredAs; title: string; descriptio
         <div class="auth-head">
           <img src="logo.png" alt="eBPCO" class="auth-logo" />
           <h2>Create your account</h2>
-          <p class="muted small">Step {{ step() }} of 5</p>
+          <p class="muted small">Step {{ step() }} of 4</p>
         </div>
         <app-stepper [steps]="signUpSteps" [current]="step() - 1" label="Sign-up steps" />
 
         @if (step() === 1) {
-          <fieldset class="choice-cards">
-            <legend>What will you apply for?<span class="required">*</span></legend>
-            @for (option of applicantTypes; track option.value) {
-              <label class="choice-card" [class.selected]="registeredAs === option.value">
-                <input type="radio" name="register-applicant-type" [value]="option.value"
-                  [(ngModel)]="registeredAs" (ngModelChange)="error.set(null)" />
-                <span class="choice-card-text">
-                  <strong>{{ option.title }}</strong>
-                  <span>{{ option.description }}</span>
-                </span>
-              </label>
-            }
-          </fieldset>
-          <p class="small muted">This only sets up your account. Every application asks again, so one account covers both.</p>
-          @if (error()) { <div class="field error">{{ error() }}</div> }
-          <button class="btn btn-primary btn-block" (click)="toPersonal()">Continue</button>
-        }
-
-        @if (step() === 2) {
           <div class="form-row">
             <div class="field"><label for="register-first-name-1">First name<span class="required">*</span></label><input id="register-first-name-1" class="input" [(ngModel)]="firstName" appCapitalizeName /></div>
             <div class="field"><label for="register-middle-name-2">Middle name</label><input id="register-middle-name-2" class="input" [(ngModel)]="middleName" appCapitalizeName /></div>
@@ -102,13 +76,10 @@ const APPLICANT_TYPES: readonly { value: RegisteredAs; title: string; descriptio
             </div>
           </div>
           @if (error()) { <div class="field error">{{ error() }}</div> }
-          <div style="display:flex; gap:10px;">
-            <button class="btn btn-secondary" style="flex:1" (click)="step.set(1)">Back</button>
-            <button class="btn btn-primary" style="flex:2" (click)="toContact()">Continue</button>
-          </div>
+          <button class="btn btn-primary btn-block" (click)="toContact()">Continue</button>
         }
 
-        @if (step() === 3) {
+        @if (step() === 2) {
           <div class="field">
             <label for="register-email-address-8">Email address<span class="required">*</span></label>
             <div style="display:flex; gap:8px; align-items:center;">
@@ -187,24 +158,24 @@ const APPLICANT_TYPES: readonly { value: RegisteredAs; title: string; descriptio
           </div>
           @if (error()) { <div class="field error">{{ error() }}</div> }
           <div style="display:flex; gap:10px;">
-            <button class="btn btn-secondary" style="flex:1" (click)="step.set(2)">Back</button>
+            <button class="btn btn-secondary" style="flex:1" (click)="step.set(1)">Back</button>
             <button class="btn btn-primary" style="flex:2" (click)="toValidId()">Continue</button>
           </div>
         }
 
-        @if (step() === 4) {
+        @if (step() === 3) {
           <p class="small muted" style="margin-top:0;">
             The Municipality checks your ID before you can submit applications. You can prepare applications while you wait.
           </p>
           <app-valid-id-fields [draft]="idDraft" prefix="register-id" />
           @if (error()) { <div class="field error">{{ error() }}</div> }
           <div style="display:flex; gap:10px;">
-            <button class="btn btn-secondary" style="flex:1" (click)="step.set(3)">Back</button>
+            <button class="btn btn-secondary" style="flex:1" (click)="step.set(2)">Back</button>
             <button class="btn btn-primary" style="flex:2" (click)="toSecurity()">Continue</button>
           </div>
         }
 
-        @if (step() === 5) {
+        @if (step() === 4) {
           <div class="field">
             <label for="register-password-15">Password<span class="required">*</span></label>
             <div class="password-field">
@@ -244,7 +215,7 @@ const APPLICANT_TYPES: readonly { value: RegisteredAs; title: string; descriptio
           </label>
           @if (error()) { <div class="field error">{{ error() }}</div> }
           <div style="display:flex; gap:10px;">
-            <button class="btn btn-secondary" style="flex:1" [disabled]="submitting()" (click)="step.set(4)">Back</button>
+            <button class="btn btn-secondary" style="flex:1" [disabled]="submitting()" (click)="step.set(3)">Back</button>
             <button class="btn btn-primary" style="flex:2" [disabled]="submitting()" (click)="submit()">
               {{ submitting() ? 'Creating Account' : 'Create Account' }}
             </button>
@@ -284,7 +255,7 @@ export class RegisterPage {
 
   readonly step = signal<Step>(1);
   /** The step bar's names, in order (step() is 1-based). */
-  protected readonly signUpSteps = ['Applicant', 'Personal', 'Contact', 'Valid ID', 'Security'] as const;
+  protected readonly signUpSteps = ['Personal', 'Contact', 'Valid ID', 'Security'] as const;
   readonly error = signal<string | null>(null);
   /** Field-level, shown directly under Email/Mobile Number rather than the shared step-level `error` banner or a floating toast — the same "typical warning" placement every other field-format check in this app already uses. */
   readonly emailError = signal<string | null>(null);
@@ -292,11 +263,7 @@ export class RegisterPage {
 
   readonly nationalities = NATIONALITIES;
   readonly barangays = CASTILLA_BARANGAYS;
-  protected readonly applicantTypes = APPLICANT_TYPES;
 
-  // Step 1 — sent as `registeredAs`. A starting point only: it sets which
-  // "Applying as" a new application opens on, and nothing else.
-  registeredAs: RegisteredAs | null = null;
 
   // Step 2
   firstName = '';
@@ -476,15 +443,6 @@ export class RegisterPage {
     return passwordChecks(this.password, { email: this.email, firstName: this.firstName, lastName: this.lastName });
   }
 
-  toPersonal(): void {
-    if (this.registeredAs === null) {
-      this.error.set('Choose what you will apply for.');
-      return;
-    }
-    this.error.set(null);
-    this.step.set(2);
-  }
-
   toContact(): void {
     if (!this.firstName || !this.lastName || !this.dateOfBirth || !this.sex || !this.civilStatus || !this.nationality) {
       this.error.set('Please complete all required fields.');
@@ -500,7 +458,7 @@ export class RegisterPage {
       return;
     }
     this.error.set(null);
-    this.step.set(3);
+    this.step.set(2);
   }
 
   private ageFrom(dob: string): number {
@@ -565,7 +523,7 @@ export class RegisterPage {
       return;
     }
     this.error.set(null);
-    this.step.set(4);
+    this.step.set(3);
   }
 
   /** The ID type, its number and a photo of the front are required; the back is optional. */
@@ -576,7 +534,7 @@ export class RegisterPage {
       return;
     }
     this.error.set(null);
-    this.step.set(5);
+    this.step.set(4);
   }
 
   readonly submitting = signal(false);
@@ -619,7 +577,6 @@ export class RegisterPage {
           postalCode: this.postalCode,
         },
         { password: this.password },
-        this.registeredAs,
       );
       if (!result.ok) {
         this.error.set(result.error);

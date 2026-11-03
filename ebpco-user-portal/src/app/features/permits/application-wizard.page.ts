@@ -263,10 +263,10 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
       @if (step() === 1) {
         <div class="card">
           <!--
-            Asked on every application, whatever the citizen chose at sign-up
-            (owner request, 2026-10-21), so one account files both. It opens
-            on what they chose then (Residential or Business); "Both", or an
-            account from before it was asked, opens with nothing chosen.
+            Asked on every application (owner request, 2026-10-21), so one
+            account files both. Sign-up no longer asks (4 Nov 2026); it opens
+            on Business from a business's own page, on Residential for a
+            citizen with no business, and with nothing chosen otherwise.
             Every permit type is open to both unless the Municipality
             restricted it (migration 068): a kind it does not accept is
             disabled with the reason, and the only open one is chosen.
@@ -1330,14 +1330,26 @@ export class ApplicationWizardPage {
       this.applicationAction = actionParam;
       this.permitNumberInput = this.route.snapshot.queryParamMap.get('permitNumber')?.trim() ?? '';
     }
-    // "Applying as" opens on what the citizen chose at sign-up: Residential
-    // or Business; "Both" (or an account from before it was asked) opens with
-    // nothing chosen, so they choose. Coming from a business's own "Apply for
-    // Permit" means Business. A resumed draft replaces this with its own.
-    const registeredAs = this.auth.currentUser()?.registeredAs ?? null;
-    this.applyingAs = businessParam ? 'business'
-      : registeredAs === 'residential' || registeredAs === 'business' ? registeredAs
-      : null;
+    // "Applying as" starts from what the citizen already has (owner, 4 Nov
+    // 2026: sign-up no longer asks). From a business's own "Apply for Permit"
+    // it is Business. Otherwise it waits for the citizen's business list: no
+    // active business means Residential; with businesses nothing is chosen, so
+    // they choose. A choice already made is never overwritten, and a resumed
+    // draft replaces this with its own.
+    this.applyingAs = businessParam ? 'business' : null;
+    if (!businessParam && !draftParam) {
+      const startingChoice = effect(() => {
+        if (!this.businesses.usingReal()) return;
+        const noBusiness = this.activeBusinesses().length === 0;
+        untracked(() => {
+          if (this.applyingAs === null && noBusiness) {
+            this.applyingAs = 'residential';
+            this.onApplyingAsChange(); // the checklist as a Residential application, as a click would ask
+          }
+          startingChoice.destroy();
+        });
+      }, { injector: this.injector });
+    }
     if (draftParam && this.api.configured) {
       // Resume replaces every field below once it answers -- see its own
       // doc comment. Still need SOME starting checklist in the meantime so

@@ -7,6 +7,7 @@ import { ApplicationWizardPage } from './application-wizard.page';
 import { API_BASE_URL } from '../../core/api/api-config';
 import { ApplicationSummary, SubmitApplicationRequest } from '../../core/api/citizen-api.models';
 import { AuthService } from '../../core/session/auth.service';
+import { BusinessStore } from '../../core/stores/business.store';
 import { AccountVerification, RegisteredAs } from '../../core/domain/account-verification';
 
 /**
@@ -106,33 +107,63 @@ describe('ApplicationWizardPage — Applying as, and an account not verified yet
     return http.expectOne((r) => r.url.startsWith(`${BASE}/requirements/`));
   }
 
-  it('opens on Residential for a citizen who signed up for that', () => {
-    const { page } = configure({ type: 'Fencing Permit' }, { registeredAs: 'residential', verification: verification('verified') });
+  /** The citizen's business list, as GET /businesses answers it (the store fetches it once signed in). */
+  async function businessesLoaded(rows: { id: string; name: string; status: string }[]) {
+    const loading = TestBed.inject(BusinessStore).refreshMine();
+    http.expectOne(`${BASE}/businesses`).flush({
+      data: rows.map((r) => ({ category: 'Retail', street: 'Rizal St.', barangay: 'Poblacion', city: 'Castilla', province: 'Sorsogon',
+        registrationNumber: null, dateRegistered: null, ...r })),
+      nextCursor: null,
+    });
+    await loading;
+  }
+
+  // Owner, 4 Nov 2026: sign-up no longer asks Residential or Business; the first choice follows what the citizen has.
+  it('opens on Residential for a citizen with no business, and asks for that checklist', async () => {
+    const { fixture, page } = configure({ type: 'Fencing Permit' }, { registeredAs: null, verification: verification('verified') });
+    expect(page.applyingAs).toBeNull();
+    await businessesLoaded([]);
+    fixture.detectChanges();
     expect(page.applyingAs).toBe('residential');
+    expect(nextChecklist().request.url).toContain('applyingAs=residential');
   });
 
-  it('opens on Business for a citizen who signed up for that', () => {
-    const { page } = configure({ type: 'Fencing Permit' }, { registeredAs: 'business', verification: verification('verified') });
-    expect(page.applyingAs).toBe('business');
-  });
-
-  it('opens with nothing chosen for "Both", and asks before going on', () => {
-    const { page } = configure({ type: 'Fencing Permit' }, { registeredAs: 'both', verification: verification('verified') });
+  it('opens with nothing chosen for a citizen with a business, and asks before going on', async () => {
+    const { fixture, page } = configure({ type: 'Fencing Permit' }, { registeredAs: null, verification: verification('verified') });
+    await businessesLoaded([{ id: 'biz-1', name: 'Dela Cruz Hardware', status: 'Active' }]);
+    fixture.detectChanges();
     expect(page.applyingAs).toBeNull();
     page.toStep(2);
     expect(page.step()).toBe(1);
     expect(page.error()).toContain('Residential / Private Individual or as a Business');
   });
 
+  it('never overwrites a choice the citizen made before the business list arrived', async () => {
+    const { fixture, page } = configure({ type: 'Fencing Permit' }, { registeredAs: null, verification: verification('verified') });
+    page.applyingAs = 'business';
+    await businessesLoaded([]);
+    fixture.detectChanges();
+    expect(page.applyingAs).toBe('business');
+  });
+
+  it('ignores an old account\'s sign-up answer', async () => {
+    const { fixture, page } = configure({ type: 'Fencing Permit' }, { registeredAs: 'business', verification: verification('verified') });
+    await businessesLoaded([]);
+    fixture.detectChanges();
+    expect(page.applyingAs).toBe('residential');
+    nextChecklist();
+  });
+
   it('opens on Business when started from a business\'s own "Apply for Permit"', () => {
-    const { page } = configure({ type: 'Fencing Permit', businessId: 'biz-1' }, { registeredAs: 'residential', verification: null });
+    const { page } = configure({ type: 'Fencing Permit', businessId: 'biz-1' }, { registeredAs: null, verification: null });
     expect(page.applyingAs).toBe('business');
     expect(page.businessId).toBe('biz-1');
   });
 
   it('Residential needs no business and asks nothing about whose property it is: the citizen applies for their own', async () => {
     // Owner ruling 2026-10-28: "the user only applies for themselves".
-    const { page, el } = configure({ type: 'Fencing Permit' }, { registeredAs: 'residential', verification: verification('verified') });
+    const { page, el } = configure({ type: 'Fencing Permit' }, { registeredAs: null, verification: verification('verified') });
+    page.applyingAs = 'residential';
     expect(page.businessId).toBeNull();
     expect(el.textContent).not.toContain('Do you own the property?');
     expect(el.textContent).not.toContain('I am applying for the owner');
@@ -144,7 +175,7 @@ describe('ApplicationWizardPage — Applying as, and an account not verified yet
   });
 
   it('a Residential draft is saved with no business, even one picked before switching, and names no other owner', async () => {
-    const { page } = configure({ type: 'Fencing Permit' }, { registeredAs: 'both', verification: verification('verified') });
+    const { page } = configure({ type: 'Fencing Permit' }, { registeredAs: null, verification: verification('verified') });
     page.applyingAs = 'business';
     page.businessId = 'biz-1';
     page.applyingAs = 'residential';
@@ -165,14 +196,16 @@ describe('ApplicationWizardPage — Applying as, and an account not verified yet
   });
 
   it('a Business application still needs its business', () => {
-    const { page } = configure({ type: 'Fencing Permit' }, { registeredAs: 'business', verification: verification('verified') });
+    const { page } = configure({ type: 'Fencing Permit' }, { registeredAs: null, verification: verification('verified') });
+    page.applyingAs = 'business';
     page.toStep(2);
     expect(page.step()).toBe(1);
     expect(page.error()).toBe('Please select a business.');
   });
 
   it('says who usually applies for a Sign Permit, without holding a Residential one back', async () => {
-    const { page, el } = configure({ type: 'Sign Permit' }, { registeredAs: 'residential', verification: verification('verified') });
+    const { page, el } = configure({ type: 'Sign Permit' }, { registeredAs: null, verification: verification('verified') });
+    page.applyingAs = 'residential';
     expect(el.textContent).toContain('Usually a business sign; a home-based practice can apply as Residential.');
     expect(el.textContent).not.toContain('Not open for');
     page.toStep(2);
@@ -182,7 +215,8 @@ describe('ApplicationWizardPage — Applying as, and an account not verified yet
   });
 
   it('the review shows "Applying as", and no property owner line', () => {
-    const { fixture, page, el } = configure({ type: 'Fencing Permit' }, { registeredAs: 'residential', verification: verification('verified') });
+    const { fixture, page, el } = configure({ type: 'Fencing Permit' }, { registeredAs: null, verification: verification('verified') });
+    page.applyingAs = 'residential';
     page.step.set(4);
     fixture.detectChanges();
     expect(el.textContent).toContain('Residential / Private Individual');
@@ -190,7 +224,8 @@ describe('ApplicationWizardPage — Applying as, and an account not verified yet
   });
 
   it('an account waiting for verification is told why it cannot submit, keeps Save as Draft, and files nothing', async () => {
-    const { fixture, page, el } = configure({ type: 'Fencing Permit' }, { registeredAs: 'residential', verification: verification('pending') });
+    const { fixture, page, el } = configure({ type: 'Fencing Permit' }, { registeredAs: null, verification: verification('pending') });
+    page.applyingAs = 'residential';
     page.projectAddress = 'Purok 2, Barangay Poblacion';
     page.scopeOfWork = 'Perimeter fence';
     page.understandRequirements = true;
@@ -253,8 +288,8 @@ describe('ApplicationWizardPage — Applying as, and an account not verified yet
 
   it('asks for the checklist as the chosen kind: Business adds the optional signing authority, Residential drops it', () => {
     const { page, requirementsUrl } = configure(
-      { type: 'Fencing Permit' },
-      { registeredAs: 'business', verification: verification('verified') },
+      { type: 'Fencing Permit', businessId: 'biz-1' },
+      { registeredAs: null, verification: verification('verified') },
       { permitType: 'Fencing Permit', applicantKinds: ['residential', 'business'], applyingAs: 'business', documents: [LOT_PLAN, SIGNING_AUTHORITY] },
     );
     expect(requirementsUrl).toContain('applyingAs=business');
@@ -278,10 +313,10 @@ describe('ApplicationWizardPage — Applying as, and an account not verified yet
   it('a type the Municipality accepts only for businesses: Residential is disabled with the reason, and Business is chosen', async () => {
     const { fixture, page, el, requirementsUrl } = configure(
       { type: 'Sign Permit' },
-      { registeredAs: 'residential', verification: verification('verified') },
+      { registeredAs: null, verification: verification('verified') },
       { permitType: 'Sign Permit', applicantKinds: ['business'], documents: [] },
     );
-    expect(requirementsUrl).toContain('applyingAs=residential');
+    expect(requirementsUrl).not.toContain('applyingAs=');
     expect(page.applyingAs).toBe('business');
     // Its checklist is asked for again, as Business.
     const again = nextChecklist();
@@ -306,8 +341,8 @@ describe('ApplicationWizardPage — Applying as, and an account not verified yet
 
   it('a type the Municipality accepts only from private individuals: Business is disabled, and Residential is chosen', () => {
     const { fixture, page, el } = configure(
-      { type: 'Fencing Permit' },
-      { registeredAs: 'business', verification: verification('verified') },
+      { type: 'Fencing Permit', businessId: 'biz-1' },
+      { registeredAs: null, verification: verification('verified') },
       { permitType: 'Fencing Permit', applicantKinds: ['residential'], documents: [] },
     );
     expect(page.applyingAs).toBe('residential');
@@ -319,7 +354,7 @@ describe('ApplicationWizardPage — Applying as, and an account not verified yet
   });
 
   it('tells a Certificate of Occupancy applicant when it is applied for', () => {
-    const { el } = configure({ type: 'Certificate of Occupancy' }, { registeredAs: 'residential', verification: verification('verified') });
+    const { el } = configure({ type: 'Certificate of Occupancy' }, { registeredAs: null, verification: verification('verified') });
     expect(el.textContent).toContain('After the building work is done, before the building is used.');
   });
 
