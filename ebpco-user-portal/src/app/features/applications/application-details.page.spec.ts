@@ -245,7 +245,8 @@ describe('ApplicationDetailsPage — receiving the permit', () => {
     expect(text).toContain('Your permit is on its way by courier. Confirm here when you receive it.');
     expect(text).toContain('Receiving your permit');
     expect(text).toContain('LBC123');
-    expect(text).toContain('Delivered by courier');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.release-state strong')?.textContent).toBe('Delivery by courier');
+    expect(text).not.toContain('Delivered by courier');
     expect(text).not.toContain('Ready to collect');
     expect(text).not.toContain('Where:');
     expect((fixture.nativeElement as HTMLElement).querySelector('#delivery-received')).not.toBeNull();
@@ -284,7 +285,7 @@ describe('ApplicationDetailsPage — receiving the permit', () => {
     expect(text()).not.toContain('No permit has been issued');
     expect(text()).not.toContain('Not yet ready to collect');
 
-    // The permit alone is not enough: whether it says "Delivered by courier" waits on the delivery.
+    // The permit alone is not enough: whether it says "Delivery by courier" waits on the delivery.
     permitAnswer.next(permit({ status: 'Ready for Release', method: null, releasedAt: null }));
     fixture.detectChanges();
     expect(text()).toContain('Checking your permit');
@@ -293,6 +294,6 @@ describe('ApplicationDetailsPage — receiving the permit', () => {
     fixture.detectChanges();
     expect(text()).not.toContain('Checking your permit');
     expect(text()).toContain('FP-2026-000001');
-    expect(text()).toContain('Delivered by courier');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.release-state strong')?.textContent).toBe('Delivery by courier');
   });
 });

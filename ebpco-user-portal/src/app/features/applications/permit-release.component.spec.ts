@@ -104,9 +104,10 @@ describe('PermitRelease — delivered by courier', () => {
     claimLocation: 'Delivered by courier', officeHours: 'Not applicable: delivered by courier', bringWithYou: [],
   };
 
-  it('says Delivered by courier instead of Where, When and Bring', () => {
+  it('says Delivery by courier instead of Where, When and Bring, and not "Delivered" before it is', () => {
     const el = render('FP-1', SENT, true);
-    expect(el.textContent).toContain('Delivered by courier');
+    expect(el.querySelector('.release-state strong')?.textContent).toBe('Delivery by courier');
+    expect(el.textContent).not.toContain('Delivered by courier');
     expect(el.textContent).not.toContain('Where:');
     expect(el.textContent).not.toContain('Bring:');
     expect(el.textContent).not.toContain('Ready to collect');
@@ -115,6 +116,7 @@ describe('PermitRelease — delivered by courier', () => {
 
   it('says when it was delivered once confirmed', () => {
     const el = render('FP-1', { status: 'Released', method: 'Courier Delivery', releasedAt: '2026-11-05T02:00:00.000Z' }, true);
+    expect(el.querySelector('.release-state strong')?.textContent).toBe('Delivered by courier');
     expect(el.textContent).toContain('Delivered on');
     expect(el.textContent).not.toContain('Collected');
   });

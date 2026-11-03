@@ -76,8 +76,9 @@ export class PermitReleaseComponent {
   /**
    * The citizen asked for delivery by courier and it has not come back
    * (migration 070). The release record the office keeps then says where the
-   * parcel went, not where to collect it: this card says "Delivered by
-   * courier" instead of Where/When/Bring, and never "Ready to collect".
+   * parcel went, not where to collect it: this card says "Delivery by
+   * courier" (and "Delivered by courier" once it was) instead of
+   * Where/When/Bring, and never "Ready to collect".
    * After a return the claim instructions apply again, so this is false.
    */
   readonly byCourier = input<boolean>(false);
@@ -89,7 +90,9 @@ export class PermitReleaseComponent {
 
   protected readonly headline = computed(() => {
     const r = this.release();
-    if (this.byCourier()) return 'Delivered by courier';
+    // "Delivered" only once it was; before that it is how it will come (the
+    // past tense read as already delivered on a just-submitted application).
+    if (this.byCourier()) return r?.status === 'Released' ? 'Delivered by courier' : 'Delivery by courier';
     if (!r) return 'Not yet ready to collect';
     switch (r.status) {
       case 'Ready for Release': return 'Ready to collect';

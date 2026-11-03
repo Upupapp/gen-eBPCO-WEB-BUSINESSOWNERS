@@ -607,7 +607,7 @@ export class ApplicationDetailsPage {
   /**
    * Once a permit can exist, the Your permit card waits for both answers it
    * depends on: the permit (its number) and the delivery (whether it says
-   * "Delivered by courier" or where to collect it).
+   * "Delivery by courier" or where to collect it).
    */
   protected permitLoading(): boolean {
     const status = this.app()?.lifecycleStatus;
