@@ -81,6 +81,19 @@ describe('RequirementsModalComponent', () => {
     expect(row('Soil Analysis').querySelector('.req-modal-desc')?.textContent?.trim()).toBe('When the structural design calls for it.');
   });
 
+  it('puts the "online only" line on its own row under the tabs, and only the list gives way to a long checklist', () => {
+    const { el } = render(() => of(LIVE));
+    const dialog = el.querySelector('[role="dialog"]')!;
+    // Head, tabs, note, list, foot: the note is neither in the tablist nor in the scrolling list.
+    expect(Array.from(dialog.children).map((c) => c.classList[0]))
+      .toEqual(['req-modal-head', 'req-modal-tabs', 'req-modal-note', 'req-modal-body', 'req-modal-foot']);
+    expect(el.querySelector('[role="tablist"] .req-modal-note')).toBeNull();
+    // It half-covered the tabs once the column squeezed them (demo recording, 5 Nov 2026).
+    for (const part of ['.req-modal-head', '.req-modal-tabs', '.req-modal-note', '.req-modal-foot']) {
+      expect(getComputedStyle(el.querySelector(part)!).flexShrink, part).toBe('0');
+    }
+  });
+
   it('says the same from the static checklist when the live one cannot be read', () => {
     const { row, sections } = render(() => throwError(() => new Error('offline')));
     expect(sections().map((s) => s.title?.replace(/ \(\d+\)$/, ''))).toEqual(['Required', 'If applicable']);

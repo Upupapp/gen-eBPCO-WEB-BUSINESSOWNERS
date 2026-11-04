@@ -161,8 +161,16 @@ interface RequirementGroup {
     .req-modal-close:hover { background: var(--gray-100); color: var(--gray-900); }
     .req-modal-close:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
+    /*
+     * Head, tabs, note and foot keep their own height; only the list gives
+     * way. A long checklist squeezed the tabs (a .seg-tabs box scrolls
+     * sideways, so the column may shrink it), and the note on its own row
+     * under them half-covered the New / Renewal / Amendment pills (demo
+     * recording, 5 Nov 2026).
+     */
+    .req-modal-head, .req-modal-tabs, .req-modal-note, .req-modal-foot { flex: none; }
     .req-modal-tabs { margin: 16px 24px 0; }
-    .req-modal-note { margin: 10px 24px 0; font-size: 13px; color: var(--gray-700); }
+    .req-modal-note { margin: 12px 24px 0; font-size: 13px; line-height: 1.45; color: var(--gray-700); }
 
     .req-modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 4px 24px 20px; }
     .req-modal-body:focus-visible { outline: none; box-shadow: inset var(--focus-ring); }
