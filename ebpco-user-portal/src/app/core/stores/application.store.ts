@@ -161,6 +161,17 @@ export class ApplicationStore {
   }
 
   /**
+   * The Owner / Applicant block as the permit was issued — `GET /applications/{id}/permit`'s
+   * `ownerName`/`ownerAddress`/`ownerContact`, kept on the permit since server migration 073.
+   * Null when the server predates them (or for a demo permit), so the page prints the profile.
+   */
+  permitOwnerFor(applicationId: string): { name: string | null; address: string | null; contact: string | null } | null {
+    const real = this.realPermitResponses()[applicationId];
+    if (real?.ownerName === undefined) return null;
+    return { name: real.ownerName, address: real.ownerAddress ?? null, contact: real.ownerContact ?? null };
+  }
+
+  /**
    * Raw `GET /applications/{id}/permit` responses, keyed by application id.
    * Fetched on demand via `fetchPermit()` (both `application-details.page.ts`
    * and `permit-document.page.ts` call it, since they're separate

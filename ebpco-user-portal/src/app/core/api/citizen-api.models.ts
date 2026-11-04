@@ -86,6 +86,14 @@ export interface PermitResponse {
   approvingOfficial?: string | null;
   approvingOffice?: string | null;
   /**
+   * The Owner / Applicant block as the permit was issued, kept on the permit
+   * since server migration 073 so a later profile edit does not rewrite it.
+   * Null where nothing was on file; absent from an older server.
+   */
+  ownerName?: string | null;
+  ownerAddress?: string | null;
+  ownerContact?: string | null;
+  /**
    * ALWAYS PRESENT, and null until an officer has prepared the release.
    * **Null is a fact to render — "not yet ready to collect" — not a missing
    * value.** Both branches are recorded server-side, so a client that treats

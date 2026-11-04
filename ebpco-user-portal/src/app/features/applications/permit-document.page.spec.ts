@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { PermitDocumentPage } from './permit-document.page';
 import { ApplicationStore } from '../../core/stores/application.store';
+import { AuthService } from '../../core/session/auth.service';
 
 /**
  * Guards F-2: a permit record that no office issued must never produce a clean,
@@ -229,5 +230,70 @@ describe('PermitDocumentPage (one field map)', () => {
     expect(el.querySelector('.office-line')?.textContent?.trim()).toBe('Municipal Planning and Development Office (Zoning Administrator)');
     expect(el.textContent).not.toContain('Office of the Municipal Engineer');
     expect(el.textContent).not.toContain('MPDO / Zoning');
+  });
+});
+
+/**
+ * An issued permit is a legal record: the Owner / Applicant block printed the
+ * citizen's LIVE profile, so editing the profile rewrote every permit. The
+ * server keeps the block on the permit since its migration 073; an older
+ * server sends none, and the page prints the profile as before.
+ */
+describe('PermitDocumentPage (the owner as the permit was issued)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  const ownerRows = (el: HTMLElement) =>
+    Array.from(
+      Array.from(el.querySelectorAll('.doc-generated-section'))
+        .find((s) => s.querySelector('h2')?.textContent?.trim() === 'Owner / Applicant')
+        ?.querySelectorAll('.doc-generated-fields > div') ?? [],
+    ).map((row) => [row.querySelector('dt')?.textContent?.trim(), row.querySelector('dd')?.textContent?.trim()]);
+
+  /** app-seed-2 with a real permit response and a signed-in citizen whose profile has changed since. */
+  function renderIssued(owner: Record<string, string | null>) {
+    const fixture = renderFor('app-seed-2');
+    (TestBed.inject(AuthService) as unknown as { _profile: { set(u: unknown): void } })._profile.set({
+      firstName: 'Ana', middleName: null, lastName: 'Cruz', mobileNumber: '09998887777',
+      street: '3 Mabini St.', barangay: 'Burabod', city: 'Castilla', province: 'Sorsogon',
+    });
+    (TestBed.inject(ApplicationStore) as unknown as { realPermitResponses: { set(m: Record<string, unknown>): void } })
+      .realPermitResponses.set({
+        'app-seed-2': {
+          permitNumber: 'ZLC-2026-000001', issuedDate: '2026-11-04T02:00:00.000Z', scope: null, conditions: [],
+          release: null, ...owner,
+        },
+      });
+    fixture.detectChanges();
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  it('prints the name, contact and address kept on the permit, not the profile as edited since', () => {
+    const el = renderIssued({
+      ownerName: 'Maria Reyes Santos', ownerAddress: '12 Rizal St., Bonga, Castilla, Sorsogon', ownerContact: '09171234567',
+    });
+    expect(ownerRows(el).filter(([label]) => label !== 'Business name')).toEqual([
+      ['Owner / Permittee name', 'Maria Reyes Santos'],
+      ['Contact number', '09171234567'],
+      ['Address', '12 Rizal St., Bonga, Castilla, Sorsogon'],
+    ]);
+    expect(el.textContent).not.toContain('Ana Cruz');
+  });
+
+  it('says "Not on file" for what the permit recorded as missing, rather than reading the profile', () => {
+    const el = renderIssued({ ownerName: 'Maria Reyes Santos', ownerAddress: null, ownerContact: null });
+    expect(ownerRows(el).filter(([label]) => label !== 'Business name')).toEqual([
+      ['Owner / Permittee name', 'Maria Reyes Santos'],
+      ['Contact number', 'Not on file'],
+      ['Address', 'Not on file'],
+    ]);
+  });
+
+  it('prints the profile, as before, from a server that keeps no owner on the permit', () => {
+    const el = renderIssued({});
+    expect(ownerRows(el).filter(([label]) => label !== 'Business name')).toEqual([
+      ['Owner / Permittee name', 'Ana Cruz'],
+      ['Contact number', '09998887777'],
+      ['Address', '3 Mabini St., Burabod, Castilla, Sorsogon'],
+    ]);
   });
 });

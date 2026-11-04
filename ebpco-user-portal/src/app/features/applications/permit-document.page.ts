@@ -322,13 +322,21 @@ export class PermitDocumentPage {
 
   protected readonly app = computed(() => this.store.applicationById(this.id()));
   /**
-   * The Owner / Applicant fields: the citizen's account, as the Admin
-   * Portal's preview reads it too, with the whole address (street, barangay,
-   * city, province; it printed the street alone). Both copies change if the
-   * profile is edited after release until the backend snapshots these on the
-   * permit row when it is generated (a backend follow-up of design review I3).
+   * The Owner / Applicant fields: as the permit was issued, kept on the permit
+   * row when it was generated (server migration 073), so a profile edit after
+   * release no longer rewrites an issued permit. From an older server, or for
+   * a demo permit, the citizen's account as before, with the whole address
+   * (street, barangay, city, province), as the Admin Portal's preview reads it.
    */
   protected readonly owner = computed(() => {
+    const kept = this.store.permitOwnerFor(this.id());
+    if (kept) {
+      return {
+        name: kept.name?.trim() || 'Not on file',
+        contact: kept.contact?.trim() || 'Not on file',
+        address: kept.address?.trim() || 'Not on file',
+      };
+    }
     const u = this.auth.currentUser();
     const address = u ? addressLine([u.street, u.barangay, u.city, u.province]) : '';
     return {
