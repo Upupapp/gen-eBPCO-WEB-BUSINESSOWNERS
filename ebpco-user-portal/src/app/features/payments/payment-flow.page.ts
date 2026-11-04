@@ -4,7 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ApplicationStore } from '../../core/stores/application.store';
 import { DEFAULT_BANK_INFO, PaymentMethod } from '../../core/domain/payment.model';
-import { MUNICIPAL_ENGINEER, MUNICIPAL_HALL_ADDRESS } from '../../core/domain/lgu-contact';
+import { MUNICIPAL_HALL_ADDRESS, MUNICIPAL_TREASURER } from '../../core/domain/lgu-contact';
+import { AssessmentView, assessmentViewOf } from '../../core/domain/assessment-view';
 import { pesos } from '../../core/domain/assessment.model';
 import { ToastService } from '../../shared/ui/toast.service';
 import { CitizenApiClient } from '../../core/api/citizen-api.client';
@@ -13,6 +14,7 @@ import { UploadLimitsService } from '../../core/api/upload-limits.service';
 import { toBase64 } from '../../core/api/document-resubmission.service';
 import { ApiError, duplicateOf } from '../../core/api/problem';
 import { BackLinkComponent } from '../../shared/ui/back-link.component';
+import { AssessmentTableComponent } from '../../shared/ui/assessment-table.component';
 
 const KNOWN_METHODS: readonly PaymentMethod[] = ['Bank Transfer', 'GCash', 'Onsite'];
 
@@ -36,7 +38,7 @@ function defaultMethod(offered: readonly PaymentMethodOption[]): PaymentMethod {
 
 @Component({
   selector: 'app-payment-flow',
-  imports: [FormsModule, RouterLink, BackLinkComponent],
+  imports: [FormsModule, RouterLink, BackLinkComponent, AssessmentTableComponent],
   styles: [`
     /* A method's name with its chip; the chip's 24px is pulled into the line so the radio stays level with the name. */
     .choice-card-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
@@ -58,19 +60,12 @@ function defaultMethod(offered: readonly PaymentMethodOption[]): PaymentMethod {
         </div>
 
         @if (assessment(); as asmt) {
+          <!-- The application page's assessment table: fees, then Total amount due and Balance, in one column (design review I15). -->
           <div class="card">
-            @if (feeLines().length > 0) {
-              <table class="table" style="margin-bottom:10px;">
-                <tbody>
-                  @for (line of feeLines(); track line.name) {
-                    <tr><td>{{ line.name }}</td><td style="text-align:right;">{{ pesos(line.amountCentavos) }}</td></tr>
-                  }
-                </tbody>
-              </table>
-            }
-            <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span class="muted">Total Assessment</span><strong>{{ pesos(asmt.totalCentavos) }}</strong></div>
-            <div style="display:flex; justify-content:space-between;"><span class="muted">Balance Due</span><strong style="color:var(--danger-text)">{{ pesos(asmt.balanceCentavos) }}</strong></div>
-            <a class="btn btn-secondary btn-sm" style="margin-top:12px;" [routerLink]="['/payments', a.id, 'order']">Print Order of Payment</a>
+            <app-assessment-table [view]="asmt" />
+            <div class="card-actions">
+              <a class="btn btn-secondary btn-sm" [routerLink]="['/payments', a.id, 'order']">Print Order of Payment</a>
+            </div>
           </div>
 
           <div class="card">
@@ -105,35 +100,35 @@ function defaultMethod(offered: readonly PaymentMethodOption[]): PaymentMethod {
                   </label>
                 }
               </fieldset>
-            } @else if (method() === 'Onsite') {
-              <p class="small muted" style="margin:0 0 12px;">
-                Pay onsite at the Municipal Hall. Bank transfer will be offered here once the Municipality publishes its deposit account.
-              </p>
             }
 
+            <!--
+              What happens next, as one info callout (it was a card nested in
+              this card, with test mode said three times). Every place to pay
+              names the Municipal Treasurer's Office, as the Order of Payment
+              the citizen brings does (design review I2).
+            -->
             @if (method() === 'GCash') {
               <!--
                 GCash (ebpco-api 071): the checkout opens on its own page. Test
-                mode until the LGU has a GCash merchant account: no money moves,
-                and the page says so. Verified by the Cashier like any payment.
+                mode until the LGU has a GCash merchant account: the card's
+                chip and "test checkout" here say so. It quotes the Order of
+                Payment amount, which is what the checkout charges.
               -->
-              <div class="card" style="background:var(--secondary-50);">
-                <p class="small" style="margin:0;">
-                  You go to the checkout page to pay {{ pesos(asmt.totalCentavos) }}. Once paid, the Cashier verifies the
-                  payment and issues your official receipt.
+              <div class="callout callout-info">
+                <p>
+                  You go to the GCash {{ gcashTestMode() ? 'test checkout' : 'checkout' }} to pay {{ pesos(asmt.totalCentavos) }};
+                  the {{ treasurer.cashierLabel }} then verifies it and issues your official receipt.
                 </p>
-                @if (gcashTestMode()) {
-                  <p class="small" style="margin:6px 0 0;"><strong>Test mode:</strong> no real money is charged.</p>
-                }
               </div>
             } @else if (method() === 'Bank Transfer') {
               @if (bank; as b) {
-                <div class="card" style="background:var(--secondary-50);">
-                  <div class="small"><strong>Bank:</strong> {{ b.bankName }}</div>
-                  <div class="small"><strong>Account Name:</strong> {{ b.accountName }}</div>
-                  <div class="small"><strong>Account Number:</strong> {{ b.accountNumber }}</div>
-                  <div class="small"><strong>Branch:</strong> {{ b.branch }}</div>
-                </div>
+                <dl class="kv kv-2">
+                  <div><dt>Bank</dt><dd>{{ b.bankName }}</dd></div>
+                  <div><dt>Account name</dt><dd>{{ b.accountName }}</dd></div>
+                  <div><dt>Account number</dt><dd>{{ b.accountNumber }}</dd></div>
+                  <div><dt>Branch</dt><dd>{{ b.branch }}</dd></div>
+                </dl>
                 <div class="field" style="margin-top:12px;">
                   <label for="payment-flow-proof-of-payment-1">Proof of payment<span class="required">*</span></label>
                   <input id="payment-flow-proof-of-payment-1" type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onProofSelected($event)" />
@@ -154,45 +149,55 @@ function defaultMethod(offered: readonly PaymentMethodOption[]): PaymentMethod {
                   </p>
                   <p>
                     Use <strong>Onsite Payment</strong> instead, or confirm the current payment
-                    arrangements with the {{ engineer.name }} — {{ engineer.mobile }} or
-                    <a [href]="'mailto:' + engineer.email">{{ engineer.email }}</a>.
+                    arrangements with the {{ treasurer.name }} at {{ hallAddress }}.
                   </p>
                 </div>
               }
             } @else {
-              <div class="card" style="background:var(--secondary-50);">
-                <p class="small" style="margin:0;">Pay directly at the {{ engineer.name }}, {{ hallAddress }}. Bring a copy of your Order of Payment.</p>
+              <div class="callout callout-info">
+                <p>{{ onsiteWhere }}</p>
               </div>
             }
 
             @if (error()) { <div class="field error" style="margin-top:10px;">{{ error() }}</div> }
             @if (confirmingOnsite() && asmt) {
               <!--
-                Marking an onsite payment declares that money changed hands, so
-                it is asked once, plainly (QA TC-27, 2026-10-03: one click did
-                it, with no confirmation).
+                Telling us of an onsite payment declares that money changed
+                hands, so it is asked once, plainly (QA TC-27, 2026-10-03: one
+                click did it, with no confirmation). The OR number is optional:
+                the Cashier records the authoritative one when verifying.
               -->
               <div class="confirm-pay" role="alertdialog" aria-labelledby="confirm-pay-title">
-                <strong id="confirm-pay-title">Have you paid {{ pesos(asmt.totalCentavos) }} at the {{ engineer.name }}?</strong>
-                <p class="small" style="margin:6px 0 10px;">
-                  Only mark it paid once you have paid and have your Official Receipt. Your balance stays
-                  {{ pesos(asmt.balanceCentavos) }} until the Cashier verifies the payment.
+                <strong id="confirm-pay-title">Have you paid {{ pesos(asmt.totalCentavos) }} at the {{ treasurer.name }}?</strong>
+                <p class="small" style="margin:6px 0 12px;">
+                  Tell us only once you have paid and have your Official Receipt. Your balance stays
+                  {{ pesos(asmt.balanceCentavos) }} until the {{ treasurer.cashierLabel }} verifies the payment.
                 </p>
+                <div class="field">
+                  <label for="payment-flow-or-number">OR number on your receipt (optional)</label>
+                  <input id="payment-flow-or-number" class="input" type="text" maxlength="40" autocomplete="off"
+                    aria-describedby="payment-flow-or-number-hint" [ngModel]="orNumber()" (ngModelChange)="orNumber.set($event)" />
+                  <div class="hint" id="payment-flow-or-number-hint">Leave it blank if you don't have it. The {{ treasurer.cashierLabel }} records it when verifying.</div>
+                </div>
                 <div style="display:flex; gap:8px; flex-wrap:wrap;">
                   <button class="btn btn-primary btn-sm" [disabled]="submitting()" (click)="submit(a.id)">
-                    {{ submitting() ? 'Sending…' : 'Yes, I have paid' }}
+                    {{ submitting() ? 'Sending…' : 'Yes, I Have Paid' }}
                   </button>
-                  <button class="btn btn-secondary btn-sm" [disabled]="submitting()" (click)="confirmingOnsite.set(false)">Not yet</button>
+                  <button class="btn btn-secondary btn-sm" [disabled]="submitting()" (click)="confirmingOnsite.set(false)">Not Yet</button>
                 </div>
               </div>
             } @else if (method() === 'GCash') {
-              <button class="btn btn-primary btn-block" style="margin-top:14px;" [disabled]="submitting()" (click)="payWithGcash(a.id)">
-                {{ submitting() ? 'Opening the checkout…' : 'Pay with GCash' }}
-              </button>
+              <div class="card-actions">
+                <button class="btn btn-primary btn-phone-block" [disabled]="submitting()" (click)="payWithGcash(a.id)">
+                  {{ submitting() ? 'Opening the checkout…' : 'Pay with GCash' }}
+                </button>
+              </div>
             } @else if (method() !== 'Bank Transfer' || bank) {
-              <button class="btn btn-primary btn-block" style="margin-top:14px;" [disabled]="submitting()" (click)="onPay(a.id)">
-                {{ submitting() ? 'Sending…' : (method() === 'Bank Transfer' ? 'Submit Payment' : 'Mark as Paid') }}
-              </button>
+              <div class="card-actions">
+                <button class="btn btn-primary btn-phone-block" [disabled]="submitting()" (click)="onPay(a.id)">
+                  {{ submitting() ? 'Sending…' : (method() === 'Bank Transfer' ? 'Submit Payment' : 'I Have Paid') }}
+                </button>
+              </div>
             }
           </div>
         } @else {
@@ -218,8 +223,13 @@ export class PaymentFlowPage {
   private readonly uploadLimits = inject(UploadLimitsService);
 
   protected readonly bank = DEFAULT_BANK_INFO;
-  protected readonly engineer = MUNICIPAL_ENGINEER;
+  protected readonly treasurer = MUNICIPAL_TREASURER;
   protected readonly hallAddress = MUNICIPAL_HALL_ADDRESS;
+  /** Where to pay in person, word for word as the Order of Payment says it (design review I2). */
+  protected readonly onsiteWhere =
+    `Pay at the ${MUNICIPAL_TREASURER.name} (${MUNICIPAL_TREASURER.cashierLabel}), ${MUNICIPAL_TREASURER.place}. Bring your Order of Payment.`;
+  /** The Official Receipt number the citizen may give when telling us of an onsite payment; optional. */
+  readonly orNumber = signal('');
   protected readonly pesos = pesos;
   /**
    * The methods offered, in the server's order (GET /payment-methods,
@@ -249,20 +259,6 @@ export class PaymentFlowPage {
    */
   private readonly realChecked = signal(false);
   private readonly realOrderOfPayment = signal<ApplicationSummary['payment']['orderOfPayment'] | null>(null);
-
-  /** The Order of Payment's own lines, so the citizen sees what the total is made of before paying it. */
-  protected feeLines(): { name: string; amountCentavos: number }[] {
-    const real = this.realOrderOfPayment();
-    if (!real) return [];
-    return [
-      { name: 'Filing Fee', amountCentavos: real.fees.filing },
-      { name: 'Processing Fee', amountCentavos: real.fees.processing },
-      { name: 'Architectural Fee', amountCentavos: real.fees.architectural },
-      { name: 'Structural Fee', amountCentavos: real.fees.structural },
-      { name: 'Electrical Fee', amountCentavos: real.fees.electrical },
-      { name: 'Other Fees', amountCentavos: real.fees.others },
-    ].filter((line) => line.amountCentavos > 0);
-  }
 
   constructor() {
     if (this.api.configured) {
@@ -311,9 +307,10 @@ export class PaymentFlowPage {
 
   protected methodBlurb(m: PaymentMethodOption): string {
     // In test mode the card's "Test mode" chip says so; the line says what it means.
-    if (m.method === 'GCash') return m.mode === 'test' ? 'Pay online. No real money is charged.' : 'Pay online with GCash.';
+    // Test mode is said by the card's chip and the checkout callout, once each.
+    if (m.method === 'GCash') return 'Pay online.';
     if (m.method === 'Bank Transfer') return "Deposit to the Municipality's account, then upload the proof.";
-    return 'Pay at the Municipal Hall, then mark it paid here.';
+    return `Pay at the ${MUNICIPAL_TREASURER.short}, then tell us here.`;
   }
 
   /**
@@ -369,20 +366,24 @@ export class PaymentFlowPage {
   }
 
   /**
-   * `{ totalCentavos, balanceCentavos }` only — the two fields this screen
-   * actually renders. Real applications have no "partially paid" state
-   * server-side (payment.status only reaches Pending Verification or Paid,
-   * never a partial balance), so balance === total until this screen's own
-   * submission changes that.
+   * The assessment this screen asks the citizen to pay, as the application
+   * page shows it (`assessmentViewOf`): the real Order of Payment's fees,
+   * total and balance, else the local demo store's. Real applications have no
+   * "partially paid" state server-side, so balance === total until paid.
    */
-  assessment(): { totalCentavos: number; balanceCentavos: number } | undefined {
+  assessment(): AssessmentView | undefined {
     if (this.api.configured) {
       if (!this.realChecked()) return undefined;
       const real = this.realOrderOfPayment();
-      return real ? { totalCentavos: real.totalCentavos, balanceCentavos: real.totalCentavos } : undefined;
+      return real ? assessmentViewOf(this.app()?.paymentStatus, real, null) ?? undefined : undefined;
     }
-    const a = this.store.assessmentFor(this.id());
-    return a ? { totalCentavos: a.totalCentavos, balanceCentavos: a.balanceCentavos } : undefined;
+    return assessmentViewOf(null, null, this.store.assessmentFor(this.id())) ?? undefined;
+  }
+
+  /** The onsite payment's reference: the OR number when the citizen gave one, else a unique placeholder the Cashier replaces at verification. */
+  private onsiteReference(): string {
+    const or = this.orNumber().trim();
+    return or !== '' ? `OR ${or}` : `ONSITE-${Date.now()}`;
   }
 
   onProofSelected(event: Event): void {
@@ -417,7 +418,7 @@ export class PaymentFlowPage {
       return;
     }
 
-    const reference = this.method() === 'Bank Transfer' ? this.proofFileName! : `ONSITE-${Date.now()}`;
+    const reference = this.method() === 'Bank Transfer' ? this.proofFileName! : this.onsiteReference();
     this.store.submitPayment(applicationId, this.method(), reference);
     // F-14: nobody will verify this. No payment record leaves the browser.
     this.toast.success('Recorded in this demo. No payment was sent or received.');
@@ -479,7 +480,7 @@ export class PaymentFlowPage {
         }
       }
 
-      const reference = this.method() === 'Bank Transfer' ? this.proofFile!.name : `ONSITE-${Date.now()}`;
+      const reference = this.method() === 'Bank Transfer' ? this.proofFile!.name : this.onsiteReference();
       const result = await this.store.submitPaymentReal(applicationId, {
         referenceNumber: reference,
         method: this.method(),

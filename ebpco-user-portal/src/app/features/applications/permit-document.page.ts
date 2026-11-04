@@ -4,16 +4,16 @@ import qrcodegen from 'qrcode-generator';
 import { ApplicationStore } from '../../core/stores/application.store';
 import { BusinessStore } from '../../core/stores/business.store';
 import { NOT_RECORDED, permitValidityText } from '../../core/domain/permit-validity';
-import { propertyRows } from '../../core/domain/property-address';
+import { addressLine, propertyRows } from '../../core/domain/property-address';
 import { AuthService } from '../../core/session/auth.service';
-import { requirementsFor } from '../../core/domain/requirements-catalog';
-import { agencyHeaderFor, documentTitleFor } from '../../core/domain/generated-document.helpers';
+import { agencyHeaderFor, documentTitleFor, issuingOfficeFor } from '../../core/domain/generated-document.helpers';
 import { fullName } from '../../core/domain/user.model';
-import { applyingAsLabel } from '../../core/domain/application.model';
-import { Assessment, pesos } from '../../core/domain/assessment.model';
-import { formatDate } from '../../core/utils/ids';
+import { businessNameOnDocument } from '../../core/domain/application.model';
+import { pesos } from '../../core/domain/assessment.model';
+import { AssessmentView, assessmentViewOf } from '../../core/domain/assessment-view';
+import { NO_CONDITIONS_NOTE, PERMIT_LABELS } from '../../core/domain/permit-fields';
+import { formatDate, formatDateTime } from '../../core/utils/ids';
 import { occupancyLabelOf } from '../../core/domain/occupancy';
-import { MUNICIPAL_ENGINEER } from '../../core/domain/lgu-contact';
 import { CitizenApiClient } from '../../core/api/citizen-api.client';
 import { BackLinkComponent } from '../../shared/ui/back-link.component';
 
@@ -48,6 +48,8 @@ interface QrCell {
         </div>
 
         @if (config(); as cfg) {
+          <!-- .doc-scroll: on a phone the paper reflows, and anything still wider pans instead of being cut off (design review I1). -->
+          <div class="doc-scroll">
           <article class="doc-generated-page">
             @if (watermarkText()) {
               <div class="doc-generated-watermark" aria-hidden="true">{{ watermarkText() }}</div>
@@ -72,17 +74,18 @@ interface QrCell {
               }
             </div>
 
+            <!-- Every label below comes from PERMIT_LABELS, the field map the Admin Portal's preview prints too (design review I3). -->
             <div class="doc-generated-numberblock">
               <div class="num-main">
-                <span class="num-label">Permit No.</span>
+                <span class="num-label">{{ L.permitNo }}</span>
                 <span class="num-value" [class.doc-generated-placeholder]="!permit()">
                   {{ permit()?.permitNumber ?? 'Not yet assigned' }}
                 </span>
               </div>
               <div class="num-dates">
-                <span>Application No.: <strong>{{ a.applicationNumber }}</strong></span>
-                <span>Date Issued: <strong>{{ permit()?.issuedDate ? formatDate(permit()!.issuedDate) : 'Not yet assigned' }}</strong></span>
-                <span>Valid until: <strong data-testid="permit-valid-until">{{ permit() ? validUntil(a.permitType, permit()!.expiryDate) : 'Not yet assigned' }}</strong></span>
+                <span>{{ L.applicationNo }}: <strong>{{ a.applicationNumber }}</strong></span>
+                <span>{{ L.dateIssued }}: <strong>{{ permit()?.issuedDate ? formatDate(permit()!.issuedDate) : 'Not yet assigned' }}</strong></span>
+                <span>{{ L.validUntil }}: <strong data-testid="permit-valid-until">{{ permit() ? validUntil(a.permitType, permit()!.expiryDate) : 'Not yet assigned' }}</strong></span>
               </div>
             </div>
 
@@ -103,20 +106,24 @@ interface QrCell {
               <h2>Owner / Applicant</h2>
               <dl class="doc-generated-fields">
                 <div>
-                  <dt>Owner / Permittee Name</dt>
-                  <dd>{{ applicantName() }}</dd>
+                  <dt>{{ L.ownerName }}</dt>
+                  <dd>{{ owner().name }}</dd>
                 </div>
+                <!-- Only a business application names a business: "Business / Project: Residential" stated a second use beside the occupancy (design review I6). -->
+                @if (businessName(a); as name) {
+                  <div>
+                    <dt>{{ L.businessName }}</dt>
+                    <dd>{{ name }}</dd>
+                  </div>
+                }
                 <div>
-                  <dt>Business / Project</dt>
-                  <dd>{{ applyingAsLabel(a) || 'Not provided' }}</dd>
+                  <dt>{{ L.contactNumber }}</dt>
+                  <dd>{{ owner().contact }}</dd>
                 </div>
-                <div>
-                  <dt>Contact Number</dt>
-                  <dd>{{ user()?.mobileNumber ?? 'Not on file' }}</dd>
-                </div>
-                <div>
-                  <dt>Address</dt>
-                  <dd>{{ user()?.street ?? 'Not on file' }}</dd>
+                <!-- The whole address, as the Admin Portal prints it; it printed the street alone. -->
+                <div style="grid-column: 1 / -1;">
+                  <dt>{{ L.address }}</dt>
+                  <dd>{{ owner().address }}</dd>
                 </div>
               </dl>
             </section>
@@ -124,12 +131,11 @@ interface QrCell {
             <section class="doc-generated-section">
               <h2>Property</h2>
               <!--
-                The application's own project / property address, as the
-                applicant gave it in Details (location), with its barangay when
-                it names one. It read the business's address, so a Residential
-                application, which names no business, printed "Not on file"
-                four times (4 Nov 2026). The business's address only when the
-                application has none. See core/domain/property-address.ts.
+                Where the project is, printed once: the application's own site
+                (location, from the wizard's Details step), else the business's
+                registered address. It printed a Barangay row beside a Street /
+                Location row that already named it (4 Nov 2026). See
+                core/domain/property-address.ts.
               -->
               <dl class="doc-generated-fields">
                 @for (row of propertyFields(); track row.label) {
@@ -145,23 +151,23 @@ interface QrCell {
               <h2>Project</h2>
               <dl class="doc-generated-fields">
                 <div>
-                  <dt>Transaction</dt>
+                  <dt>{{ L.applicationType }}</dt>
                   <dd>{{ a.applicationAction }}</dd>
                 </div>
                 <div>
-                  <dt>Date Applied</dt>
+                  <dt>{{ L.dateApplied }}</dt>
                   <dd>{{ a.dateSubmitted ? formatDate(a.dateSubmitted) : 'Pending' }}</dd>
                 </div>
                 <!-- As filed (ebpco-api 071): a Building Permit or Certificate of Occupancy; left out when absent. -->
                 @if (occupancy(); as use) {
                   <div style="grid-column: 1 / -1;">
-                    <dt>Use or character of occupancy</dt>
+                    <dt>{{ L.occupancy }}</dt>
                     <dd>{{ use }}</dd>
                   </div>
                 }
                 @if (scope(); as sc) {
                   <div style="grid-column: 1 / -1;">
-                    <dt>Scope</dt>
+                    <dt>{{ L.scope }}</dt>
                     <dd>{{ sc }}</dd>
                   </div>
                 }
@@ -170,60 +176,43 @@ interface QrCell {
 
             <section class="doc-generated-section">
               <h2>Assessment / Payment</h2>
+              <!-- The one assessment (core/domain/assessment-view.ts): fees, Total amount due, Balance, and the Order of Payment number. -->
               @if (assessment(); as asmt) {
-                @if (isReal(asmt); as real) {
-                  <table class="doc-generated-table">
-                    <tbody>
+                <table class="doc-generated-table">
+                  <thead>
+                    <tr><th>{{ L.fee }}</th><th class="num">{{ L.amount }}</th></tr>
+                  </thead>
+                  <tbody>
+                    @for (line of asmt.lineItems; track line.code) {
                       <tr>
-                        <td><strong>Total Amount Due</strong></td>
-                        <td class="num"><strong>{{ pesos(real.totalCentavos) }}</strong></td>
+                        <td>{{ line.name }}</td>
+                        <td class="num">{{ line.amountCentavos !== null ? pesos(line.amountCentavos) : 'Pending' }}</td>
                       </tr>
-                      <tr>
-                        <td>Payment Status</td>
-                        <td>{{ real.paymentStatus }}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                } @else if (isDemo(asmt); as demo) {
-                  <table class="doc-generated-table">
-                    <thead>
-                      <tr><th>Fee</th><th>Authority</th><th class="num">Amount</th></tr>
-                    </thead>
-                    <tbody>
-                      @for (line of demo.lineItems; track line.code) {
-                        <tr>
-                          <td>{{ line.name }}</td>
-                          <td>{{ line.legalBasisTitle || line.authority }}</td>
-                          <td class="num">{{ line.amountCentavos !== null ? pesos(line.amountCentavos) : 'Pending' }}</td>
-                        </tr>
-                      }
-                      <tr>
-                        <td colspan="2"><strong>Total Amount Due</strong></td>
-                        <td class="num"><strong>{{ pesos(demo.totalCentavos) }}</strong></td>
-                      </tr>
-                      <tr>
-                        <td colspan="2">Outstanding Balance</td>
-                        <td class="num">{{ pesos(demo.balanceCentavos) }}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                  <p class="doc-generated-note">Order of Payment No.: {{ demo.opsNumber ?? 'Not yet issued (' + demo.status + ')' }}</p>
-                }
+                    }
+                    <tr>
+                      <td><strong>{{ L.totalAmountDue }}</strong></td>
+                      <td class="num"><strong>{{ pesos(asmt.totalCentavos) }}</strong></td>
+                    </tr>
+                    <tr>
+                      <td>{{ L.balance }}</td>
+                      <td class="num">{{ pesos(asmt.balanceCentavos) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p class="doc-generated-note">{{ L.orderOfPaymentNo }}: {{ asmt.opsNumber ?? 'Not yet issued' }}</p>
               } @else {
                 <p class="doc-generated-note doc-generated-placeholder">No assessment has been issued yet for this application.</p>
               }
             </section>
 
             <!--
-              The office's conditions, in full and verbatim.
-              This used to render requirements()?.validityRules — a single
-              sentence from the CLIENT's own catalogue, one of which reads "per
-              standard LGU clearance practice", an inference we wrote. Under a
-              heading reading "Conditions", that told a citizen their
-              obligations were a validity note. The real list — cash bond,
-              setbacks, notice before excavation — comes from the office via
-              GET /applications/{id}/permit.
-              Render every item. Do not summarise, and never substitute our own.
+              The office's conditions, in full and verbatim, from
+              GET /applications/{id}/permit. Render every item; do not
+              summarise, and never substitute our own (it once rendered a
+              catalogue validity sentence we wrote). None recorded is stated
+              as a fact, in normal ink: the grey-italic "this does not mean
+              there are none" warning alarmed anyone shown the permit, and
+              named a different office again (design review I3).
             -->
             <section class="doc-generated-section">
               <h2>Conditions</h2>
@@ -234,29 +223,21 @@ interface QrCell {
                   }
                 </ol>
               } @else {
-                <p class="doc-generated-placeholder">
-                  The Municipality has not supplied the conditions for this permit.
-                  <strong>This does not mean there are none</strong> — ask the
-                  {{ engineerName }} before relying on this document.
-                </p>
+                <p class="doc-generated-empty">{{ noConditions }}</p>
               }
             </section>
 
-            <!--
-              Validity is a separate fact from the conditions, and is labelled as
-              what it is: our reading of the permit's validity period, not the
-              office's conditions.
-            -->
             <!-- Removed 2026-09-27: the "Validity" paragraph was this portal's own
                  catalogue sentence (e.g. "Valid for six (6) months from issuance"),
-                 not the office's, and it contradicted "Valid Until" above. -->
+                 not the office's, and it contradicted "Valid until" above. -->
 
             <section class="doc-generated-section doc-generated-signature">
               <h2>Approval</h2>
-              <div class="sig-pending">Pending Authorized Signature</div>
+              <!-- An issued permit says where the signed copy is; "Pending Authorized Signature" stayed on issued ones (design review). -->
+              <div class="sig-pending">{{ permit() ? 'Signed copy available at the release desk' : 'Pending authorized signature' }}</div>
               <div class="sig-line"></div>
               <div class="sig-name">{{ permit()?.approvingOfficial ?? notRecorded }}</div>
-              <div class="sig-position">{{ permit()?.approvingOffice ?? requirements()?.reviewingOffice ?? notRecorded }}</div>
+              <div class="sig-position">{{ permit()?.approvingOffice ?? issuingOffice() }}</div>
             </section>
 
             <div class="doc-generated-qr">
@@ -267,7 +248,8 @@ interface QrCell {
                     <rect [attr.x]="cell.x" [attr.y]="cell.y" width="1" height="1" fill="#000000" />
                   }
                 </svg>
-                <p class="qr-caption">Scan to verify this document at<br />{{ verificationUrl() }}</p>
+                <!-- The address on one line, the number whole on the next, so both can be read and typed. -->
+                <p class="qr-caption">Scan to verify at {{ verifyHost }}/verify/<br /><span class="qr-number">{{ permit()?.permitNumber }}</span></p>
               } @else {
                 <p class="qr-caption qr-unavailable">QR verification not yet available — this permit has not been issued.</p>
               }
@@ -283,9 +265,11 @@ interface QrCell {
                   Sorsogon issues permits.
                 </p>
               }
-              <p>Document Ref. {{ a.id }} &middot; Generated {{ generatedOn }} &middot; Page 1 of 1</p>
+              <!-- The application's reference number, never its internal id. -->
+              <p>Document Ref. {{ a.applicationNumber }} &middot; Generated {{ generatedOn }} &middot; Page 1 of 1</p>
             </footer>
           </article>
+          </div>
         }
 
       </div>
@@ -324,25 +308,34 @@ export class PermitDocumentPage {
     return permitValidityText(permitType, expiryDate, (date) => formatDate(date));
   }
   protected readonly pesos = pesos;
-  /** "Residential", or the business's name, under Business / Project (migration 067). */
-  protected readonly applyingAsLabel = applyingAsLabel;
-  protected readonly generatedOn = new Date().toLocaleString('en-PH', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  protected readonly L = PERMIT_LABELS;
+  protected readonly noConditions = NO_CONDITIONS_NOTE;
+  /** The business's name on a business application; null (no row) on a private individual's (migration 067, design review I6). */
+  protected readonly businessName = businessNameOnDocument;
+  protected readonly generatedOn = formatDateTime(new Date().toISOString());
+  /** The host the QR's caption names, e.g. citizen.castilla-ebpco.online. */
+  protected readonly verifyHost = window.location.host;
 
   private id(): string {
     return this.route.snapshot.paramMap.get('id')!;
   }
 
   protected readonly app = computed(() => this.store.applicationById(this.id()));
-  protected readonly user = computed(() => this.auth.currentUser());
-  protected readonly applicantName = computed(() => {
-    const u = this.user();
-    return u ? fullName(u) : 'Not on file';
+  /**
+   * The Owner / Applicant fields: the citizen's account, as the Admin
+   * Portal's preview reads it too, with the whole address (street, barangay,
+   * city, province; it printed the street alone). Both copies change if the
+   * profile is edited after release until the backend snapshots these on the
+   * permit row when it is generated (a backend follow-up of design review I3).
+   */
+  protected readonly owner = computed(() => {
+    const u = this.auth.currentUser();
+    const address = u ? addressLine([u.street, u.barangay, u.city, u.province]) : '';
+    return {
+      name: u ? fullName(u) : 'Not on file',
+      contact: u?.mobileNumber?.trim() || 'Not on file',
+      address: address || 'Not on file',
+    };
   });
   protected readonly business = computed(() => {
     const a = this.app();
@@ -355,65 +348,45 @@ export class PermitDocumentPage {
   protected readonly scope = computed(() => this.store.permitScopeFor(this.id()));
   /** "Group A — Residential, Dwellings", from the application's own form; null when none was given. */
   protected readonly occupancy = computed(() => occupancyLabelOf(this.app()?.form));
-  private readonly demoAssessment = computed(() => this.store.assessmentFor(this.id()));
   /**
-   * `assessedAmountCentavos`/`paymentStatus` on `app()` are already real for
-   * a real application (see `fromServerSummary()`'s own doc comment in
-   * `application.store.ts`) — this page just never read them, and instead
-   * unconditionally called `assessmentFor()`, the fully local/demo store
-   * `payment-flow.page.ts` and `payments-list.page.ts` both moved off of.
-   * The result: a real citizen who had genuinely paid a real, verified
-   * assessment saw this document's own "Assessment / Payment" section claim
-   * "No assessment has been issued yet" directly beneath a real permit
-   * number and real conditions — on the one document meant to be printed and
-   * kept as evidence of exactly that.
-   *
-   * The real summary endpoint carries only a total, not a line-item
-   * breakdown or an Order of Payment number, so a real assessment renders a
-   * plainer total/status line in the template below rather than fabricating
-   * the fuller demo shape's detail.
+   * The one assessment (`assessmentViewOf`): the real Order of Payment's fees,
+   * Total amount due, Balance and number, as the application page and the pay
+   * page show them; the local demo store's for a demo id. A real application
+   * whose Order of Payment the store does not hold still prints its total.
    */
-  protected readonly assessment = computed(():
-    | { real: true; totalCentavos: number; paymentStatus: string }
-    | Assessment
-    | undefined => {
+  protected readonly assessment = computed<AssessmentView | null>(() => {
     const a = this.app();
-    if (a?.assessedAmountCentavos != null) {
-      return { real: true, totalCentavos: a.assessedAmountCentavos, paymentStatus: a.paymentStatus };
-    }
-    return this.demoAssessment();
+    const view = assessmentViewOf(a?.paymentStatus, this.store.orderOfPaymentFor(this.id()), this.store.assessmentFor(this.id()));
+    if (view) return view;
+    if (a?.assessedAmountCentavos == null) return null;
+    return {
+      lineItems: [],
+      totalCentavos: a.assessedAmountCentavos,
+      balanceCentavos: a.paymentStatus === 'Paid' ? 0 : a.assessedAmountCentavos,
+      opsNumber: null,
+      dueDate: null,
+      pendingVerification: a.paymentStatus === 'Pending Verification',
+      canPay: false,
+    };
   });
-  /** Narrows `assessment()`'s union for the template's `@if (...; as x)` guard — real branch. */
-  protected isReal(
-    asmt: { real: true; totalCentavos: number; paymentStatus: string } | Assessment,
-  ): { real: true; totalCentavos: number; paymentStatus: string } | undefined {
-    return 'real' in asmt ? asmt : undefined;
-  }
-  /** Narrows `assessment()`'s union for the template's `@if (...; as x)` guard — demo branch. */
-  protected isDemo(
-    asmt: { real: true; totalCentavos: number; paymentStatus: string } | Assessment,
-  ): Assessment | undefined {
-    return 'real' in asmt ? undefined : asmt;
-  }
-  protected readonly requirements = computed(() => {
-    const a = this.app();
-    return a && a.permitType !== 'Business Permit' ? requirementsFor(a.permitType) : null;
-  });
+
+  /** The office the permit type's documents name as issuer (OFFICES, design review I5). */
+  protected readonly issuingOffice = computed(() => issuingOfficeFor(this.app()?.permitType));
 
   protected readonly config = computed(() => {
     const a = this.app();
     if (!a) return null;
-    const reviewingOffice = this.requirements()?.reviewingOffice ?? 'Office of the Building Official (OBO)';
     return {
-      header: agencyHeaderFor(reviewingOffice),
+      header: agencyHeaderFor(this.issuingOffice()),
       title: documentTitleFor(a.permitType),
     };
   });
 
-  // Owner decision: this system produces no real permits — there is no real
-  // LGU behind any of it — so every stage gets the SAME watermark rather
-  // than a "DRAFT" / "FOR REVIEW" progression that reads as if the document
-  // itself were becoming more real as it moves along.
+  // Every stage gets the SAME watermark rather than a "DRAFT" / "FOR REVIEW"
+  // progression that reads as if the document itself were becoming more real
+  // as it moves along. Castilla is live now, so whether an issued permit
+  // keeps "SAMPLE" (and its footer's "issued by the Municipality") is the
+  // owner's decision, pending since the design review of 4 Nov 2026 (I12).
   //
   // `cleared` still tracks whether this is a genuinely ISSUED permit record
   // (it gates the QR code and the print button below) — the provenance check
@@ -431,7 +404,6 @@ export class PermitDocumentPage {
 
   /** The office's conditions for this permit. Empty until the office supplies them. */
   protected readonly conditions = computed<readonly string[]>(() => this.permit()?.conditions ?? []);
-  protected readonly engineerName = MUNICIPAL_ENGINEER.name;
 
   protected readonly verificationUrl = computed(() => {
     const p = this.permit();

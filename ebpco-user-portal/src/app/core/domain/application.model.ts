@@ -112,9 +112,24 @@ export function propertyOwnerOf(form: Readonly<Record<string, unknown>> | null |
   return relationship === undefined ? { isApplicant: false, name } : { isApplicant: false, name, relationship };
 }
 
-/** What a list or a page shows where a business name used to be: "Residential", or the business's name. */
-export function applyingAsLabel(app: Pick<ApplicationRecord, 'applyingAs' | 'businessName'>): string {
-  return app.applyingAs === 'residential' ? 'Residential' : app.businessName;
+/**
+ * The label for the stored 'residential' (design review I6). Who applies, not
+ * what the building is for: "Residential" sat next to "Use or character of
+ * occupancy: Group E — Business and Mercantile" on one permit, which then
+ * stated two uses. The stored value stays 'residential'.
+ */
+export const PRIVATE_INDIVIDUAL = 'Private individual';
+
+/** Who an application is for, under "Applying as": the business's name, or "Private individual". */
+export function applicantLabel(app: Pick<ApplicationRecord, 'applyingAs' | 'businessName'>): string {
+  return app.applyingAs === 'residential' ? PRIVATE_INDIVIDUAL : app.businessName;
+}
+
+/** The business's name on a printed document, or null for a private individual's application (no "Business name" row then). */
+export function businessNameOnDocument(app: Pick<ApplicationRecord, 'applyingAs' | 'businessName'>): string | null {
+  if (app.applyingAs === 'residential') return null;
+  const name = app.businessName?.trim() ?? '';
+  return name === '' ? null : name;
 }
 
 export interface StatusTimelineEntry {

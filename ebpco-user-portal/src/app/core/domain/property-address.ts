@@ -36,31 +36,26 @@ export function barangayIn(address: string): string | null {
   return named.size === 1 ? [...named][0] : null;
 }
 
-/**
- * The "Property" section's rows: the application's address as filed, with its
- * barangay when it names one; else the business's address; else the four rows
- * marked "Not on file".
- */
-export function propertyRows(location: string | null | undefined, business: BusinessAddress | undefined): PropertyRow[] {
-  const address = location?.trim() ?? '';
-  if (address !== '') {
-    const barangay = barangayIn(address);
-    return [
-      ...(barangay !== null ? [{ label: 'Barangay', value: barangay, wide: false }] : []),
-      { label: 'Street / Location', value: address, wide: true },
-    ];
-  }
-  return [
-    { label: 'Barangay', value: business?.barangay ?? 'Not on file', wide: false },
-    { label: 'City / Municipality', value: business?.city ?? 'Not on file', wide: false },
-    { label: 'Street / Location', value: business?.street ?? 'Not on file', wide: false },
-    { label: 'Province', value: business?.province ?? 'Not on file', wide: false },
-  ];
+/** The parts of an address that are filled in, joined on one line: "10 Rizal Street, Bonga, Castilla, Sorsogon". Empty when none is. */
+export function addressLine(parts: ReadonlyArray<string | null | undefined>): string {
+  return parts.map((part) => part?.trim() ?? '').filter((part) => part !== '').join(', ');
 }
 
-/** The one-line "Property" on the Order of Payment, by the same rule. */
+/**
+ * The "Property" section: one "Location" row, printed once (design review,
+ * 4 Nov 2026: a Barangay row repeated what the address already said, beside
+ * an Owner address that said it a third time). The application's address as
+ * filed; else the business's registered address on one line; else "Not on
+ * file". The Admin Portal's permit preview prints the same row.
+ */
+export function propertyRows(location: string | null | undefined, business: BusinessAddress | undefined): PropertyRow[] {
+  return [{ label: 'Location', value: propertyLine(location, business), wide: true }];
+}
+
+/** The one-line property, by the same rule (the Order of Payment's "Property"). */
 export function propertyLine(location: string | null | undefined, business: BusinessAddress | undefined): string {
   const address = location?.trim() ?? '';
   if (address !== '') return address;
-  return business ? `${business.street}, ${business.barangay}, ${business.city}` : 'Not on file';
+  const registered = addressLine([business?.street, business?.barangay, business?.city, business?.province]);
+  return registered !== '' ? registered : 'Not on file';
 }

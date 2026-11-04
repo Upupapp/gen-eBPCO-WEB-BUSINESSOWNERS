@@ -6,12 +6,13 @@ import { propertyLine } from '../../core/domain/property-address';
 import { AuthService } from '../../core/session/auth.service';
 import { CitizenApiClient } from '../../core/api/citizen-api.client';
 import { ApplicationSummary } from '../../core/api/citizen-api.models';
-import { requirementsFor } from '../../core/domain/requirements-catalog';
-import { agencyHeaderFor } from '../../core/domain/generated-document.helpers';
+import { agencyHeaderFor, issuingOfficeFor } from '../../core/domain/generated-document.helpers';
 import { fullName } from '../../core/domain/user.model';
-import { applyingAsLabel } from '../../core/domain/application.model';
+import { businessNameOnDocument } from '../../core/domain/application.model';
 import { pesos } from '../../core/domain/assessment.model';
-import { formatDate } from '../../core/utils/ids';
+import { TOTAL_AMOUNT_DUE } from '../../core/domain/assessment-view';
+import { MUNICIPAL_TREASURER } from '../../core/domain/lgu-contact';
+import { formatDate, formatDateTime } from '../../core/utils/ids';
 import { BackLinkComponent } from '../../shared/ui/back-link.component';
 
 type Order = NonNullable<ApplicationSummary['payment']['orderOfPayment']>;
@@ -46,6 +47,8 @@ const FEE_LINES: ReadonlyArray<{ code: keyof Order['fees']; name: string }> = [
         </div>
 
         @if (order(); as o) {
+          <!-- .doc-scroll: on a phone the paper reflows, and anything still wider pans instead of being cut off (design review I1). -->
+          <div class="doc-scroll">
           <article class="doc-generated-page">
             <div class="doc-generated-header">
               <img src="logo.png" alt="" aria-hidden="true" />
@@ -71,8 +74,8 @@ const FEE_LINES: ReadonlyArray<{ code: keyof Order['fees']; name: string }> = [
               </div>
               <div class="num-dates">
                 <span>Application No.: <strong>{{ a.applicationNumber }}</strong></span>
-                <span>Date Issued: <strong>{{ formatDate(o.assessedAt) }}</strong></span>
-                <span>Pay On or Before: <strong>{{ o.dueDate ? formatDate(o.dueDate) : 'Not set by the office' }}</strong></span>
+                <span>Date issued: <strong>{{ formatDate(o.assessedAt) }}</strong></span>
+                <span>Pay on or before: <strong>{{ o.dueDate ? formatDate(o.dueDate) : 'Not set by the office' }}</strong></span>
               </div>
             </div>
 
@@ -80,8 +83,11 @@ const FEE_LINES: ReadonlyArray<{ code: keyof Order['fees']; name: string }> = [
               <h2>Payor</h2>
               <dl class="doc-generated-fields">
                 <div><dt>Name</dt><dd>{{ applicantName() }}</dd></div>
-                <div><dt>Business / Project</dt><dd>{{ applyingAsLabel(a) || 'Not provided' }}</dd></div>
-                <div><dt>Transaction</dt><dd>{{ a.applicationAction }}</dd></div>
+                <!-- A business's name only on a business application: the occupancy is the one statement of use (design review I6). -->
+                @if (businessName(a); as name) {
+                  <div><dt>Business name</dt><dd>{{ name }}</dd></div>
+                }
+                <div><dt>Application type</dt><dd>{{ a.applicationAction }}</dd></div>
                 <!-- The application's own project / property address; the business's only when it has none (core/domain/property-address.ts). -->
                 <div>
                   <dt>Property</dt>
@@ -98,23 +104,24 @@ const FEE_LINES: ReadonlyArray<{ code: keyof Order['fees']; name: string }> = [
                   @for (line of lines(); track line.code) {
                     <tr><td>{{ line.name }}</td><td class="num">{{ pesos(line.amountCentavos) }}</td></tr>
                   }
-                  <tr><td><strong>Total Amount Due</strong></td><td class="num"><strong>{{ pesos(o.totalCentavos) }}</strong></td></tr>
+                  <tr><td><strong>{{ totalLabel }}</strong></td><td class="num"><strong>{{ pesos(o.totalCentavos) }}</strong></td></tr>
                 </tbody>
               </table>
               <p class="doc-generated-note">
-                Fee schedule {{ o.feeScheduleVersion }}. Pay the full amount at the Municipal Treasurer's Office and
-                keep the Official Receipt it gives you.
+                Fee schedule {{ o.feeScheduleVersion }}. Pay the full amount at the {{ treasurer.name }}
+                ({{ treasurer.cashierLabel }}), {{ treasurer.place }}, and keep the Official Receipt it gives you.
               </p>
             </section>
 
             <footer class="doc-generated-footer">
               <p>
                 A copy of the Order of Payment issued through eBPCO by the Municipality of Castilla, Sorsogon.
-                Present it at the Municipal Treasurer's Office when you pay.
+                Present it at the {{ treasurer.name }} when you pay.
               </p>
-              <p>Generated {{ generatedOn }} &middot; Page 1 of 1</p>
+              <p>Document Ref. {{ o.number }} &middot; Generated {{ generatedOn }} &middot; Page 1 of 1</p>
             </footer>
           </article>
+          </div>
         } @else if (checked()) {
           <div class="card empty-state">No Order of Payment has been issued for this application yet.</div>
         } @else {
@@ -140,11 +147,11 @@ export class OrderOfPaymentPage {
 
   protected readonly formatDate = formatDate;
   protected readonly pesos = pesos;
-  /** "Residential", or the business's name, under Business / Project (migration 067). */
-  protected readonly applyingAsLabel = applyingAsLabel;
-  protected readonly generatedOn = new Date().toLocaleString('en-PH', {
-    year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
-  });
+  /** The business's name on a business application; null (no row) on a private individual's. */
+  protected readonly businessName = businessNameOnDocument;
+  protected readonly treasurer = MUNICIPAL_TREASURER;
+  protected readonly totalLabel = TOTAL_AMOUNT_DUE;
+  protected readonly generatedOn = formatDateTime(new Date().toISOString());
 
   private readonly fetched = signal<Order | null>(null);
   protected readonly checked = signal(false);
@@ -187,12 +194,8 @@ export class OrderOfPaymentPage {
   /** The address the applicant gave (`location`), else the business's: a Residential application names no business. */
   protected readonly propertyText = computed(() => propertyLine(this.app()?.location, this.business()));
 
-  protected readonly header = computed(() => {
-    const a = this.app();
-    const reviewingOffice =
-      a && a.permitType !== 'Business Permit' ? requirementsFor(a.permitType).reviewingOffice : 'Office of the Building Official (OBO)';
-    return agencyHeaderFor(reviewingOffice);
-  });
+  /** The office that assessed the fees (the permit type's issuing office, OFFICES); the Treasurer collects them. */
+  protected readonly header = computed(() => agencyHeaderFor(issuingOfficeFor(this.app()?.permitType)));
 
   protected print(): void {
     window.print();

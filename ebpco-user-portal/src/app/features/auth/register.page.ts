@@ -8,6 +8,7 @@ import { CivilStatus, Sex } from '../../core/domain/user.model';
 import { CapitalizeNameDirective } from '../../core/utils/capitalize-name.directive';
 import { CASTILLA_BARANGAYS, NATIONALITIES } from '../../core/domain/ph-reference-data';
 import { firstPasswordRejectionMessage, passwordChecks } from '../../core/domain/password-policy';
+import { MUNICIPAL_ENGINEER } from '../../core/domain/lgu-contact';
 import { LegalDocument, LegalModalComponent } from '../../shared/ui/legal-modal.component';
 import { ValidIdDraft, ValidIdFieldsComponent } from '../../shared/ui/valid-id-fields.component';
 import { StepperComponent } from '../../shared/ui/stepper.component';
@@ -354,7 +355,7 @@ export class RegisterPage {
         // citizen is told to try again rather than offered a way around it.
         this.codeSent.set(false);
         this.skipVerification.set(
-          `${result.detail} Please try Verify Email again in a moment. If it keeps failing, contact the Office of the Municipal Engineer.`,
+          `${result.detail} Please try Verify Email again in a moment. If it keeps failing, contact the ${MUNICIPAL_ENGINEER.name}.`,
         );
       }
     } catch {

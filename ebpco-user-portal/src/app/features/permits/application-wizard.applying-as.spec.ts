@@ -135,7 +135,11 @@ describe('ApplicationWizardPage — Applying as, and an account not verified yet
     expect(page.applyingAs).toBeNull();
     page.toStep(2);
     expect(page.step()).toBe(1);
-    expect(page.error()).toContain('Residential / Private Individual or as a Business');
+    expect(page.error()).toContain('a private individual or as a business');
+    // Under the choice it belongs to, not in the step's banner (design review I14).
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#application-wizard-applying-as-error')?.textContent).toContain('a private individual');
+    expect(fixture.nativeElement.querySelector('.field.error')).toBeNull();
   });
 
   it('never overwrites a choice the citizen made before the business list arrived', async () => {
@@ -206,7 +210,7 @@ describe('ApplicationWizardPage — Applying as, and an account not verified yet
   it('says who usually applies for a Sign Permit, without holding a Residential one back', async () => {
     const { page, el } = configure({ type: 'Sign Permit' }, { registeredAs: null, verification: verification('verified') });
     page.applyingAs = 'residential';
-    expect(el.textContent).toContain('Usually a business sign; a home-based practice can apply as Residential.');
+    expect(el.textContent).toContain('Usually a business sign; a home-based practice can apply as a private individual.');
     expect(el.textContent).not.toContain('Not open for');
     page.toStep(2);
     expect(page.step()).toBe(2);
@@ -219,7 +223,9 @@ describe('ApplicationWizardPage — Applying as, and an account not verified yet
     page.applyingAs = 'residential';
     page.step.set(4);
     fixture.detectChanges();
-    expect(el.textContent).toContain('Residential / Private Individual');
+    // Who applies, not what the building is for (design review I6).
+    expect(el.textContent).toContain('Private individual');
+    expect(el.textContent).not.toContain('Residential / Private Individual');
     expect(el.textContent?.toLowerCase()).not.toContain('property owner');
   });
 

@@ -221,7 +221,7 @@ describe('Permit Services: who may apply for each type', () => {
     });
     fixture.detectChanges();
     expect(chip(fixture, 'Sign Permit')).toBe('Business only');
-    expect(chip(fixture, 'Fencing Permit')).toBe('Residential only');
+    expect(chip(fixture, 'Fencing Permit')).toBe('Private individuals only');
     expect(chip(fixture, 'Building Permit')).toBeUndefined();
     expect(chip(fixture, 'Demolition Permit')).toBeUndefined();
     expect(chip(fixture, 'Excavation Permit')).toBeUndefined();
@@ -238,7 +238,7 @@ describe('Permit Services: who may apply for each type', () => {
   it('says who usually applies on the Sign, Fencing, Interior Design and Certificate of Occupancy cards only', () => {
     const fixture = render(false);
     const note = (type: PermitType) => card(fixture, type).querySelector('.permit-card__note')?.textContent?.trim();
-    expect(note('Sign Permit')).toBe('Usually a business sign; a home-based practice can apply as Residential.');
+    expect(note('Sign Permit')).toBe('Usually a business sign; a home-based practice can apply as a private individual.');
     expect(note('Fencing Permit')).toBe('Usually for homes.');
     expect(note('Interior Design Permit')).toBe('Usually shop and office fit-outs.');
     expect(note('Certificate of Occupancy')).toBe('After the building work is done, before the building is used.');

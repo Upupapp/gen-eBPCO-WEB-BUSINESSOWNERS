@@ -10,6 +10,12 @@ export function todayIso(): string {
   return new Date().toISOString();
 }
 
+/**
+ * The portal's two date formats, the same as the Admin Portal's (design
+ * review I22): 'Nov 4, 2026', and 'Nov 4, 2026 · 4:00 PM' where the time
+ * matters. Documents, lists, timelines and document footers all use these;
+ * only native date inputs keep the browser's own format.
+ */
 export function formatDate(iso: string | null): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
@@ -17,5 +23,6 @@ export function formatDate(iso: string | null): string {
 
 export function formatDateTime(iso: string | null): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const time = new Date(iso).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
+  return `${formatDate(iso)} · ${time}`;
 }

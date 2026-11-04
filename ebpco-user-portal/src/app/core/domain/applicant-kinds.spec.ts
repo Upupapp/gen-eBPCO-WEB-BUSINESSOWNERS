@@ -11,7 +11,7 @@ describe('Who may apply for a permit type', () => {
   it('names the chip the same way everywhere', () => {
     expect(applicantKindsChip(['residential', 'business'])).toBe('Homes & businesses');
     expect(applicantKindsChip(['business'])).toBe('Business only');
-    expect(applicantKindsChip(['residential'])).toBe('Residential only');
+    expect(applicantKindsChip(['residential'])).toBe('Private individuals only');
   });
 
   it('reads a missing, empty or unknown answer as both, so an older server hides nothing', () => {
@@ -27,7 +27,7 @@ describe('Who may apply for a permit type', () => {
   it('says who usually applies only for Sign, Fencing, Interior Design and the Certificate of Occupancy', () => {
     const withNote = FILEABLE_PERMIT_TYPES.filter((type) => usualUseNote(type) !== null).sort();
     expect(withNote).toEqual(['Certificate of Occupancy', 'Fencing Permit', 'Interior Design Permit', 'Sign Permit']);
-    expect(usualUseNote('Sign Permit')).toBe('Usually a business sign; a home-based practice can apply as Residential.');
+    expect(usualUseNote('Sign Permit')).toBe('Usually a business sign; a home-based practice can apply as a private individual.');
     expect(usualUseNote('Fencing Permit')).toBe('Usually for homes.');
     expect(usualUseNote('Interior Design Permit')).toBe('Usually shop and office fit-outs.');
     expect(usualUseNote('Certificate of Occupancy')).toBe('After the building work is done, before the building is used.');

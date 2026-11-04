@@ -159,6 +159,34 @@ describe('ApplicationWizardPage — use or character of occupancy, if-applicable
     expect(el.querySelector('h1')?.textContent?.trim()).toBe('New Building Permit application');
   });
 
+  it('names the application type in the title, not always "New" (design review I17)', () => {
+    const { fixture, el } = configure('Building Permit');
+    // Chosen as the citizen chooses it, so the page re-renders.
+    const type = el.querySelector<HTMLSelectElement>('#application-wizard-application-type-2')!;
+    type.selectedIndex = Array.from(type.options).findIndex((o) => o.textContent?.trim() === 'Renewal');
+    type.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(el.querySelector('h1')?.textContent?.trim()).toBe('Renewal Building Permit application');
+    expect(Array.from(el.querySelectorAll('#application-wizard-application-type-2 option')).map((o) => o.textContent?.trim()))
+      .toEqual(['New', 'Renewal', 'Amendment']);
+    // The Renewal checklist it asks for on the change.
+    http.match((r) => r.urlWithParams.includes('applicationAction=Renewal'))
+      .forEach((r) => r.flush({ permitType: 'Building Permit', documents: [] }));
+  });
+
+  it('shows the message of a refused field under it, points the control at it, and keeps the banner for others (design review I14)', () => {
+    const { fixture, el, page } = configure('Building Permit');
+    page.applyingAs = 'residential';
+    page.toStep(2);
+    fixture.detectChanges();
+    const select = el.querySelector('#application-wizard-occupancy')!;
+    expect(el.querySelector('#application-wizard-occupancy-error')?.textContent?.trim()).toBe('Choose the use or character of occupancy.');
+    expect(select.getAttribute('aria-describedby')).toBe('application-wizard-occupancy-error');
+    expect(select.getAttribute('aria-invalid')).toBe('true');
+    expect(el.querySelector('#application-wizard-occupancy-hint')).toBeNull();
+    expect(el.querySelector('.field.error')).toBeNull();
+  });
+
   it('asks it of a Certificate of Occupancy too', () => {
     const { el } = configure('Certificate of Occupancy');
     expect(occupancySelect(el)).not.toBeNull();
@@ -303,7 +331,7 @@ describe('ApplicationWizardPage — use or character of occupancy, if-applicable
     expect(page.step()).toBe(1);
   });
 
-  it('Documents: "If applicable" instead of "Optional", and each document says whether paper copies are needed', () => {
+  it('Documents: "If applicable" instead of "Optional", "online only" said once, a chip only where paper is needed', () => {
     const { fixture, el, page } = configure('Building Permit', {
       permitType: 'Building Permit',
       documents: [
@@ -334,12 +362,15 @@ describe('ApplicationWizardPage — use or character of occupancy, if-applicable
     const rows = Array.from(el.querySelectorAll('li.req'));
     const fire = rows.find((r) => r.textContent?.includes('Fire Safety Evaluation Clearance'))!;
     const road = rows.find((r) => r.textContent?.includes('Road Clearance'))!;
-    expect(Array.from(fire.querySelectorAll('.req-copies')).map((c) => c.textContent?.trim())).toEqual(['Hard copies: 1', BFP_NOTE]);
-    expect(Array.from(road.querySelectorAll('.req-copies')).map((c) => c.textContent?.trim())).toEqual(['Online only, no hard copy']);
-    // The portal's own chip and muted sub-line, not styles of this page's own.
+    // One line above the list (design review I13), not "Online only, no hard copy" on every row.
+    expect(el.querySelector('.req-online-note')?.textContent?.trim()).toBe('Upload everything online. Paper copies only where marked.');
+    expect(el.textContent).not.toContain('Online only, no hard copy');
+    expect(fire.querySelector('.req-copies .badge')?.textContent?.trim()).toBe('Hard copies: 1');
+    expect(fire.querySelector('.req-copies .doc-sub')?.textContent?.trim()).toBe(BFP_NOTE);
+    expect(road.querySelector('.req-copies')).toBeNull();
+    // The portal's own chips and muted sub-line, not styles of this page's own.
     expect(Array.from(el.querySelectorAll('.req-group-title')).map((t) => [t.classList.contains('tag'), t.classList.contains('tag-strong')]))
       .toEqual([[true, true], [true, false]]);
-    expect(Array.from(fire.querySelectorAll('.req-copies')).every((c) => c.classList.contains('doc-sub'))).toBe(true);
   });
 
   it('Review: counts required documents only ("n of m required attached"), if-applicable ones aside', () => {

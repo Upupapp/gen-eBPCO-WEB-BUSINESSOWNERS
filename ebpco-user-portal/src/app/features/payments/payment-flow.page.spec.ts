@@ -39,14 +39,16 @@ function render(options: {
   startGcash?: () => Observable<GcashCheckoutStart>;
 }) {
   const startGcashPayment = vi.fn(options.startGcash ?? (() => of(start(`${window.location.origin}/pay/gcash/chk-1?t=secret`))));
+  const submitPaymentReal = vi.fn(async () => ({ ok: true as const, settles: true }));
   TestBed.configureTestingModule({
     imports: [PaymentFlowPage],
     providers: [
       provideRouter([]),
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ applicationId: 'app-1' }) } } },
       { provide: ApplicationStore, useValue: {
-          applicationById: (id: string) => ({ id, applicationNumber: 'BP-2026-000123', permitType: 'Building Permit' }),
+          applicationById: (id: string) => ({ id, applicationNumber: 'BP-2026-000123', permitType: 'Building Permit', paymentStatus: 'Not Yet Available' }),
           assessmentFor: () => undefined,
+          submitPaymentReal,
         } },
       { provide: CitizenApiClient, useValue: {
           configured: true,
@@ -72,7 +74,7 @@ function render(options: {
     radios().find((r) => r.value === method)!.click();
     fixture.detectChanges();
   };
-  return { fixture, el, page, radios, cards, button, choose, navigateByUrl, startGcashPayment };
+  return { fixture, el, page, radios, cards, button, choose, navigateByUrl, startGcashPayment, submitPaymentReal };
 }
 
 async function settle(fixture: { whenStable(): Promise<unknown>; detectChanges(): void }) {
@@ -91,8 +93,10 @@ describe('PaymentFlowPage — payment methods, and GCash', () => {
     expect(radios().map((r) => r.value)).toEqual(['GCash', 'Onsite']);
     expect(cards()).toEqual([
       // The radio card every method uses; GCash in test mode carries the "Test mode" chip.
-      ['GCash', 'Pay online. No real money is charged.', 'Test mode'],
-      ['Onsite Payment', 'Pay at the Municipal Hall, then mark it paid here.', null],
+      // Test mode is said by the chip and the checkout callout, once each (design review I15).
+      ['GCash', 'Pay online.', 'Test mode'],
+      // Paid at the Treasurer's Office, as the Order of Payment says (design review I2).
+      ['Onsite Payment', "Pay at the Treasurer's Office, then tell us here.", null],
     ]);
     // Onsite stays the starting choice, as before.
     expect(page.method()).toBe('Onsite');
@@ -101,9 +105,9 @@ describe('PaymentFlowPage — payment methods, and GCash', () => {
   it('GCash: "Pay with GCash" opens the checkout the server returns, on this site', async () => {
     const { fixture, el, choose, button, navigateByUrl, startGcashPayment } = render({ methods: () => of([GCASH, ONSITE]) });
     choose('GCash');
-    expect(el.textContent).toContain('You go to the checkout page to pay ₱6,820.50.');
-    expect(el.textContent).toContain('no real money is charged');
-    expect(button('Mark as Paid')).toBeUndefined();
+    expect(el.textContent).toContain('You go to the GCash test checkout to pay ₱6,820.50; the Cashier then verifies it');
+    expect(el.textContent).not.toContain('no real money is charged');
+    expect(button('I Have Paid')).toBeUndefined();
 
     button('Pay with GCash')!.click();
     await settle(fixture);
@@ -144,15 +148,43 @@ describe('PaymentFlowPage — payment methods, and GCash', () => {
   it('falls back to Onsite alone when the methods cannot be read', () => {
     const { el, radios, button } = render({ methods: () => throwError(() => new Error('offline')) });
     expect(radios()).toEqual([]);
-    expect(el.textContent).toContain('Pay onsite at the Municipal Hall.');
-    expect(button('Mark as Paid')).toBeDefined();
+    expect(el.textContent).toContain("Pay at the Municipal Treasurer's Office (Cashier), Castilla Town Hall. Bring your Order of Payment.");
+    expect(el.textContent).not.toContain('Office of the Municipal Engineer');
+    expect(button('I Have Paid')).toBeDefined();
     expect(button('Pay with GCash')).toBeUndefined();
   });
 
   it('offers GCash alone, straight away, when it is the only method open', () => {
     const { el, radios, button } = render({ methods: () => of([GCASH]) });
     expect(radios()).toEqual([]);
-    expect(el.textContent).not.toContain('Pay onsite at the Municipal Hall.');
+    expect(el.textContent).not.toContain("Pay at the Municipal Treasurer's Office");
     expect(button('Pay with GCash')).toBeDefined();
+  });
+
+  it("shows the fees, Total amount due and Balance as one table, the balance never red", () => {
+    const { el } = render({ methods: () => of([GCASH, ONSITE]) });
+    const table = el.querySelector('app-assessment-table table')!;
+    expect(Array.from(table.querySelectorAll('tbody tr')).map((r) => Array.from(r.querySelectorAll('td')).map((td) => td.textContent?.trim()).join(' ')))
+      .toEqual(['Filing Fee ₱5,000.00', 'Processing Fee ₱1,820.50']);
+    expect(Array.from(table.querySelectorAll('tfoot td:first-child')).map((c) => c.textContent?.trim()))
+      .toEqual(['Total amount due', 'Balance']);
+    expect(table.querySelectorAll('tbody td.num, tfoot td.num').length).toBe(4);
+    expect(el.innerHTML).not.toContain('danger-text');
+  });
+
+  it('onsite: "I Have Paid" asks once, and sends the OR number when the citizen gives one', async () => {
+    const { fixture, el, button, submitPaymentReal } = render({ methods: () => of([ONSITE]) });
+    button('I Have Paid')!.click();
+    fixture.detectChanges();
+    expect(el.textContent).toContain("Have you paid ₱6,820.50 at the Municipal Treasurer's Office?");
+    const or = el.querySelector<HTMLInputElement>('#payment-flow-or-number')!;
+    or.value = ' 1234567 ';
+    or.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    button('Yes, I Have Paid')!.click();
+    await settle(fixture);
+    expect(submitPaymentReal).toHaveBeenCalledWith('app-1', expect.objectContaining({
+      method: 'Onsite', referenceNumber: 'OR 1234567', amountCentavos: 682050,
+    }));
   });
 });

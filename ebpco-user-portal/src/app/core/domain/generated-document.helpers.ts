@@ -1,4 +1,17 @@
 import { PermitType, PublishedPermitType } from './permit.model';
+import { OFFICES } from './lgu-contact';
+import { requirementsFor } from './requirements-catalog';
+
+/**
+ * The office a permit type's documents name as issuer (the letterhead, the
+ * signature's fallback): the catalog's, which reads OFFICES; the Building
+ * Official for anything the catalog does not hold, as the backend's
+ * issuingOfficeFor does.
+ */
+export function issuingOfficeFor(permitType: PublishedPermitType | null | undefined): string {
+  if (!permitType || permitType === 'Business Permit') return OFFICES.buildingOfficial.name;
+  return requirementsFor(permitType as PermitType)?.reviewingOffice ?? OFFICES.buildingOfficial.name;
+}
 
 // Small, honest helpers for the applicant-facing generated permit document
 // (features/applications/permit-document.page.ts) — deliberately leaner

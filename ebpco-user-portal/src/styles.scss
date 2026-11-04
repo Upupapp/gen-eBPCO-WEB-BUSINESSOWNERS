@@ -120,6 +120,7 @@
   --icon-bell: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7080' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9a6 6 0 0 1 12 0c0 4 1.5 5.5 2 6H4c.5-.5 2-2 2-6zM10 19a2 2 0 0 0 4 0'/%3E%3C/svg%3E");
   --icon-search: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7080' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");
   --icon-file: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7080' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 3v5h5'/%3E%3C/svg%3E");
+  --icon-chevron-right: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7080' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 6 6 6-6 6'/%3E%3C/svg%3E");
 }
 
 @media (max-width: 640px) {
@@ -241,6 +242,8 @@ a:hover { text-decoration: underline; }
 .stack > .card + .card,
 .grid > .card + .card { margin-top: 0; }
 .card-title { font-size: 16px; font-weight: 700; color: var(--gray-900); margin-bottom: 12px; }
+// A card's own buttons, in one row under its content.
+.card-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
 // Card header: an optional 32px icon tile, the title (and a line under it),
 // and actions on the right.
 .card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
@@ -467,7 +470,13 @@ a:hover { text-decoration: underline; }
 .btn-danger-outline:hover:not(:disabled) { background: var(--danger-100); border-color: var(--danger-200); color: var(--danger-text); }
 .btn-danger { background: var(--danger-text); color: #fff; border-color: var(--danger-text); }
 .btn-danger:hover:not(:disabled) { background: #991b1b; border-color: #991b1b; color: #fff; }
+// A reference number (E-BPCO-2026-000020, OP-2026-000004) never breaks inside itself.
+.nowrap { white-space: nowrap; }
 .btn-block { width: 100%; }
+// A form's one primary action: its own width on a wide screen, like every
+// other primary button, and the whole row on a phone, where it is the thumb's
+// target.
+@media (max-width: 640px) { .btn-phone-block { width: 100%; } }
 .btn-sm { min-height: 32px; padding: 5px 12px; font-size: 13px; }
 .btn-lg { min-height: 44px; padding: 11px 18px; font-size: 15px; }
 // A ghost button that starts a line of content ("Show archived documents"):
@@ -577,7 +586,30 @@ textarea.input { padding: 9px 12px; line-height: 1.5; }
   border-color: var(--primary-500);
   box-shadow: var(--focus-ring);
 }
-.input.invalid { border-color: var(--danger-500); }
+// Invalid: the red border plus a faint danger fill, so it never reads as the
+// (also red) focus ring alone. The message sits under the field (.field-error).
+.input.invalid, .input[aria-invalid='true'] { border-color: var(--danger-500); background-color: var(--danger-50); }
+// A field's own error, directly under it in place of its hint (house style:
+// 12px #b91c1c with an icon). aria-describedby on the control points here.
+.field-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--danger-text);
+}
+.field-error::before {
+  content: '';
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+  background-color: currentColor;
+  -webkit-mask: var(--icon-alert) center / contain no-repeat;
+  mask: var(--icon-alert) center / contain no-repeat;
+}
 .input:disabled { background: var(--gray-100); color: var(--gray-500); cursor: not-allowed; }
 // Read-only values must not look like fields waiting for input.
 .input[readonly] { background: var(--gray-50); color: var(--gray-700); }
@@ -710,7 +742,9 @@ select.input {
 }
 .choice-cards .choice-card:hover { border-color: var(--primary-500); }
 .choice-cards .choice-card.selected { border-color: var(--primary-500); background: var(--primary-50); }
-.choice-cards .choice-card:focus-within { outline: 2px solid var(--primary-500); outline-offset: 2px; }
+// Keyboard focus only: :focus-within also fired on a mouse click, which drew
+// a second red ring around the selected card and read as an error.
+.choice-cards .choice-card:has(input:focus-visible) { outline: 2px solid var(--primary-500); outline-offset: 2px; }
 .choice-cards .choice-card input { margin: 3px 0 0; accent-color: var(--primary-500); }
 .choice-card-text { display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: var(--gray-600); }
 .choice-card-text strong { font-size: 14px; color: var(--gray-900); }
@@ -897,6 +931,9 @@ table.table tbody tr:hover td { background: var(--gray-50); }
 table.table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 table.table tfoot td { border-top: 1px solid var(--border-medium); border-bottom: none; font-weight: 600; color: var(--gray-900); }
 table.table tfoot tr + tr td { border-top: none; padding-top: 0; font-weight: 500; color: var(--gray-500); }
+// The balance still to pay: the figure that matters, bold ink, never red (an
+// ordinary unpaid bill is not overdue).
+table.table tfoot tr.table-balance td { font-weight: 700; color: var(--gray-900); }
 
 // A long reference number or permit type name was the single biggest
 // contributor to a table needing the horizontal scroll above at all — this
@@ -1059,7 +1096,9 @@ table.table tfoot tr + tr td { border-top: none; padding-top: 0; font-weight: 50
 .doc-generated-fields div { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px dotted #b0b0b0; padding: 2px 0; }
 .doc-generated-fields dt { font-family: Arial, Helvetica, sans-serif; font-size: 8.5pt; color: #5a5a5a; white-space: nowrap; }
 .doc-generated-fields dd { margin: 0; font-weight: 600; text-align: right; }
-.doc-generated-placeholder { font-style: italic; color: #8a8a8a; font-weight: 400; }
+// A note that stands in for a value ("Not yet assigned", "No conditions were
+// recorded"): the lightest ink allowed on white, upright, never pale italic.
+.doc-generated-placeholder { color: #6b7080; font-weight: 400; }
 
 .doc-generated-table { width: 100%; border-collapse: collapse; font-size: 9pt; margin: 6px 0; }
 .doc-generated-table th, .doc-generated-table td { border: 1px solid #333; padding: 5px 8px; text-align: left; }
@@ -1081,22 +1120,29 @@ table.table tfoot tr + tr td { border-top: none; padding-top: 0; font-weight: 50
 
 .doc-generated-note { font-size: 8.5pt; color: #5a5a5a; margin: 5px 0 0; }
 
-.doc-generated-signature { width: 260px; margin: 24px auto 0; text-align: center; }
+// 320px: the office's full name fits on two lines with no word left alone on
+// the last one (260px left "Office)" by itself).
+.doc-generated-signature { width: 320px; max-width: 100%; margin: 24px auto 0; text-align: center; }
 // The caption (APPROVAL, RECEIVED BY) centred over its signature line, not
 // flush left above a centred line.
 .doc-generated-signature h2 { text-align: center; border: none; }
 .doc-generated-signature .sig-space { height: 48px; }
-.doc-generated-signature .sig-pending { height: 48px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 3px; font-style: italic; font-size: 8.5pt; color: #8a8a8a; }
+.doc-generated-signature .sig-pending { height: 48px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 3px; font-size: 8.5pt; color: #6b7080; }
 .doc-generated-signature .sig-line { border-top: 1px solid #000; margin-top: 3px; }
 .doc-generated-signature .sig-name { font-weight: 700; font-size: 9.5pt; margin-top: 5px; }
 .doc-generated-signature .sig-position { font-family: Arial, Helvetica, sans-serif; font-size: 8pt; color: #5a5a5a; }
 
 .doc-generated-qr { display: flex; flex-direction: column; align-items: center; gap: 5px; margin: 16px 0 8px; }
 .doc-generated-qr svg { width: 78px; height: 78px; border: 1px solid #333; }
-.doc-generated-qr .qr-caption { font-family: Arial, Helvetica, sans-serif; font-size: 7pt; color: #5a5a5a; text-align: center; margin: 0; max-width: 220px; word-break: break-all; }
-.doc-generated-qr .qr-unavailable { font-style: italic; color: #8a8a8a; max-width: 200px; }
+// The address on one line and the number on the next, each whole: break-all
+// split the number as "FP-2026-00 / 0001", which can't be read or typed.
+.doc-generated-qr .qr-caption { font-family: Arial, Helvetica, sans-serif; font-size: 7pt; color: #5a5a5a; text-align: center; margin: 0; max-width: 260px; overflow-wrap: anywhere; }
+.doc-generated-qr .qr-caption .qr-number { white-space: nowrap; font-weight: 700; }
+.doc-generated-qr .qr-unavailable { color: #6b7080; max-width: 200px; }
 
 .doc-generated-conditions { margin: 4px 0 0; padding-left: 20px; font-size: 9.5pt; line-height: 1.5; }
+// "No conditions were recorded by the office.": a plain fact in body ink.
+.doc-generated-empty { margin: 4px 0 0; color: #454a58; }
 .doc-generated-conditions li { margin-bottom: 4px; }
 // Application documents, rendered as chains (task 25).
 .permit-number { font-size: 22px; font-weight: 800; letter-spacing: 0.02em; color: var(--gray-900); }
@@ -1137,7 +1183,6 @@ table.table tfoot tr + tr td { border-top: none; padding-top: 0; font-weight: 50
 .doc-note { margin: 6px 0 0; font-size: 13px; line-height: 1.45; color: var(--gray-700); }
 .doc-note-danger { color: var(--danger-text); }
 .doc-history { margin-top: 8px; }
-.doc-history summary { cursor: pointer; font-size: 13px; color: var(--gray-600); }
 .doc-old { border-left: 3px solid var(--border-medium); padding: 6px 0 6px 10px; margin-top: 8px; }
 @media (max-width: 560px) {
   .doc-row { grid-template-columns: 32px minmax(0, 1fr) auto; row-gap: 8px; }
@@ -1145,7 +1190,7 @@ table.table tfoot tr + tr td { border-top: none; padding-top: 0; font-weight: 50
 }
 // In the application details' right rail (~340px) the facts sit two to a row.
 .detail-rail .kv { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.doc-generated-footer { margin-top: 24px; padding-top: 8px; border-top: 1px solid #333; font-family: Arial, Helvetica, sans-serif; font-size: 7.5pt; color: #8a8a8a; text-align: center; }
+.doc-generated-footer { margin-top: 24px; padding-top: 8px; border-top: 1px solid #333; font-family: Arial, Helvetica, sans-serif; font-size: 7.5pt; color: #6b7080; text-align: center; }
 .doc-generated-footer p { margin: 2px 0; }
 
 .doc-generated-watermark {
@@ -1177,6 +1222,22 @@ table.table tfoot tr + tr td { border-top: none; padding-top: 0; font-weight: 50
 }
 .doc-generated-page > :not(.doc-generated-watermark) { position: relative; z-index: 1; }
 
+// The A4 documents (permit, Official Receipt, Order of Payment) on a phone.
+// The paper is 210mm (~794px) wide, and on a 390px screen the right half
+// (Date Issued, Valid until, the amounts) was cut off and could not be
+// reached. Below 840px the paper reflows to the screen's width; .doc-scroll
+// lets anything still wider (a long table) pan sideways instead of being
+// cropped. Screen only: print keeps the A4 layout (@media print below).
+// No transform: scale, which shrinks the text past reading size.
+.doc-scroll { overflow-x: auto; }
+@media screen and (max-width: 840px) {
+  .doc-generated-page { width: 100%; max-width: 210mm; min-height: 0; padding: 20px 16px; }
+  .doc-generated-fields { grid-template-columns: 1fr; }
+  .doc-generated-fields dt { white-space: normal; }
+  .doc-generated-numberblock .num-dates { flex-wrap: wrap; gap: 4px 16px; }
+  .doc-generated-signature { width: auto; max-width: 320px; }
+}
+
 // a11y (WCAG 1.4.1): an inline link inside a block of text must not be
 // distinguishable by colour alone. Standalone links that are visually obvious
 // from their placement — nav items, buttons, cards — are exempt via .btn and
@@ -1185,6 +1246,9 @@ table.table tfoot tr + tr td { border-top: none; padding-top: 0; font-weight: 50
 // "Don't have an account? Register", which lives in a plain <div>, not a <p>.
 // Keyed on the LINK, with real navigation chrome excluded, rather than on the
 // container: keying on <p> missed exactly the two highest-traffic cases.
+// A soft underline (design review I20): thin, in the link's own colour at 40%,
+// clear of the descenders. It still marks the link without relying on colour,
+// which brand red against body ink (about 1.6:1) cannot do alone.
 p a:not(.btn),
 dd a:not(.btn),
 li a:not(.btn),
@@ -1192,12 +1256,56 @@ div.small a:not(.btn),
 div.muted a:not(.btn),
 label a:not(.btn) {
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 3px;
+}
+p a:not(.btn):hover,
+dd a:not(.btn):hover,
+li a:not(.btn):hover,
+div.small a:not(.btn):hover,
+div.muted a:not(.btn):hover,
+label a:not(.btn):hover { text-decoration-color: currentColor; }
+
+// The house disclosure ("What to upload here", "2 earlier versions"): no
+// browser ▶ marker; a 16px chevron that turns when open, 13px/600 ink-700,
+// a 32px target, a hover tint and a focus ring like every other control.
+details > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  margin-left: -8px;
+  padding: 0 8px;
+  border-radius: var(--radius-md);
+  list-style: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-700);
+  cursor: pointer;
+}
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before {
+  content: '';
+  flex: none;
+  width: 16px;
+  height: 16px;
+  background-color: currentColor;
+  -webkit-mask: var(--icon-chevron-right) center / contain no-repeat;
+  mask: var(--icon-chevron-right) center / contain no-repeat;
+  transition: transform var(--ease-base);
+}
+details[open] > summary::before { transform: rotate(90deg); }
+details > summary:hover { background: var(--gray-100); }
+details > summary:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+@media (prefers-reduced-motion: reduce) {
+  details > summary::before { transition: none; }
 }
 
 @media print {
   @page { size: A4; margin: 0; }
   .doc-generated-page { border: none; }
+  .doc-scroll { overflow: visible !important; }
   .no-print { display: none !important; }
 
   // F-18: the permit document lives inside the app shell, and the shell used to

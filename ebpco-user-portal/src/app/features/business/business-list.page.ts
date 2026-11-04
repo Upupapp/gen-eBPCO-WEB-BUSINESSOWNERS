@@ -68,8 +68,8 @@ const ICONS = {
         <div class="card empty-state">
           You haven't registered a business yet.
           <p class="small muted" style="margin:6px 0 0;">
-            You only need one to apply as a Business. For your home or other private property, apply as
-            Residential / Private Individual.
+            You only need one to apply as a business. For your home or your family's property, apply as a
+            private individual.
           </p>
           <div style="margin-top:12px;"><a routerLink="/businesses/register" class="btn btn-primary">Register Your First Business</a></div>
         </div>

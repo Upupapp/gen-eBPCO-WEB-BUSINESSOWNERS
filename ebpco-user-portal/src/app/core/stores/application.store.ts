@@ -20,7 +20,7 @@ import {
   GENERIC_APPLICATION_DOCUMENTS, RequirementDocument, documentsFor, requirementFromApi, requirementsFor,
 } from '../domain/requirements-catalog';
 import { nextId, todayIso } from '../utils/ids';
-import { MUNICIPAL_ENGINEER } from '../domain/lgu-contact';
+import { MUNICIPAL_ENGINEER, MUNICIPAL_TREASURER, OFFICES } from '../domain/lgu-contact';
 import { CitizenApiClient, newIdempotencyKey } from '../api/citizen-api.client';
 import {
   ApplicationDocumentResponse,
@@ -330,7 +330,7 @@ export class ApplicationStore {
         expiryDateValue: new Date(app2.expiryDate!),
         expiryDate: app2.expiryDate!,
         approvingOfficial: 'Zoning Administrator',
-        approvingOffice: 'Municipal Planning and Development Office (MPDO / Zoning)',
+        approvingOffice: OFFICES.zoning.name,
       },
     });
     this.assessmentsByApp.set({
@@ -363,7 +363,7 @@ export class ApplicationStore {
           applicationId: app2.id,
           amountCentavos: 85000,
           method: 'Onsite',
-          agency: 'OBO/LGU',
+          agency: MUNICIPAL_TREASURER.name,
           transactionReference: 'ONSITE-20260727-0231',
           proofFileName: null,
           status: 'Verified',
@@ -1040,7 +1040,7 @@ export class ApplicationStore {
       applicationId,
       amountCentavos: assessment.balanceCentavos,
       method,
-      agency: 'OBO/LGU',
+      agency: MUNICIPAL_TREASURER.name,
       transactionReference: referenceOrProof,
       proofFileName: method === 'Bank Transfer' ? referenceOrProof : null,
       status: 'Pending Verification',
@@ -1132,7 +1132,7 @@ export class ApplicationStore {
             applicationId,
             amountCentavos: assessment.totalCentavos,
             method: 'Onsite',
-            agency: 'OBO/LGU',
+            agency: MUNICIPAL_TREASURER.name,
             transactionReference: `DEMO-${nextId('').replace('-', '')}`,
             proofFileName: null,
             status: 'Verified',

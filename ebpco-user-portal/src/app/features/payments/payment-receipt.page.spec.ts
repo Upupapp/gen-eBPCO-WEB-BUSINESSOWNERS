@@ -157,29 +157,40 @@ describe('PaymentReceiptPage — Property is where the project is', () => {
     });
     const fixture = TestBed.createComponent(PaymentReceiptPage);
     fixture.detectChanges();
-    const section = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.doc-generated-section'))
-      .find((s) => s.querySelector('h2')?.textContent?.trim() === 'Property');
-    // The rows as [label, value].
+    return fixture.nativeElement as HTMLElement;
+  }
+  /** One section's rows as [label, value]. */
+  function rows(el: HTMLElement, heading: string) {
+    const section = Array.from(el.querySelectorAll('.doc-generated-section'))
+      .find((s) => s.querySelector('h2')?.textContent?.trim() === heading);
     return Array.from(section?.querySelectorAll('.doc-generated-fields > div') ?? [])
       .map((row) => [row.querySelector('dt')?.textContent?.trim(), row.querySelector('dd')?.textContent?.trim()]);
   }
   afterEach(() => TestBed.resetTestingModule());
 
-  it("a Residential application: the address the applicant gave, not four 'Not on file'", () => {
-    expect(render({ businessId: null, businessName: null, applyingAs: 'residential', location: '12 Rizal St., Poblacion, Castilla' }))
-      .toEqual([
-        ['Barangay', 'Poblacion'],
-        ['Street / Location', '12 Rizal St., Poblacion, Castilla'],
-      ]);
+  it("a private individual's application: the address the applicant gave, once", () => {
+    const el = render({ businessId: null, businessName: null, applyingAs: 'residential', location: '12 Rizal St., Poblacion, Castilla' });
+    expect(rows(el, 'Property')).toEqual([['Location', '12 Rizal St., Poblacion, Castilla']]);
+    // No "Business / Project: Residential" beside the occupancy (design review I6).
+    expect(rows(el, 'Payor').map(([label]) => label)).toEqual(['Name']);
   });
 
-  it("no location on the application: the business's address, as before", () => {
+  it("no location on the application: the business's whole address on one line, and its name", () => {
     // biz-1 is the seeded Dela Cruz Hardware & Construction Supply.
-    expect(render({ businessId: 'biz-1', businessName: 'T', location: null })).toEqual([
-      ['Barangay', 'Poblacion'],
-      ['City / Municipality', 'Castilla'],
-      ['Street / Location', '123 Rizal Street'],
-      ['Province', 'Sorsogon'],
-    ]);
+    const el = render({ businessId: 'biz-1', businessName: 'Dela Cruz Hardware', applyingAs: 'business', location: null });
+    expect(rows(el, 'Property')).toEqual([['Location', '123 Rizal Street, Poblacion, Castilla, Sorsogon']]);
+    expect(rows(el, 'Payor')).toContainEqual(['Business name', 'Dela Cruz Hardware']);
+  });
+
+  it("names the Municipal Treasurer's Office as issuer and collecting agency, and never prints an internal id", () => {
+    const el = render({ businessId: null, businessName: null, applyingAs: 'residential', location: 'Bonga' });
+    expect(el.querySelector('.doc-generated-header .office-line')?.textContent?.trim()).toBe("Municipal Treasurer's Office");
+    expect(rows(el, 'Payment Details')).toContainEqual(['Collecting agency', "Municipal Treasurer's Office"]);
+    expect(el.querySelector('.sig-name')?.textContent?.trim()).toBe('Cashier');
+    expect(el.querySelector('.sig-position')?.textContent?.trim()).toBe("Municipal Treasurer's Office");
+    const footer = el.querySelector('.doc-generated-footer')?.textContent ?? '';
+    expect(footer).toContain('Document Ref. BP-1');
+    expect(footer).not.toContain('p1');
+    expect(el.textContent).not.toContain('OBO/LGU');
   });
 });

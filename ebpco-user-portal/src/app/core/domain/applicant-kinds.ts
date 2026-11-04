@@ -28,17 +28,18 @@ export function applicantKindsChip(kinds: readonly ApplyingAs[]): string {
   const residential = kinds.includes('residential');
   const business = kinds.includes('business');
   if (business && !residential) return 'Business only';
-  if (residential && !business) return 'Residential only';
+  // One name for the applicant kind (design review I6): who applies, not what the building is for.
+  if (residential && !business) return 'Private individuals only';
   return 'Homes & businesses';
 }
 
 /**
  * Who usually applies, for the few types where that is worth saying. Guidance
  * only: it never holds anyone back (a doctor's home clinic sign is filed by
- * the doctor, as Residential).
+ * the doctor, as a private individual).
  */
 const USUAL_USE: Partial<Record<PermitType, string>> = {
-  'Sign Permit': 'Usually a business sign; a home-based practice can apply as Residential.',
+  'Sign Permit': 'Usually a business sign; a home-based practice can apply as a private individual.',
   'Fencing Permit': 'Usually for homes.',
   'Interior Design Permit': 'Usually shop and office fit-outs.',
   'Certificate of Occupancy': 'After the building work is done, before the building is used.',

@@ -251,7 +251,14 @@
 // ---------------------------------------------------------------------------
 .ds-main {
   position: relative;
+  // clip, not hidden: hidden makes .ds-main a scroll container, which turned
+  // the top bar's position: sticky off, so on a scrolled phone the fixed menu
+  // toggle floated over the page with no bar under it. clip crops the
+  // decorative blobs the same way without that side effect. hidden stays as
+  // the fallback for iOS Safari < 16. Wide content (the A4 documents) pans in
+  // its own .doc-scroll wrapper instead.
   overflow: hidden;
+  overflow: clip;
   flex: 1;
   min-width: 0;
   background: linear-gradient(135deg, #fff 0%, #fff 57%, #fffafb 78%, #fff5f6 100%);

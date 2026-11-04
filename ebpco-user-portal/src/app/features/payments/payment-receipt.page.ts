@@ -7,11 +7,12 @@ import { AuthService } from '../../core/session/auth.service';
 import { CitizenApiClient } from '../../core/api/citizen-api.client';
 import { PaymentHistoryEntry, ApplicationSummary } from '../../core/api/citizen-api.models';
 import { PaymentTransaction } from '../../core/domain/payment.model';
-import { requirementsFor } from '../../core/domain/requirements-catalog';
 import { agencyHeaderFor } from '../../core/domain/generated-document.helpers';
 import { fullName } from '../../core/domain/user.model';
-import { applyingAsLabel } from '../../core/domain/application.model';
+import { businessNameOnDocument } from '../../core/domain/application.model';
 import { pesos } from '../../core/domain/assessment.model';
+import { BALANCE, feeLinesOf } from '../../core/domain/assessment-view';
+import { MUNICIPAL_TREASURER } from '../../core/domain/lgu-contact';
 import { formatDate, formatDateTime } from '../../core/utils/ids';
 import { BackLinkComponent } from '../../shared/ui/back-link.component';
 
@@ -37,15 +38,6 @@ interface ReceiptAmount {
   lineItems: ReadonlyArray<{ code: string; name: string; amountCentavos: number | null }>;
   balanceCentavos: number;
 }
-
-const FEE_LINES: ReadonlyArray<{ code: keyof NonNullable<ApplicationSummary['payment']['orderOfPayment']>['fees']; name: string }> = [
-  { code: 'filing', name: 'Filing Fee' },
-  { code: 'processing', name: 'Processing Fee' },
-  { code: 'architectural', name: 'Architectural Fee' },
-  { code: 'structural', name: 'Structural Fee' },
-  { code: 'electrical', name: 'Electrical Fee' },
-  { code: 'others', name: 'Other Fees' },
-];
 
 /**
  * The applicant's own generated receipt for a submitted payment — mirrors
@@ -76,6 +68,8 @@ const FEE_LINES: ReadonlyArray<{ code: keyof NonNullable<ApplicationSummary['pay
         </div>
 
         @if (payment(); as tx) {
+          <!-- .doc-scroll: on a phone the paper reflows, and anything still wider pans instead of being cut off (design review I1). -->
+          <div class="doc-scroll">
           <article class="doc-generated-page">
             <div class="doc-generated-watermark" aria-hidden="true">{{ watermarkText() }}</div>
 
@@ -105,8 +99,8 @@ const FEE_LINES: ReadonlyArray<{ code: keyof NonNullable<ApplicationSummary['pay
               </div>
               <div class="num-dates">
                 <span>Application No.: <strong>{{ a.applicationNumber }}</strong></span>
-                <span>Date Submitted: <strong>{{ formatDate(tx.submittedAt) }}</strong></span>
-                <span>Date Verified: <strong>{{ tx.orDate ? formatDate(tx.orDate) : 'Pending' }}</strong></span>
+                <span>Date submitted: <strong>{{ formatDate(tx.submittedAt) }}</strong></span>
+                <span>Date verified: <strong>{{ tx.orDate ? formatDate(tx.orDate) : 'Pending' }}</strong></span>
               </div>
             </div>
 
@@ -117,10 +111,13 @@ const FEE_LINES: ReadonlyArray<{ code: keyof NonNullable<ApplicationSummary['pay
                   <dt>Name</dt>
                   <dd>{{ applicantName() }}</dd>
                 </div>
-                <div>
-                  <dt>Business / Project</dt>
-                  <dd>{{ applyingAsLabel(a) || 'Not provided' }}</dd>
-                </div>
+                <!-- A business's name only on a business application (design review I6). -->
+                @if (businessName(a); as name) {
+                  <div>
+                    <dt>Business name</dt>
+                    <dd>{{ name }}</dd>
+                  </div>
+                }
               </dl>
             </section>
 
@@ -147,11 +144,11 @@ const FEE_LINES: ReadonlyArray<{ code: keyof NonNullable<ApplicationSummary['pay
               <h2>Project</h2>
               <dl class="doc-generated-fields">
                 <div>
-                  <dt>Transaction</dt>
+                  <dt>Application type</dt>
                   <dd>{{ a.applicationAction }}</dd>
                 </div>
                 <div>
-                  <dt>Date Applied</dt>
+                  <dt>Date applied</dt>
                   <dd>{{ a.dateSubmitted ? formatDate(a.dateSubmitted) : 'Pending' }}</dd>
                 </div>
               </dl>
@@ -161,15 +158,15 @@ const FEE_LINES: ReadonlyArray<{ code: keyof NonNullable<ApplicationSummary['pay
               <h2>Payment Details</h2>
               <dl class="doc-generated-fields">
                 <div>
-                  <dt>Collecting Agency</dt>
+                  <dt>Collecting agency</dt>
                   <dd>{{ tx.agency }}</dd>
                 </div>
                 <div>
-                  <dt>Payment Method</dt>
+                  <dt>Payment method</dt>
                   <dd>{{ tx.method }}</dd>
                 </div>
                 <div>
-                  <dt>Reference / Proof</dt>
+                  <dt>Reference / proof</dt>
                   <dd>{{ tx.transactionReference }}</dd>
                 </div>
                 <div>
@@ -200,39 +197,45 @@ const FEE_LINES: ReadonlyArray<{ code: keyof NonNullable<ApplicationSummary['pay
                       </tr>
                     }
                     <tr>
-                      <td><strong>Amount Paid (this transaction)</strong></td>
+                      <td><strong>Amount paid</strong></td>
                       <td class="num"><strong>{{ pesos(tx.amountCentavos) }}</strong></td>
                     </tr>
                     <tr>
-                      <td>{{ gateCleared() ? 'Remaining Balance' : 'Remaining Balance (once verified)' }}</td>
+                      <td>{{ gateCleared() ? balanceLabel : balanceLabel + ' (once verified)' }}</td>
                       <td class="num">{{ pesos(amt.balanceCentavos) }}</td>
                     </tr>
                   </tbody>
                 </table>
               } @else {
-                <p class="doc-generated-note">Amount Paid: {{ pesos(tx.amountCentavos) }}</p>
+                <p class="doc-generated-note">Amount paid: {{ pesos(tx.amountCentavos) }}</p>
               }
             </section>
 
             <section class="doc-generated-section doc-generated-signature">
               <h2>Received By</h2>
+              <!-- The Cashier, of the Municipal Treasurer's Office: the office that issues an Official Receipt (design review I2). -->
               @if (gateCleared()) {
                 <div class="sig-space"></div>
-                <div class="sig-line"></div>
-                <div class="sig-name">Municipal Treasurer's Office Cashier</div>
-                <div class="sig-position">{{ header().officeLine }}</div>
               } @else {
-                <div class="sig-pending">Pending Cashier Verification</div>
-                <div class="sig-line"></div>
-                <div class="sig-name">Municipal Treasurer's Office Cashier</div>
+                <div class="sig-pending">Pending Cashier verification</div>
               }
+              <div class="sig-line"></div>
+              <div class="sig-name">{{ treasurer.cashierLabel }}</div>
+              <div class="sig-position">{{ treasurer.name }}</div>
             </section>
 
             <footer class="doc-generated-footer">
-              @if (gateCleared()) {
+              @if (gateCleared() && tx.method === 'GCash') {
+                <!-- A GCash payer gets no stamped paper receipt to call the original (whether the Treasurer issues one is a question for the LGU). -->
+                <p>
+                  This is an electronic copy of an Official Receipt recorded by the Municipality of Castilla, Sorsogon.
+                  Paid online through GCash, ref {{ tx.transactionReference }}; Official Receipt No. {{ tx.orNumber }}
+                  recorded by the {{ treasurer.cashierLabel }}.
+                </p>
+              } @else if (gateCleared()) {
                 <p>
                   This is an electronic copy of an Official Receipt recorded by the Municipality of Castilla,
-                  Sorsogon. The stamped paper receipt from the Municipal Treasurer's Office is the original.
+                  Sorsogon. The stamped paper receipt from the {{ treasurer.name }} is the original.
                 </p>
               } @else {
                 <p>
@@ -241,9 +244,10 @@ const FEE_LINES: ReadonlyArray<{ code: keyof NonNullable<ApplicationSummary['pay
                   Office issues an Official Receipt, upon verifying a payment it actually received.
                 </p>
               }
-              <p>Document Ref. {{ tx.id }} &middot; Generated {{ generatedOn }} &middot; Page 1 of 1</p>
+              <p>Document Ref. {{ documentRef(tx, a.applicationNumber) }} &middot; Generated {{ generatedOn }} &middot; Page 1 of 1</p>
             </footer>
           </article>
+          </div>
         } @else {
           <div class="card empty-state">No payment has been submitted for this application yet.</div>
         }
@@ -268,15 +272,11 @@ export class PaymentReceiptPage {
   protected readonly formatDate = formatDate;
   protected readonly formatDateTime = formatDateTime;
   protected readonly pesos = pesos;
-  /** "Residential", or the business's name, under Business / Project (migration 067). */
-  protected readonly applyingAsLabel = applyingAsLabel;
-  protected readonly generatedOn = new Date().toLocaleString('en-PH', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  /** The business's name on a business application; null (no row) on a private individual's. */
+  protected readonly businessName = businessNameOnDocument;
+  protected readonly treasurer = MUNICIPAL_TREASURER;
+  protected readonly balanceLabel = BALANCE;
+  protected readonly generatedOn = formatDateTime(new Date().toISOString());
 
   /**
    * `realChecked` separates "confirmed — nothing real here" from "the
@@ -321,9 +321,7 @@ export class PaymentReceiptPage {
       if (!real) return undefined;
       return {
         // Only the fees that apply (QA TC-05): a ₱0.00 line read as a charge.
-        lineItems: FEE_LINES.map((line) => ({
-          code: line.code, name: line.name, amountCentavos: real.fees[line.code],
-        })).filter((line) => line.amountCentavos > 0),
+        lineItems: feeLinesOf(real),
         // Pay-in-full, not instalments — the real backend has no partial-payment
         // concept (PaymentService.checkSettles is a binary "does this amount
         // clear the Order", never a running balance). Paid means zero owed.
@@ -367,7 +365,7 @@ export class PaymentReceiptPage {
         id: latest.id,
         amountCentavos: latest.amountCentavos,
         method: latest.method,
-        agency: 'OBO/LGU',
+        agency: MUNICIPAL_TREASURER.name,
         transactionReference: latest.referenceNumber,
         status: latest.status,
         submittedAt: latest.submittedAt,
@@ -381,7 +379,7 @@ export class PaymentReceiptPage {
       id: demo.id,
       amountCentavos: demo.amountCentavos,
       method: demo.method,
-      agency: demo.agency,
+      agency: demo.agency || MUNICIPAL_TREASURER.name,
       transactionReference: demo.transactionReference,
       status: demo.status,
       submittedAt: demo.submittedAt,
@@ -399,12 +397,13 @@ export class PaymentReceiptPage {
 
   protected readonly isOfficial = computed(() => !!this.payment()?.orNumber);
 
-  protected readonly header = computed(() => {
-    const a = this.app();
-    const reviewingOffice =
-      a && a.permitType !== 'Business Permit' ? requirementsFor(a.permitType).reviewingOffice : 'Office of the Building Official (OBO)';
-    return agencyHeaderFor(reviewingOffice);
-  });
+  /** The Municipal Treasurer's Office issues an Official Receipt, so it heads the receipt (it named the Building Official). */
+  protected readonly header = computed(() => agencyHeaderFor(MUNICIPAL_TREASURER.name));
+
+  /** The footer's reference: the OR number, else the Order of Payment's, else the application number. Never the payment's internal id. */
+  protected documentRef(tx: ReceiptPayment, applicationNumber: string): string {
+    return tx.orNumber ?? this.realOrderOfPayment()?.number ?? applicationNumber;
+  }
 
   /**
    * Always present, never "SAMPLE": a verified receipt carried an "OFFICIAL

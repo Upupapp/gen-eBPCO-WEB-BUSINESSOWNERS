@@ -1,4 +1,4 @@
-import { barangayIn, propertyLine, propertyRows } from './property-address';
+import { addressLine, barangayIn, propertyLine, propertyRows } from './property-address';
 
 /** The property a printed document shows: the application's own address first, the business's only when it gave none. */
 describe('property-address', () => {
@@ -14,26 +14,28 @@ describe('property-address', () => {
     expect(barangayIn('Oraside Subdivision')).toBeNull();
   });
 
-  it("uses the application's address, with its barangay, over the business's", () => {
+  it("prints the application's address once, as one Location row, over the business's", () => {
+    // No Barangay row beside it: the address already names the barangay (design review I3).
     expect(propertyRows(' 12 Rizal St., Poblacion, Castilla ', business)).toEqual([
-      { label: 'Barangay', value: 'Poblacion', wide: false },
-      { label: 'Street / Location', value: '12 Rizal St., Poblacion, Castilla', wide: true },
+      { label: 'Location', value: '12 Rizal St., Poblacion, Castilla', wide: true },
     ]);
     expect(propertyRows('Lot 4, Sitio Malapad', undefined)).toEqual([
-      { label: 'Street / Location', value: 'Lot 4, Sitio Malapad', wide: true },
+      { label: 'Location', value: 'Lot 4, Sitio Malapad', wide: true },
     ]);
     expect(propertyLine('Lot 4, Sitio Malapad', business)).toBe('Lot 4, Sitio Malapad');
   });
 
-  it("falls back to the business's address, else 'Not on file'", () => {
+  it("falls back to the business's whole address on one line, else 'Not on file'", () => {
     expect(propertyRows(null, business).map((r) => [r.label, r.value])).toEqual([
-      ['Barangay', 'Poblacion'],
-      ['City / Municipality', 'Castilla'],
-      ['Street / Location', '123 Rizal Street'],
-      ['Province', 'Sorsogon'],
+      ['Location', '123 Rizal Street, Poblacion, Castilla, Sorsogon'],
     ]);
     expect(propertyRows('   ', undefined).every((r) => r.value === 'Not on file')).toBe(true);
-    expect(propertyLine(undefined, business)).toBe('123 Rizal Street, Poblacion, Castilla');
+    expect(propertyLine(undefined, business)).toBe('123 Rizal Street, Poblacion, Castilla, Sorsogon');
     expect(propertyLine(null, undefined)).toBe('Not on file');
+  });
+
+  it('joins only the parts of an address that are filled in', () => {
+    expect(addressLine(['10 Rizal Street', 'Bonga', ' ', null, 'Sorsogon'])).toBe('10 Rizal Street, Bonga, Sorsogon');
+    expect(addressLine([undefined, ''])).toBe('');
   });
 });

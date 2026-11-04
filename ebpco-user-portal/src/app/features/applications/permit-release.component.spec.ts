@@ -35,7 +35,8 @@ describe('PermitRelease — can the citizen collect it? (task 21)', () => {
   it('renders the RECORDED ready branch as collectable, with where to go', () => {
     const el = render(READY.permitNumber, READY.release);
     expect(el.textContent).toContain('Ready to collect');
-    expect(el.textContent).toContain('Office of the Municipal Engineer');
+    // The issuing office's one name (design review I5).
+    expect(el.textContent).toContain('Office of the Building Official (Municipal Engineering Office)');
     expect(el.querySelector('.release-ready')).toBeTruthy();
   });
 

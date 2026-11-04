@@ -8,7 +8,7 @@ import { StatusPillComponent } from '../../shared/ui/status-pill.component';
 import { VerificationBannerComponent } from '../../shared/ui/verification-banner.component';
 import { applicantStatusLabel, applicantStatusOf, isTerminalStatus } from '../../core/domain/status.model';
 import { fullName } from '../../core/domain/user.model';
-import { applyingAsLabel } from '../../core/domain/application.model';
+import { applicantLabel } from '../../core/domain/application.model';
 import { formatDate } from '../../core/utils/ids';
 import { permitVisual } from '../../core/domain/permit-visual';
 
@@ -56,8 +56,8 @@ export class DashboardPage {
 
   protected readonly formatDate = formatDate;
   protected readonly icons = ICONS;
-  /** "Residential", or the business's name, where a row used to show only the business. */
-  protected readonly applyingAsLabel = applyingAsLabel;
+  /** "Private individual", or the business's name, where a row used to show only the business. */
+  protected readonly applicantLabel = applicantLabel;
 
   firstName(): string {
     const u = this.auth.currentUser();

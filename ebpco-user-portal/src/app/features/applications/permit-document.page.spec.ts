@@ -106,20 +106,16 @@ describe('PermitDocumentPage (Property is where the project is)', () => {
       : a)));
     fixture.detectChanges();
 
-    // The address as filed, and the one Castilla barangay it names; nothing "Not on file".
+    // The address as filed, printed once: no Barangay row repeating it (design review I3).
     expect(propertyRows(fixture.nativeElement as HTMLElement)).toEqual([
-      ['Barangay', 'Poblacion'],
-      ['Street / Location', '12 Rizal St., Poblacion, Castilla'],
+      ['Location', '12 Rizal St., Poblacion, Castilla'],
     ]);
   });
 
-  it("falls back to the business's address when the application has no location", () => {
+  it("falls back to the business's whole address, on one line, when the application has no location", () => {
     // app-seed-2 is Juan's Eatery (biz-2, 45 National Highway, San Isidro) and carries no location.
     expect(propertyRows(renderFor('app-seed-2').nativeElement as HTMLElement)).toEqual([
-      ['Barangay', 'San Isidro'],
-      ['City / Municipality', 'Castilla'],
-      ['Street / Location', '45 National Highway'],
-      ['Province', 'Sorsogon'],
+      ['Location', '45 National Highway, San Isidro, Castilla, Sorsogon'],
     ]);
   });
 });
@@ -140,12 +136,13 @@ describe('PermitDocumentPage (task 22: conditions come from the office, in full)
     if (validityIdx > -1) expect(validityIdx).toBeGreaterThan(conditionsIdx);
   });
 
-  it('says the office has supplied none, rather than substituting our own', () => {
-    // Seeded permits carry conditions: [] — the office has said nothing.
-    const text = (renderFor('app-seed-2').nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('has not supplied the conditions');
-    // And it must not let the citizen read that as "there are none".
-    expect(text).toContain('This does not mean there are none');
+  it('says plainly that the office recorded none, rather than substituting our own', () => {
+    // Seeded permits carry conditions: [] — the office has said nothing. Stated
+    // as a fact in normal ink, as the Admin copy does: the grey-italic warning
+    // alarmed anyone shown the permit (design review I3).
+    const el = renderFor('app-seed-2').nativeElement as HTMLElement;
+    expect(el.querySelector('.doc-generated-empty')?.textContent?.trim()).toBe('No conditions were recorded by the office.');
+    expect(el.textContent).not.toContain('This does not mean there are none');
   });
 
   it('renders every condition the office supplied, not a summary', () => {
@@ -167,5 +164,70 @@ describe('PermitDocumentPage (task 22: conditions come from the office, in full)
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     for (const c of withConditions.conditions) expect(text).toContain(c);
     expect((fixture.nativeElement as HTMLElement).querySelectorAll('.doc-generated-conditions li').length).toBe(3);
+  });
+});
+
+/**
+ * The permit's one field map (design review I3): the office's copy and the
+ * citizen's disagreed on about six fields. This list is COPIED, not imported,
+ * from core/domain/permit-fields.ts on purpose, and the Admin Portal's
+ * user-portal-permit-preview spec pins the same list: a label changed in one
+ * place fails here until both portals agree.
+ */
+describe('PermitDocumentPage (one field map)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  const BUSINESS_PERMIT_LABELS = [
+    'Permit No.', 'Application No.', 'Date issued', 'Valid until',
+    'Owner / Permittee name', 'Business name', 'Contact number', 'Address',
+    'Location',
+    'Application type', 'Date applied',
+    'Fee', 'Amount', 'Total amount due', 'Balance', 'Order of Payment No.',
+  ];
+
+  /** Every label the permit shows, in reading order (an occupancy or scope row adds its own when filed). */
+  function labels(el: HTMLElement): string[] {
+    const out: string[] = [];
+    out.push(el.querySelector('.num-label')?.textContent?.trim() ?? '');
+    for (const span of Array.from(el.querySelectorAll('.num-dates > span'))) out.push((span.textContent ?? '').split(':')[0].trim());
+    for (const dt of Array.from(el.querySelectorAll('.doc-generated-fields dt'))) out.push(dt.textContent?.trim() ?? '');
+    for (const th of Array.from(el.querySelectorAll('.doc-generated-table th'))) out.push(th.textContent?.trim() ?? '');
+    for (const row of Array.from(el.querySelectorAll('.doc-generated-table tbody tr')).slice(-2)) {
+      out.push(row.querySelector('td')?.textContent?.trim() ?? '');
+    }
+    const op = el.querySelector('.doc-generated-table + .doc-generated-note')?.textContent ?? '';
+    out.push(op.split(':')[0].trim());
+    return out;
+  }
+
+  it("prints the shared labels, in order, on a business application's permit", () => {
+    // app-seed-2: Juan's Eatery, a business application with an assessment.
+    const el = renderFor('app-seed-2').nativeElement as HTMLElement;
+    expect(labels(el)).toEqual(BUSINESS_PERMIT_LABELS);
+  });
+
+  it("leaves Business name off a private individual's permit, and never prints an internal id", () => {
+    const fixture = renderFor('app-seed-2');
+    const store = TestBed.inject(ApplicationStore) as unknown as {
+      applications: { update(f: (list: Record<string, unknown>[]) => Record<string, unknown>[]): void };
+    };
+    store.applications.update((list) => list.map((a) => (a['id'] === 'app-seed-2'
+      ? { ...a, businessId: null, businessName: null, applyingAs: 'residential', location: 'Bonga, Castilla' }
+      : a)));
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(labels(el)).toEqual(BUSINESS_PERMIT_LABELS.filter((label) => label !== 'Business name'));
+    expect(el.textContent).not.toContain('Residential');
+    const footer = el.querySelector('.doc-generated-footer')?.textContent ?? '';
+    expect(footer).toContain('Document Ref. ' + TestBed.inject(ApplicationStore).applicationById('app-seed-2')!.applicationNumber);
+    expect(footer).not.toContain('app-seed-2');
+  });
+
+  it('names the issuer one way, as the backend does', () => {
+    // app-seed-2 is a Zoning / Locational Clearance: the MPDO issues it.
+    const el = renderFor('app-seed-2').nativeElement as HTMLElement;
+    expect(el.querySelector('.office-line')?.textContent?.trim()).toBe('Municipal Planning and Development Office (Zoning Administrator)');
+    expect(el.textContent).not.toContain('Office of the Municipal Engineer');
+    expect(el.textContent).not.toContain('MPDO / Zoning');
   });
 });

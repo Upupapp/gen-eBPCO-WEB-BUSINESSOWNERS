@@ -23,7 +23,9 @@ import { ApplicationDocumentResponse, InstructionLetter, TimelineEntryResponse }
 import { duplicateOf } from '../../core/api/problem';
 import { BackLinkComponent } from '../../shared/ui/back-link.component';
 import { StepperComponent } from '../../shared/ui/stepper.component';
-import { ApplicationRecord, applyingAsLabel, propertyOwnerOf } from '../../core/domain/application.model';
+import { AssessmentTableComponent } from '../../shared/ui/assessment-table.component';
+import { AssessmentView, assessmentViewOf } from '../../core/domain/assessment-view';
+import { ApplicationRecord, applicantLabel, propertyOwnerOf } from '../../core/domain/application.model';
 import { OCCUPANCY_FIELD_LABEL, occupancyLabelOf } from '../../core/domain/occupancy';
 import { NOT_RECORDED, permitValidityText } from '../../core/domain/permit-validity';
 
@@ -58,6 +60,18 @@ const DOCUMENTS_OPEN: ReadonlySet<ApplicationLifecycleStatus> = new Set<Applicat
 
 /** What the Next step callout under the tracker asks the citizen to do. */
 type NextKind = 'draft' | 'revision' | 'pay' | 'delivery' | 'returned' | 'collect' | 'info';
+
+/**
+ * The timeline's second line, for the statuses that name a step of the
+ * office's work the pill does not: the pill reads "Under Review" while the
+ * office checks documents, and "Payment Verified" while it waits for the
+ * Building Official's approval. Every other status's own name is a synonym of
+ * its pill and is not repeated (design review I11).
+ */
+const TIMELINE_STEP_NAMES: Readonly<Partial<Record<string, string>>> = {
+  'Document Verification': 'Document check',
+  'For Approval': 'For approval',
+};
 
 /** The five stages a citizen follows an application through (house style 2026-11-03). */
 const STAGES = ['Submitted', 'Review', 'Payment', 'Approval', 'Release'] as const;
@@ -96,7 +110,7 @@ const STAGE_OF: Partial<Record<ApplicationLifecycleStatus, number>> = {
   selector: 'app-application-details',
   imports: [
     RouterLink, StatusPillComponent, ApplicationDocumentsComponent, PermitReleaseComponent, PermitDeliveryComponent,
-    DocumentPreviewComponent, BackLinkComponent, StepperComponent,
+    DocumentPreviewComponent, BackLinkComponent, StepperComponent, AssessmentTableComponent,
   ],
   styles: [`
     .status-card > .callout, .status-card > .demo-row { margin-top: 16px; }
@@ -116,7 +130,6 @@ const STAGE_OF: Partial<Record<ApplicationLifecycleStatus, number>> = {
     }
     .withdraw-row > .callout { flex: 1 1 100%; }
     .fees-due { margin: -4px 0 12px; }
-    .card-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
     .permit-facts { margin-top: 16px; }
     /* Main column and right rail: side by side when both fit, else one column. */
     .detail-layout { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px 24px; }
@@ -155,7 +168,7 @@ const STAGE_OF: Partial<Record<ApplicationLifecycleStatus, number>> = {
               <h1>{{ a.permitType }}</h1>
               <app-status-pill [label]="applicantStatusLabel(a.lifecycleStatus)" />
             </div>
-            <div class="subtitle">{{ a.applicationNumber }} · {{ applyingAsLabel(a) }} · {{ a.applicationAction }}</div>
+            <div class="subtitle">{{ a.applicationNumber }} · {{ applicantLabel(a) }} · {{ a.applicationAction }}</div>
             @if (a.relatedPermitNumber) {
               <div class="small muted">
                 {{ a.applicationAction === 'Renewal' ? 'Renewing' : 'Amending' }} permit
@@ -436,21 +449,8 @@ const STAGE_OF: Partial<Record<ApplicationLifecycleStatus, number>> = {
                   @if (asmt.dueDate) {
                     <p class="small muted fees-due">Pay on or before <strong>{{ formatDate(asmt.dueDate) }}</strong>.</p>
                   }
-                  <table class="table">
-                    <thead><tr><th>Fee</th><th class="num">Amount</th></tr></thead>
-                    <tbody>
-                      @for (line of asmt.lineItems; track line.code) {
-                        <tr><td>{{ line.name }}</td><td class="num">{{ line.amountCentavos !== null ? pesos(line.amountCentavos) : 'Pending' }}</td></tr>
-                      }
-                    </tbody>
-                    <tfoot>
-                      <tr><td>Total</td><td class="num">{{ pesos(asmt.totalCentavos) }}</td></tr>
-                      <tr>
-                        <td>Balance</td>
-                        <td class="num">{{ pesos(asmt.balanceCentavos) }}@if (asmt.pendingVerification) { — pending verification }</td>
-                      </tr>
-                    </tfoot>
-                  </table>
+                  <!-- The same table as the pay page and the permit: fees, Total amount due, Balance (design review I15). -->
+                  <app-assessment-table [view]="asmt" />
                   <!-- Pay sits in the Next step callout when that is the step; here only otherwise. -->
                   @if ((asmt.canPay && nextKind(a) !== 'pay') || asmt.opsNumber) {
                     <div class="card-actions">
@@ -557,8 +557,8 @@ export class ApplicationDetailsPage {
 
   protected readonly applicantStatusOf = applicantStatusOf;
   protected readonly applicantStatusLabel = applicantStatusLabel;
-  /** "Residential", or the business's name (migration 067). */
-  protected readonly applyingAsLabel = applyingAsLabel;
+  /** "Private individual", or the business's name (migration 067). */
+  protected readonly applicantLabel = applicantLabel;
   protected readonly formatDate = formatDate;
   protected readonly formatDateTime = formatDateTime;
   protected readonly notRecorded = NOT_RECORDED;
@@ -715,40 +715,10 @@ export class ApplicationDetailsPage {
    * `payment.orderOfPayment`). It used to read only the local demo store, so
    * a real application said "Please view your assessment" with nothing to
    * view (found live 2026-09-27). Falls back to the demo store for a demo id.
+   * One builder (`assessmentViewOf`) for this card, the pay page and the permit.
    */
-  protected fees(): {
-    lineItems: { code: string; name: string; amountCentavos: number | null }[];
-    totalCentavos: number; balanceCentavos: number; opsNumber: string | null;
-    canPay: boolean; pendingVerification: boolean; dueDate: string | null;
-  } | null {
-    const a = this.app();
-    const real = this.store.orderOfPaymentFor(this.id());
-    if (a && real) {
-      const paid = a.paymentStatus === 'Paid';
-      return {
-        lineItems: [
-          { code: 'filing', name: 'Filing Fee', amountCentavos: real.fees.filing },
-          { code: 'processing', name: 'Processing Fee', amountCentavos: real.fees.processing },
-          { code: 'architectural', name: 'Architectural Fee', amountCentavos: real.fees.architectural },
-          { code: 'structural', name: 'Structural Fee', amountCentavos: real.fees.structural },
-          { code: 'electrical', name: 'Electrical Fee', amountCentavos: real.fees.electrical },
-          { code: 'others', name: 'Other Fees', amountCentavos: real.fees.others },
-        // Only the fees that apply: ₱0.00 lines beside the real ones read as charges (QA TC-05).
-        ].filter((line) => line.amountCentavos > 0),
-        totalCentavos: real.totalCentavos,
-        dueDate: real.dueDate ?? null,
-        balanceCentavos: paid ? 0 : real.totalCentavos,
-        opsNumber: real.number,
-        canPay: a.paymentStatus === 'Not Yet Available' || a.paymentStatus === 'Overdue',
-        pendingVerification: a.paymentStatus === 'Pending Verification',
-      };
-    }
-    const demo = this.assessment();
-    if (!demo) return null;
-    return {
-      lineItems: demo.lineItems, totalCentavos: demo.totalCentavos, balanceCentavos: demo.balanceCentavos,
-      opsNumber: demo.opsNumber, canPay: demo.balanceCentavos > 0, pendingVerification: false, dueDate: null,
-    };
+  protected fees(): AssessmentView | null {
+    return assessmentViewOf(this.app()?.paymentStatus, this.store.orderOfPaymentFor(this.id()), this.assessment());
   }
 
   /**
@@ -1081,9 +1051,15 @@ export class ApplicationDetailsPage {
     return applicantStatusLabel(status as ApplicationLifecycleStatus);
   }
 
-  /** The office's own name for the step, when the pill's word differs from it; null when it is the same. */
+  /**
+   * A second line under a timeline entry, only where it names the step the
+   * office is on and the pill's word does not ("Under Review" over "Document
+   * Verification"); never a synonym of the pill ("Under Review / Under
+   * Evaluation", "Awaiting Payment / Assessed", "Submitted / Received" were
+   * two names for one step, design review I11). Null otherwise.
+   */
   protected timelineStep(status: string): string | null {
-    return this.timelineLabel(status) === status ? null : status;
+    return TIMELINE_STEP_NAMES[status] ?? null;
   }
 
   isTerminal(status: Parameters<typeof isTerminalStatus>[0]): boolean {

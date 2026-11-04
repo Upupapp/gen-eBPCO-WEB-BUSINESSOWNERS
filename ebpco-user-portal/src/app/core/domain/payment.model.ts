@@ -3,7 +3,12 @@
 // merchant account), then verified by the Cashier like any other payment.
 export type PaymentMethod = 'Bank Transfer' | 'Onsite' | 'GCash';
 export type PaymentTransactionStatus = 'Pending Verification' | 'Verified' | 'Rejected' | 'Voided';
-export type CollectingAgency = 'OBO/LGU' | 'BFP';
+/**
+ * Who collects the money. The Municipal Treasurer's Office collects every
+ * permit fee and issues the Official Receipt (design review I2); 'OBO/LGU' was
+ * the old placeholder, printed as the receipt's collecting agency.
+ */
+export type CollectingAgency = "Municipal Treasurer's Office" | 'BFP';
 
 /**
  * While `orNumber` is null, any receipt referencing this transaction must

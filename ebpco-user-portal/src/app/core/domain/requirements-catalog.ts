@@ -1,4 +1,5 @@
 import { ALL_PERMIT_TYPES, ApplicationAction, PermitType } from './permit.model';
+import { OFFICES } from './lgu-contact';
 
 // The single source of truth for "what documents does permit type X need."
 // Transcribed directly from the Admin Portal's
@@ -26,9 +27,31 @@ export interface RequirementDocument {
   hardCopyNote?: string | null;
 }
 
-/** The line under a document saying whether paper copies are needed. */
-export function hardCopiesText(hardCopies: number | undefined): string {
-  return hardCopies !== undefined && hardCopies > 0 ? `Hard copies: ${hardCopies}` : 'Online only, no hard copy';
+/** The one line above a document list that says how documents are sent; each one needing paper says so itself. */
+export const ONLINE_ONLY_NOTE = 'Upload everything online. Paper copies only where marked.';
+
+/**
+ * The chip on a document that needs paper copies ("Hard copies: 1"); null for
+ * one sent online only. "Online only" is said once above a list
+ * (ONLINE_ONLY_NOTE), not on every row: 21 rows of "Online only, no hard copy"
+ * buried the one real paper requirement (design review I13; this replaces
+ * CONTRACT2 §3's per-row line).
+ */
+export function hardCopiesText(hardCopies: number | undefined): string | null {
+  return hardCopies !== undefined && hardCopies > 0 ? `Hard copies: ${hardCopies}` : null;
+}
+
+/**
+ * A description without the "Only if applicable:" it opens with on some
+ * server rows (071): the chip or the section already says If applicable, and
+ * the two read as the same words twice (design review I13). The backend's own
+ * text is for a migration to fix; this keeps the screen clean meanwhile.
+ */
+export function withoutIfApplicablePrefix(description: string | null | undefined): string {
+  const text = (description ?? '').trim();
+  const rest = text.replace(/^only if applicable\s*[:—-]\s*/i, '');
+  if (rest === text) return text;
+  return rest.charAt(0).toUpperCase() + rest.slice(1);
 }
 
 /**
@@ -43,7 +66,7 @@ export function requirementFromApi(row: {
     id: row.code,
     label: row.label,
     required: row.required,
-    description: row.description || undefined,
+    description: withoutIfApplicablePrefix(row.description) || undefined,
     ...(row.applicantKind ? { applicantKind: row.applicantKind } : {}),
     hardCopies: row.hardCopies,
     hardCopyNote: row.hardCopyNote,
@@ -120,7 +143,7 @@ const ADDITION_EXTENSION_DOCS: RequirementDocument[] = [
   doc('addition-plan', 'Addition / Extension Plans (signed and sealed)', true),
   doc('prior-permit-proof', 'Copy of your existing/prior permit', false),
   // If applicable since 071, with the server's own description.
-  doc('addition-struct-plan', 'Structural Analysis for the added load (signed and sealed)', false, 'Only if applicable: when the added load needs structural computations, as the Office of the Building Official advises.'),
+  doc('addition-struct-plan', 'Structural Analysis for the added load (signed and sealed)', false, 'When the added load needs structural computations, as the Office of the Building Official advises.'),
   doc('addition-bom', 'Bill of Materials and Specifications', true),
   doc('addition-prc', 'PRC License and PTR of Engineer/Architect of Record', true),
 ];
@@ -129,7 +152,7 @@ export const REQUIREMENTS_CATALOG: Record<PermitType, ApplicationTypeRequirement
   'Building Permit': {
     permitType: 'Building Permit',
     requiredForm: 'Unified Building Permit Form',
-    reviewingOffice: 'Office of the Building Official (OBO)',
+    reviewingOffice: OFFICES.buildingOfficial.name,
     validityMonths: 12,
     validityRules: 'Valid for twelve (12) months from issuance; work must commence within one year or the permit lapses and must be renewed.',
     verificationStatus: 'CASTILLA_OFFICIAL_FORM_VERIFIED',
@@ -151,11 +174,11 @@ export const REQUIREMENTS_CATALOG: Record<PermitType, ApplicationTypeRequirement
       doc('bpnc-technical-specs', 'Technical Specifications (duly signed and sealed)', true),
       // The four "if applicable" documents (LGU, 4 Nov 2026; ebpco-api 071):
       // not asked of every project, with the server's own descriptions.
-      doc('bpnc-structural-design-analysis', 'Structural Design and Analysis', false, 'Only if applicable: for structures that need structural computations, as the Office of the Building Official advises.'),
-      doc('bpnc-soil-analysis', 'Soil Analysis / Plate Load Test / Seismic Analysis', false, 'Only if applicable: when the structural design or the Building Official calls for it.'),
+      doc('bpnc-structural-design-analysis', 'Structural Design and Analysis', false, 'For structures that need structural computations, as the Office of the Building Official advises.'),
+      doc('bpnc-soil-analysis', 'Soil Analysis / Plate Load Test / Seismic Analysis', false, 'When the structural design or the Building Official calls for it.'),
       doc('bpnc-professional-licenses', 'Valid Licenses (PRC) of all involved professionals', true),
       doc('bpnc-valid-id', 'Valid ID of Applicant and Owner of Lot', true),
-      doc('bpnc-zoning-locational', 'Zoning / Locational Clearance', true, 'Issued by MPDC.'),
+      doc('bpnc-zoning-locational', 'Zoning / Locational Clearance', true, `Issued by the ${OFFICES.zoning.name}.`),
       bfp(doc('bpnc-fire-safety-clearance', 'Fire Safety Evaluation Clearance', true, FSEC_DESCRIPTION)),
       doc('bpnc-construction-safety-health', 'Approved Construction Safety and Health Program', false, 'Not required for the building permit since NBCDO Memorandum Circular No. 02, s. 2026. Your contractor files the CSHP with DOLE before construction starts; attach the approved CSHP here only if you already have it.'),
       doc('bpnc-road-clearance', 'Road Clearance', false, 'Issued by DPWH or the Provincial Engineering Office. Only if the project is along, or opens onto, a national or provincial road.'),
@@ -173,7 +196,7 @@ export const REQUIREMENTS_CATALOG: Record<PermitType, ApplicationTypeRequirement
   'Demolition Permit': {
     permitType: 'Demolition Permit',
     requiredForm: 'Application for Demolition Permit',
-    reviewingOffice: 'Office of the Building Official (OBO)',
+    reviewingOffice: OFFICES.buildingOfficial.name,
     validityMonths: 6,
     validityRules: 'Valid for six (6) months from issuance.',
     verificationStatus: 'PENDING_CASTILLA_VERIFICATION',
@@ -189,7 +212,7 @@ export const REQUIREMENTS_CATALOG: Record<PermitType, ApplicationTypeRequirement
   'Zoning / Locational Clearance': {
     permitType: 'Zoning / Locational Clearance',
     requiredForm: 'Application for Locational Clearance / Certificate of Zoning Compliance (Form FM-MPD-12)',
-    reviewingOffice: 'Municipal Planning and Development Office (MPDO / Zoning)',
+    reviewingOffice: OFFICES.zoning.name,
     validityMonths: 12,
     validityRules: 'Valid for twelve (12) months from issuance, per standard LGU clearance practice.',
     verificationStatus: 'CASTILLA_OFFICIAL_FORM_VERIFIED',
@@ -213,7 +236,7 @@ export const REQUIREMENTS_CATALOG: Record<PermitType, ApplicationTypeRequirement
   'Architectural Permit': {
     permitType: 'Architectural Permit',
     requiredForm: 'Application for Architectural Permit',
-    reviewingOffice: 'Office of the Building Official (OBO)',
+    reviewingOffice: OFFICES.buildingOfficial.name,
     validityMonths: 12,
     validityRules: 'Valid for twelve (12) months from issuance.',
     verificationStatus: 'PENDING_CASTILLA_VERIFICATION',
@@ -227,7 +250,7 @@ export const REQUIREMENTS_CATALOG: Record<PermitType, ApplicationTypeRequirement
   'Civil / Structural Permit': {
     permitType: 'Civil / Structural Permit',
     requiredForm: 'Application for Civil / Structural Permit',
-    reviewingOffice: 'Office of the Building Official (OBO)',
+    reviewingOffice: OFFICES.buildingOfficial.name,
     validityMonths: 12,
     validityRules: 'Valid for twelve (12) months from issuance.',
     verificationStatus: 'PENDING_CASTILLA_VERIFICATION',
@@ -242,7 +265,7 @@ export const REQUIREMENTS_CATALOG: Record<PermitType, ApplicationTypeRequirement
   'Electrical Permit': {
     permitType: 'Electrical Permit',
     requiredForm: 'Application for Electrical Permit',
-    reviewingOffice: 'Office of the Building Official (OBO)',
+    reviewingOffice: OFFICES.buildingOfficial.name,
     validityMonths: 12,
     validityRules: 'Valid for twelve (12) months from issuance.',
     verificationStatus: 'PENDING_CASTILLA_VERIFICATION',
@@ -256,7 +279,7 @@ export const REQUIREMENTS_CATALOG: Record<PermitType, ApplicationTypeRequirement
   'Mechanical Permit': {
     permitType: 'Mechanical Permit',
     requiredForm: 'Application for Mechanical Permit',
-    reviewingOffice: 'Office of the Building Official (OBO)',
+    reviewingOffice: OFFICES.buildingOfficial.name,
     validityMonths: 12,
     validityRules: 'Valid for twelve (12) months from issuance.',
     verificationStatus: 'PENDING_CASTILLA_VERIFICATION',
@@ -270,7 +293,7 @@ export const REQUIREMENTS_CATALOG: Record<PermitType, ApplicationTypeRequirement
   'Sanitary Permit': {
     permitType: 'Sanitary Permit',
     requiredForm: 'Application for Sanitary Permit',
-    reviewingOffice: 'Office of the Building Official (OBO)',
+    reviewingOffice: OFFICES.buildingOfficial.name,
     validityMonths: 12,
     validityRules: 'Valid for twelve (12) months from issuance.',
     verificationStatus: 'PENDING_CASTILLA_VERIFICATION',
@@ -284,7 +307,7 @@ export const REQUIREMENTS_CATALOG: Record<PermitType, ApplicationTypeRequirement
   'Plumbing Permit': {
     permitType: 'Plumbing Permit',
     requiredForm: 'Application for Plumbing Permit',
-    reviewingOffice: 'Office of the Building Official (OBO)',
+    reviewingOffice: OFFICES.buildingOfficial.name,
     validityMonths: 12,
     validityRules: 'Valid for twelve (12) months from issuance.',
     verificationStatus: 'PENDING_CASTILLA_VERIFICATION',
@@ -298,7 +321,7 @@ export const REQUIREMENTS_CATALOG: Record<PermitType, ApplicationTypeRequirement
   'Electronics Permit': {
     permitType: 'Electronics Permit',
     requiredForm: 'Application for Electronics Permit',
-    reviewingOffice: 'Office of the Building Official (OBO)',
+    reviewingOffice: OFFICES.buildingOfficial.name,
     validityMonths: 12,
     validityRules: 'Valid for twelve (12) months from issuance.',
     verificationStatus: 'PENDING_CASTILLA_VERIFICATION',
@@ -312,7 +335,7 @@ export const REQUIREMENTS_CATALOG: Record<PermitType, ApplicationTypeRequirement
   'Interior Design Permit': {
     permitType: 'Interior Design Permit',
     requiredForm: 'Application for Interior Design Permit',
-    reviewingOffice: 'Office of the Building Official (OBO)',
+    reviewingOffice: OFFICES.buildingOfficial.name,
     validityMonths: 12,
     validityRules: 'Valid for twelve (12) months from issuance.',
     verificationStatus: 'PENDING_CASTILLA_VERIFICATION',
@@ -326,7 +349,7 @@ export const REQUIREMENTS_CATALOG: Record<PermitType, ApplicationTypeRequirement
   'Fencing Permit': {
     permitType: 'Fencing Permit',
     requiredForm: 'Application for Fencing Permit',
-    reviewingOffice: 'Office of the Building Official (OBO)',
+    reviewingOffice: OFFICES.buildingOfficial.name,
     validityMonths: 6,
     validityRules: 'Valid for six (6) months from issuance.',
     verificationStatus: 'PENDING_CASTILLA_VERIFICATION',
@@ -336,7 +359,7 @@ export const REQUIREMENTS_CATALOG: Record<PermitType, ApplicationTypeRequirement
   'Sign Permit': {
     permitType: 'Sign Permit',
     requiredForm: 'Application for Signboard/Billboard Permit',
-    reviewingOffice: 'Office of the Building Official (OBO)',
+    reviewingOffice: OFFICES.buildingOfficial.name,
     validityMonths: 12,
     validityRules: 'Valid for twelve (12) months from issuance; subject to annual renewal.',
     verificationStatus: 'PENDING_CASTILLA_VERIFICATION',
@@ -350,7 +373,7 @@ export const REQUIREMENTS_CATALOG: Record<PermitType, ApplicationTypeRequirement
   'Excavation Permit': {
     permitType: 'Excavation Permit',
     requiredForm: 'Application for Excavation Permit',
-    reviewingOffice: 'Office of the Building Official (OBO)',
+    reviewingOffice: OFFICES.buildingOfficial.name,
     validityMonths: 6,
     validityRules: 'Valid for six (6) months from issuance.',
     verificationStatus: 'PENDING_CASTILLA_VERIFICATION',
@@ -365,7 +388,7 @@ export const REQUIREMENTS_CATALOG: Record<PermitType, ApplicationTypeRequirement
   'FSEC for Building Permit (BFP)': {
     permitType: 'FSEC for Building Permit (BFP)',
     requiredForm: 'Fire Safety Evaluation Clearance Application Form (BFP-QSF-FSED-001, BFP Castilla Fire Station)',
-    reviewingOffice: 'Bureau of Fire Protection — Castilla Fire Station',
+    reviewingOffice: OFFICES.fireStation.name,
     validityMonths: 12,
     validityRules: 'Serves as a prerequisite to Building Permit issuance under RA 9514; the form itself prints no fixed validity/expiry period.',
     verificationStatus: 'CASTILLA_OFFICIAL_FORM_VERIFIED',
@@ -381,7 +404,7 @@ export const REQUIREMENTS_CATALOG: Record<PermitType, ApplicationTypeRequirement
   'Certificate of Occupancy': {
     permitType: 'Certificate of Occupancy',
     requiredForm: 'Application for Certificate of Occupancy',
-    reviewingOffice: 'Office of the Building Official (OBO) / BFP',
+    reviewingOffice: OFFICES.buildingOfficial.name,
     validityMonths: null,
     validityRules: 'Valid for the life of the structure unless a change in use, occupancy, or ownership requires re-certification.',
     verificationStatus: 'PENDING_CASTILLA_VERIFICATION',
@@ -397,7 +420,7 @@ export const REQUIREMENTS_CATALOG: Record<PermitType, ApplicationTypeRequirement
   'FSIC for Occupancy Permit (BFP)': {
     permitType: 'FSIC for Occupancy Permit (BFP)',
     requiredForm: 'Fire Safety Inspection Certificate Application Form — FSIC for Certificate of Occupancy (BFP-QSF-FSED-002, BFP Castilla Fire Station)',
-    reviewingOffice: 'Bureau of Fire Protection — Castilla Fire Station',
+    reviewingOffice: OFFICES.fireStation.name,
     validityMonths: 12,
     validityRules: 'A final FSIC is a statutory prerequisite to a Certificate of Occupancy under RA 9514 Sec. 5(g)/7(a); the form prints no fixed validity/expiry period.',
     verificationStatus: 'CASTILLA_OFFICIAL_FORM_VERIFIED',

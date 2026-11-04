@@ -103,7 +103,7 @@ describe('MyApplicationsPage filters', () => {
 describe('MyApplicationsPage: Applying as', () => {
   afterEach(() => TestBed.resetTestingModule());
 
-  it('shows "Residential" for a residential application, and the business name for a business one', () => {
+  it('shows "Private individual" for a residential application, and the business name for a business one', () => {
     const rows = [
       { id: 'r', lifecycleStatus: 'Submitted', applicationNumber: 'BP-1', permitType: 'Building Permit', businessName: '', applyingAs: 'residential' },
       { id: 'b', lifecycleStatus: 'Submitted', applicationNumber: 'SP-2', permitType: 'Sign Permit', businessName: 'Dela Cruz Hardware', applyingAs: 'business' },
@@ -116,7 +116,29 @@ describe('MyApplicationsPage: Applying as', () => {
     fixture.detectChanges();
     const cells = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('tbody tr'))
       .map((tr) => tr.querySelectorAll('td')[2]?.textContent?.trim());
-    expect(cells).toEqual(['Residential', 'Dela Cruz Hardware']);
+    // Who applies, not what the building is for (design review I6): the stored value stays 'residential'.
+    expect(cells).toEqual(['Private individual', 'Dela Cruz Hardware']);
+  });
+
+  it('on a phone, lists each application as one card: type and status, then number and date, the whole card a link', () => {
+    const rows = [
+      { id: 'b', lifecycleStatus: 'Submitted', applicationNumber: 'E-BPCO-2026-000020', permitType: 'Fencing Permit',
+        businessName: '', applyingAs: 'residential', dateSubmitted: '2026-11-04T08:00:00.000Z' },
+      { id: 'd', lifecycleStatus: 'Draft', applicationNumber: 'E-BPCO-2026-000021', permitType: 'Sign Permit',
+        businessName: '', applyingAs: 'residential', updatedAt: '2026-11-04T08:00:00.000Z' },
+    ] as unknown as ApplicationRecord[];
+    TestBed.configureTestingModule({
+      imports: [MyApplicationsPage],
+      providers: [provideRouter([]), { provide: ApplicationStore, useValue: { myApplications: () => rows } }, ...earlierRecords()],
+    });
+    const fixture = TestBed.createComponent(MyApplicationsPage);
+    fixture.detectChanges();
+    const cards = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLAnchorElement>('.app-cards a.app-card'));
+    expect(cards.map((c) => c.querySelector('.app-card-title strong')?.textContent?.trim())).toEqual(['Fencing Permit', 'Sign Permit']);
+    expect(cards[0].querySelector('app-status-pill')).not.toBeNull();
+    expect(cards[0].querySelector('.app-card-meta')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('E-BPCO-2026-000020 · Nov 4, 2026');
+    expect(cards[0].getAttribute('href')).toBe('/applications/b');
+    expect(cards[1].getAttribute('href')).toBe('/permits/apply?draft=d');
   });
 });
 

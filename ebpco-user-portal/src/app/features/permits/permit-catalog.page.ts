@@ -1,7 +1,9 @@
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { BFP_FSIS_URL, PERMIT_TYPE_GROUPS, PermitType } from '../../core/domain/permit.model';
+import { ApplicationAction, BFP_FSIS_URL, PERMIT_TYPE_GROUPS, PermitType } from '../../core/domain/permit.model';
 import { REQUIREMENTS_CATALOG } from '../../core/domain/requirements-catalog';
+import { CitizenApiClient } from '../../core/api/citizen-api.client';
+import { LiveRequirementsStore, RequirementCounts } from '../../core/stores/live-requirements.store';
 import { permitVisual } from '../../core/domain/permit-visual';
 import { applicantKindsChip, usualUseNote } from '../../core/domain/applicant-kinds';
 import type { ApplyingAs } from '../../core/domain/application.model';
@@ -36,13 +38,23 @@ import { VerificationBannerComponent } from '../../shared/ui/verification-banner
         Municipality sent citizens to the wrong office. They are uploaded as
         documents instead, and the Fire Safety stage verifies them.
       -->
-      <!-- One line, with the rest a click away: it used to be a tinted card of two paragraphs. -->
+      <!--
+        One line, with the rest a click away: it used to be a tinted card of
+        two paragraphs. The BFP-FSIS link is the callout's own small action at
+        its end, not a red underlined link mid-sentence (design review I20).
+      -->
       <div class="callout callout-info bfp-notice">
         <p>
           <strong>Fire Safety clearances (FSEC, FSIC) come from the BFP, not the Municipality.</strong>
-          Apply on <a [href]="bfpFsisUrl" target="_blank" rel="noopener noreferrer">BFP-FSIS (fsis.e-bfp.com)</a>
-          or at the Castilla Fire Station.
+          Apply on BFP-FSIS (fsis.e-bfp.com) or at the Castilla Fire Station.
         </p>
+        <div class="callout-actions">
+          <a class="btn btn-secondary btn-sm" [href]="bfpFsisUrl" target="_blank" rel="noopener noreferrer"
+             aria-label="Open BFP-FSIS (opens in a new tab)">
+            Open BFP-FSIS
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" /></svg>
+          </a>
+        </div>
         <details class="bfp-notice__more">
           <summary>What to upload here</summary>
           <p>
@@ -56,8 +68,9 @@ import { VerificationBannerComponent } from '../../shared/ui/verification-banner
         </details>
       </div>
 
+      <!-- h1 page, h2 group, h3 card: no level skipped (design review I20). -->
       @for (group of groups; track group.label) {
-        <h3 class="permit-group-heading">{{ group.label }}</h3>
+        <h2 class="permit-group-heading">{{ group.label }}</h2>
         <div class="permit-grid">
           @for (type of group.types; track type) {
             @let visual = permitVisual(type);
@@ -71,7 +84,7 @@ import { VerificationBannerComponent } from '../../shared/ui/verification-banner
                     </svg>
                   </div>
                   <div class="permit-card__identity">
-                    <h4 class="permit-card__name">{{ type }}</h4>
+                    <h3 class="permit-card__name">{{ type }}</h3>
                     <p class="small muted permit-card__subtitle">{{ office(type) }}</p>
                   </div>
                 </div>
@@ -85,7 +98,9 @@ import { VerificationBannerComponent } from '../../shared/ui/verification-banner
                   @if (restricted(kinds)) {
                     <span class="tag permit-card__kinds">{{ applicantKindsChip(kinds) }}</span>
                   }
-                  <span class="tag">{{ documentCount(type) }} documents</span>
+                  <!-- The same live list the Requirements window shows, counted the same way (design review I13). -->
+                  @let count = documentCounts(type);
+                  <span class="tag">{{ count.required }} required · {{ count.ifApplicable }} if applicable</span>
                 </div>
                 @if (usualUseNote(type, kinds); as note) {
                   <p class="small permit-card__note">{{ note }}</p>
@@ -113,16 +128,17 @@ import { VerificationBannerComponent } from '../../shared/ui/verification-banner
         picker rather than only for Building Permit.
       -->
       @if (viewingRequirementsFor(); as type) {
-        <app-requirements-modal [permitType]="type" (close)="closeRequirements()" />
+        <app-requirements-modal [permitType]="type" (close)="closeRequirements()" (start)="startFromRequirements(type, $event)" />
       }
     </div>
   `,
   styles: [
     `
-    .permit-group-heading { margin: 28px 0 12px; }
+    /* An h2 drawn at the size the group headings had as h3. */
+    .permit-group-heading { margin: 28px 0 12px; font-size: 18px; font-weight: 700; color: var(--gray-900); }
 
     .bfp-notice { margin-bottom: 8px; }
-    .bfp-notice__more summary { cursor: pointer; width: fit-content; color: var(--gray-700); font-weight: 600; }
+    /* The disclosure is the house <details> style (styles.scss). */
     .bfp-notice__more p { margin: 6px 0 0; }
 
     .permit-grid {
@@ -155,7 +171,7 @@ import { VerificationBannerComponent } from '../../shared/ui/verification-banner
     .permit-card__icon svg { width: 22px; height: 22px; }
 
     .permit-card__identity { min-width: 0; }
-    .permit-card__name { margin: 0; }
+    .permit-card__name { margin: 0; font-size: 16px; font-weight: 700; color: var(--gray-900); }
     .permit-card__subtitle { margin: 2px 0 0; }
     .permit-card__tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
     .permit-card__note { margin: 10px 0 0; color: var(--gray-600); }
@@ -193,8 +209,15 @@ export class PermitCatalogPage {
    */
   private readonly fromBusiness = inject(ActivatedRoute).snapshot.queryParamMap.get('businessId');
 
+  private readonly requirements = inject(LiveRequirementsStore);
+  private readonly api = inject(CitizenApiClient);
+
   constructor() {
     this.permitTypes.load();
+    // Each card counts the live New checklist, as the window does. Not in the demo build, which has no server.
+    if (this.api.configured) {
+      for (const group of this.groups) for (const type of group.types) this.requirements.ensure(type, 'New');
+    }
   }
 
   /** Only a type the Municipality opened to homes OR businesses, not both, says who may apply. */
@@ -218,7 +241,15 @@ export class PermitCatalogPage {
     return this.catalog[type].reviewingOffice;
   }
 
-  documentCount(type: PermitType): number {
-    return this.catalog[type].documents.length;
+  /** "n required · n if applicable" for a new application, from the live list (the static catalog until it answers). */
+  protected documentCounts(type: PermitType): RequirementCounts {
+    return this.requirements.counts(type, 'New');
+  }
+
+  /** The window's "Start Application": the wizard, for the type and the tab the citizen was reading. */
+  protected startFromRequirements(type: PermitType, action: ApplicationAction): void {
+    const params: Record<string, string> = { ...this.startParams(type), ...(action === 'New' ? {} : { action }) };
+    this.viewingRequirementsFor.set(null);
+    void this.router.navigate(['/permits/apply'], { queryParams: params });
   }
 }

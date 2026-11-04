@@ -1,9 +1,10 @@
 import { Component, inject, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { ApplicationStore } from '../../core/stores/application.store';
 import { StatusPillComponent } from '../../shared/ui/status-pill.component';
 import { ApplicationLifecycleStatus, applicantStatusLabel, applicantStatusOf } from '../../core/domain/status.model';
-import { ApplicationRecord, applyingAsLabel } from '../../core/domain/application.model';
+import { ApplicationRecord, applicantLabel } from '../../core/domain/application.model';
 import { formatDate } from '../../core/utils/ids';
 import { EarlierPermitsComponent } from './earlier-permits.component';
 
@@ -40,7 +41,31 @@ const FILTERS: readonly ApplicationFilter[] = [
 
 @Component({
   selector: 'app-my-applications',
-  imports: [RouterLink, StatusPillComponent, EarlierPermitsComponent],
+  imports: [RouterLink, NgTemplateOutlet, StatusPillComponent, EarlierPermitsComponent],
+  styles: [`
+    /*
+     * On a phone, one card per application, as the Payments list does
+     * (design review I9): the six-column table hid Status and View behind a
+     * sideways scroll nothing showed was there. The table from 641px up.
+     */
+    .app-cards { display: none; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none; }
+    .app-card {
+      display: grid; grid-template-columns: minmax(0, 1fr) 20px; gap: 12px; align-items: center;
+      padding: 16px; border: 1px solid var(--border-light); border-radius: var(--radius-lg); background: var(--surface);
+      box-shadow: var(--shadow-sm); color: inherit; text-decoration: none;
+    }
+    .app-card:hover { border-color: var(--border-medium); text-decoration: none; }
+    .app-card:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+    .app-card-main { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+    .app-card-title { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+    .app-card-title strong { font-size: 16px; font-weight: 600; color: var(--gray-900); }
+    .app-card-meta { font-size: 13px; color: var(--gray-500); }
+    .app-card-chevron { width: 20px; height: 20px; color: var(--gray-500); }
+    @media (max-width: 640px) {
+      .app-table-card { display: none; }
+      .app-cards { display: flex; }
+    }
+  `],
   template: `
     <div class="page">
       <div class="page-header">
@@ -71,16 +96,16 @@ const FILTERS: readonly ApplicationFilter[] = [
           <p>Choose another status to see the rest.</p>
         </div>
       } @else {
-        <div class="card" style="padding:0;">
+        <div class="card app-table-card" style="padding:0;">
           <table class="table">
             <thead><tr><th>Application no.</th><th>Permit type</th><th>Applying as</th><th>Status</th><th>Submitted</th><th></th></tr></thead>
             <tbody>
               @for (app of filtered(); track app.id) {
                 <tr>
-                  <td>{{ app.applicationNumber }}</td>
+                  <td class="nowrap">{{ app.applicationNumber }}</td>
                   <td>{{ app.permitType }}</td>
-                  <!-- "Residential", or the business's name (migration 067). -->
-                  <td>{{ applyingAsLabel(app) }}</td>
+                  <!-- "Private individual", or the business's name (migration 067). -->
+                  <td>{{ applicantLabel(app) }}</td>
                   <td><app-status-pill [label]="applicantStatusLabel(app.lifecycleStatus)" /></td>
                   <td>
                     @if (app.lifecycleStatus === 'Draft') {
@@ -101,6 +126,36 @@ const FILTERS: readonly ApplicationFilter[] = [
             </tbody>
           </table>
         </div>
+
+        <ul class="app-cards" aria-label="Applications">
+          @for (app of filtered(); track app.id) {
+            <li>
+              @if (app.lifecycleStatus === 'Draft') {
+                <a class="app-card" [routerLink]="['/permits/apply']" [queryParams]="{ draft: app.id }">
+                  <ng-container *ngTemplateOutlet="cardBody; context: { $implicit: app }" />
+                </a>
+              } @else {
+                <a class="app-card" [routerLink]="['/applications', app.id]">
+                  <ng-container *ngTemplateOutlet="cardBody; context: { $implicit: app }" />
+                </a>
+              }
+            </li>
+          }
+        </ul>
+        <!-- Line 1: the permit type and its status; line 2: the number and the date. The whole card is the link. -->
+        <ng-template #cardBody let-app>
+          <span class="app-card-main">
+            <span class="app-card-title">
+              <strong>{{ app.permitType }}</strong>
+              <app-status-pill [label]="applicantStatusLabel(app.lifecycleStatus)" />
+            </span>
+            <span class="app-card-meta">
+              <span class="nowrap">{{ app.applicationNumber }}</span> ·
+              <span class="nowrap">{{ app.lifecycleStatus === 'Draft' ? 'Started ' + formatDate(app.updatedAt) : formatDate(app.dateSubmitted) }}</span>
+            </span>
+          </span>
+          <svg class="app-card-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
+        </ng-template>
       }
 
       <!--
@@ -117,7 +172,7 @@ export class MyApplicationsPage {
   protected readonly formatDate = formatDate;
   protected readonly applicantStatusOf = applicantStatusOf;
   protected readonly applicantStatusLabel = applicantStatusLabel;
-  protected readonly applyingAsLabel = applyingAsLabel;
+  protected readonly applicantLabel = applicantLabel;
   readonly filter = signal<string>('All');
 
   /** All, every tab something is in, and the chosen one (so it never vanishes under the citizen). */

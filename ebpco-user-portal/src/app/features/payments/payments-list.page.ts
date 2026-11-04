@@ -8,6 +8,7 @@ import { PaymentHistoryEntry } from '../../core/api/citizen-api.models';
 import { pesos } from '../../core/domain/assessment.model';
 import { PaymentStatus } from '../../core/domain/status.model';
 import { formatDate } from '../../core/utils/ids';
+import { MUNICIPAL_TREASURER } from '../../core/domain/lgu-contact';
 import { StatusPillComponent } from '../../shared/ui/status-pill.component';
 
 type Tone = 'green' | 'amber' | 'red' | 'gray';
@@ -58,7 +59,7 @@ export function paymentAttemptView(p: PaymentHistoryEntry): PaymentAttemptView {
         detail: [
           p.officialReceiptNumber ? `Official Receipt No. ${p.officialReceiptNumber}` : null,
           p.verifiedAt ? `confirmed ${formatDate(p.verifiedAt)}` : null,
-        ].filter((part): part is string => part !== null).join(' · ') || 'Confirmed by the Treasurer’s Office.',
+        ].filter((part): part is string => part !== null).join(' · ') || `Confirmed by the ${MUNICIPAL_TREASURER.short}.`,
       };
     case 'Voided':
     case 'Reversed':
@@ -69,7 +70,7 @@ export function paymentAttemptView(p: PaymentHistoryEntry): PaymentAttemptView {
     default:
       return {
         label: 'Pending Verification', tone: 'amber',
-        detail: 'The Municipal Treasurer’s Office is checking this payment. Nothing more is needed from you.',
+        detail: `The ${MUNICIPAL_TREASURER.name} is checking this payment. Nothing more is needed from you.`,
       };
   }
 }
@@ -249,7 +250,7 @@ const HISTORY_FILTERS: ReadonlyArray<{ id: HistoryFilter; label: string }> = [
               Pending verification
             </div>
             <div class="pay-tile-amount">{{ pesos(totalOf(stateRows('verifying'))) }}</div>
-            <div class="pay-tile-note">{{ countLabel(stateRows('verifying').length, 'payment') }} with the Treasurer’s Office</div>
+            <div class="pay-tile-note">{{ countLabel(stateRows('verifying').length, 'payment') }} with the {{ treasurer.short }}</div>
           </div>
           <div class="pay-tile pay-tile--paid">
             <div class="pay-tile-label">
@@ -321,9 +322,10 @@ const HISTORY_FILTERS: ReadonlyArray<{ id: HistoryFilter; label: string }> = [
                       <strong>{{ row.permitType }}</strong>
                       <app-status-pill [label]="row.label" />
                     </div>
+                    <!-- Reference numbers never break mid-number ("OP-" / "2026-000004" at 390 px). -->
                     <div class="order-meta">
-                      {{ row.applicationNumber }}
-                      @if (row.orderNumber) { · Order No. {{ row.orderNumber }} }
+                      <span class="nowrap">{{ row.applicationNumber }}</span>
+                      @if (row.orderNumber) { · <span class="nowrap">Order No. {{ row.orderNumber }}</span> }
                       @if (row.issuedOn) { · Issued {{ formatDate(row.issuedOn) }} }
                       @if (row.dueOn && row.canPay) { · Due {{ formatDate(row.dueOn) }} }
                     </div>
@@ -400,9 +402,9 @@ const HISTORY_FILTERS: ReadonlyArray<{ id: HistoryFilter; label: string }> = [
                       <app-status-pill [label]="item.view.label" />
                     </div>
                     <div class="history-meta">
-                      {{ item.applicationNumber }} ·
-                      {{ item.entry.method === 'Onsite' ? 'Paid at the Treasurer’s Office' : item.entry.method }} ·
-                      Ref. {{ item.entry.referenceNumber }}
+                      <span class="nowrap">{{ item.applicationNumber }}</span> ·
+                      {{ item.entry.method === 'Onsite' ? 'Paid at the ' + treasurer.short : item.entry.method }} ·
+                      <span class="nowrap">Ref. {{ item.entry.referenceNumber }}</span>
                     </div>
                     @if (item.view.detail) {
                       <div class="history-detail" [class.history-detail--red]="item.view.tone === 'red'">
@@ -427,6 +429,7 @@ export class PaymentsListPage {
   private readonly store = inject(ApplicationStore);
   protected readonly api = inject(CitizenApiClient);
   protected readonly pesos = pesos;
+  protected readonly treasurer = MUNICIPAL_TREASURER;
   protected readonly formatDate = formatDate;
   protected readonly orderFilters = ORDER_FILTERS;
   protected readonly historyFilters = HISTORY_FILTERS;

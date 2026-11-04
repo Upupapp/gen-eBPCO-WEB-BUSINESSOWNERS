@@ -1,4 +1,5 @@
 import { Component, Injector, afterNextRender, computed, effect, inject, signal, untracked } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -7,13 +8,14 @@ import { DraftProgress, resumeStep } from '../../core/domain/draft-resume';
 import {
   ApplicationAction, FILEABLE_PERMIT_TYPES, PermitType, RETIRED_PERMIT_TYPES, isValidPermitType,
 } from '../../core/domain/permit.model';
-import { RequirementDocument, hardCopiesText, requirementFromApi } from '../../core/domain/requirements-catalog';
+import { ONLINE_ONLY_NOTE, RequirementDocument, hardCopiesText, requirementFromApi } from '../../core/domain/requirements-catalog';
 import {
   OCCUPANCY_FIELD_LABEL, OCCUPANCY_GROUPS, OCCUPANCY_HINT, OCCUPANCY_OTHER_MAX, OCCUPANCY_OTHER_MIN, OccupancyGroup, asksOccupancy,
   occupancyForm, occupancyFromForm, occupancyLabel, occupancyProblem,
 } from '../../core/domain/occupancy';
 import {
   ApplyingAs,
+  PRIVATE_INDIVIDUAL,
   actionNeedsExistingPermit,
   actionReferenceIsComplete,
   existingPermitPrompt,
@@ -47,6 +49,16 @@ import {
 } from '../../core/domain/permit-delivery';
 
 type Step = 1 | 2 | 3 | 4;
+
+/** The step-1 fields that carry their own error message (design review I14). */
+type WizardField = 'applyingAs' | 'occupancy' | 'occupancyOther' | 'business';
+
+/** The control each field's error focuses; Applying as focuses its first open radio instead. */
+const WIZARD_FIELD_IDS: Record<Exclude<WizardField, 'applyingAs'>, string> = {
+  occupancy: 'application-wizard-occupancy',
+  occupancyOther: 'application-wizard-occupancy-other',
+  business: 'application-wizard-business-1',
+};
 
 interface AttachedDoc {
   /**
@@ -141,6 +153,13 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
   // mobile app's: a tinted box with room around it, the form's own name, and
   // View and Download.
   styles: [`
+    /* Save & Exit with its status line: right-aligned beside the title; one left-aligned row on a phone (design review I17). */
+    .wizard-save { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+    .wizard-save .hint { margin: 0; }
+    @media (max-width: 640px) {
+      .wizard-save { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+    }
+    .applying-as-error { margin: -4px 0 12px; }
     /* The citizen's permits issued before eBPCO, one click to fill the number (migration 069). */
     .earlier-picks { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
     .blank-form-link {
@@ -167,6 +186,8 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
     .docs-progress-bar { height: 6px; margin-top: 6px; border-radius: 99px; background: var(--gray-100); overflow: hidden; }
     .docs-progress-bar span { display: block; height: 100%; border-radius: 99px; background: var(--success-500); transition: width .25s ease; }
     .req-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 22px 0 0; }
+    .req-online-note { margin: 4px 0 0; color: var(--gray-700); }
+    .req-copies { margin-top: 6px; }
     .req-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
     .req {
       display: flex; gap: 14px; padding: 16px;
@@ -237,16 +258,16 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
     <div class="page page-narrow">
       <div class="page-header">
         <div>
-          <!-- "New <permit type> application" (LGU, 4 Nov 2026); it could read "New Business Permit Application". -->
-          <h1>New {{ !isGeneric && permitType ? permitType : 'permit' }} application</h1>
+          <!-- "<Application type> <permit type> application" (LGU, 4 Nov 2026; design review I17: it read "New" on a renewal). -->
+          <h1>{{ applicationAction }} {{ !isGeneric && permitType ? permitType : 'permit' }} application</h1>
           <div class="subtitle">{{ isGeneric ? 'Generic application flow' : reviewingOffice() }}</div>
         </div>
         @if (api.configured && step() < 4) {
-          <div style="text-align:right;">
+          <div class="wizard-save">
             <button type="button" class="btn btn-secondary" [disabled]="saveStatus() === 'saving'" (click)="saveAndExit()">
               Save &amp; Exit
             </button>
-            <div class="hint" style="margin-top:6px;">
+            <div class="hint">
               @switch (saveStatus()) {
                 @case ('saving') { Saving… }
                 @case ('saved') { Saved }
@@ -274,7 +295,8 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
             restricted it (migration 068): a kind it does not accept is
             disabled with the reason, and the only open one is chosen.
           -->
-          <fieldset class="choice-cards choice-cards--row">
+          <fieldset class="choice-cards choice-cards--row"
+            [attr.aria-describedby]="fieldError('applyingAs') ? 'application-wizard-applying-as-error' : null">
             <legend>Applying as<span class="required">*</span></legend>
             <label class="choice-card" [class.selected]="applyingAs === 'residential'"
               [class.choice-card--closed]="!isKindOpen('residential')">
@@ -282,8 +304,9 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
                 [disabled]="!isKindOpen('residential')"
                 [(ngModel)]="applyingAs" (ngModelChange)="onApplyingAsChange()" />
               <span class="choice-card-text">
-                <strong>Residential / Private Individual</strong>
-                <span>{{ isKindOpen('residential') ? 'For your own home or private property. No business needed.' : kindNotOpenMessage('residential') }}</span>
+                <!-- Who applies, not the building's use, which the occupancy below states (design review I6). The stored value stays 'residential'. -->
+                <strong>{{ privateIndividual }}</strong>
+                <span>{{ isKindOpen('residential') ? "For yourself or your family's property. No business needed." : kindNotOpenMessage('residential') }}</span>
               </span>
             </label>
             <label class="choice-card" [class.selected]="applyingAs === 'business'"
@@ -297,6 +320,9 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
               </span>
             </label>
           </fieldset>
+          @if (fieldError('applyingAs'); as message) {
+            <div id="application-wizard-applying-as-error" class="field-error applying-as-error">{{ message }}</div>
+          }
           <!-- Who usually applies, for the few types where that helps (guidance only, never a restriction). -->
           @if (usualUse(); as note) {
             <p class="small muted" style="margin:-4px 0 12px;">{{ note }}</p>
@@ -311,23 +337,37 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
           @if (asksOccupancy()) {
             <div class="field">
               <label for="application-wizard-occupancy">{{ occupancyFieldLabel }}<span class="required">*</span></label>
-              <!-- Marked invalid like the permit-number field when Continue is refused for it; the message is the step's own .field.error below. -->
-              <select id="application-wizard-occupancy" class="input" aria-describedby="application-wizard-occupancy-hint"
+              <!--
+                Its message sits under it, in place of the hint, and the control
+                points at it (design review I14: it was a banner 140px below,
+                off-screen from the field on a phone).
+              -->
+              <select id="application-wizard-occupancy" class="input"
+                [attr.aria-describedby]="fieldError('occupancy') ? 'application-wizard-occupancy-error' : 'application-wizard-occupancy-hint'"
                 [class.invalid]="occupancyInvalid('group')" [attr.aria-invalid]="occupancyInvalid('group')"
                 [(ngModel)]="occupancyGroup" (ngModelChange)="error.set(null)">
                 <option [ngValue]="null" disabled>Select the building's use</option>
                 @for (o of occupancyGroups; track o.value) { <option [ngValue]="o.value">{{ o.label }}</option> }
               </select>
-              <div id="application-wizard-occupancy-hint" class="hint">{{ occupancyHint }}</div>
+              @if (fieldError('occupancy'); as message) {
+                <div id="application-wizard-occupancy-error" class="field-error">{{ message }}</div>
+              } @else {
+                <div id="application-wizard-occupancy-hint" class="hint">{{ occupancyHint }}</div>
+              }
             </div>
             @if (occupancyGroup === 'other') {
               <div class="field">
                 <label for="application-wizard-occupancy-other">Specify the use<span class="required">*</span></label>
-                <input id="application-wizard-occupancy-other" class="input" aria-describedby="application-wizard-occupancy-other-hint"
+                <input id="application-wizard-occupancy-other" class="input"
+                  [attr.aria-describedby]="fieldError('occupancyOther') ? 'application-wizard-occupancy-other-error' : 'application-wizard-occupancy-other-hint'"
                   [class.invalid]="occupancyInvalid('other')" [attr.aria-invalid]="occupancyInvalid('other')"
                   [(ngModel)]="occupancyOther" (ngModelChange)="error.set(null)" [attr.maxlength]="occupancyOtherMax"
                   placeholder="e.g. Chapel, water refilling station" autocomplete="off" />
-                <div id="application-wizard-occupancy-other-hint" class="hint">{{ occupancyOtherMin }} to {{ occupancyOtherMax }} characters.</div>
+                @if (fieldError('occupancyOther'); as message) {
+                  <div id="application-wizard-occupancy-other-error" class="field-error">{{ message }}</div>
+                } @else {
+                  <div id="application-wizard-occupancy-other-hint" class="hint">{{ occupancyOtherMin }} to {{ occupancyOtherMax }} characters.</div>
+                }
               </div>
             }
           }
@@ -335,10 +375,15 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
           @if (applyingAs === 'business') {
           <div class="field">
             <label for="application-wizard-business-1">Business<span class="required">*</span></label>
-            <select id="application-wizard-business-1" class="input" [(ngModel)]="businessId" (ngModelChange)="invalidatePermitCheck()">
+            <select id="application-wizard-business-1" class="input" [(ngModel)]="businessId" (ngModelChange)="invalidatePermitCheck()"
+              [class.invalid]="!!fieldError('business')" [attr.aria-invalid]="!!fieldError('business')"
+              [attr.aria-describedby]="fieldError('business') ? 'application-wizard-business-error' : null">
               <option [ngValue]="null" disabled>Select a business</option>
               @for (b of activeBusinesses(); track b.id) { <option [value]="b.id">{{ b.name }}</option> }
             </select>
+            @if (fieldError('business'); as message) {
+              <div id="application-wizard-business-error" class="field-error">{{ message }}</div>
+            }
             @if (activeBusinesses().length === 0) {
               @if (!businesses.usingReal()) {
                 <!--
@@ -353,8 +398,8 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
                 <div class="hint">Loading your businesses…</div>
               } @else if (businesses.myBusinesses().length === 0) {
                 <div class="hint">
-                  No businesses yet. <a routerLink="/businesses/register">Register a business</a>, or apply as
-                  Residential / Private Individual if this is for your home or other private property.
+                  No businesses yet. <a routerLink="/businesses/register">Register a business</a>, or apply as a
+                  private individual if this is for your home or your family's property.
                 </div>
               } @else {
                 <div class="hint">None of your businesses are active — reactivate one to apply for a permit.</div>
@@ -367,7 +412,7 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
           <div class="field">
             <label for="application-wizard-application-type-2">Application type<span class="required">*</span></label>
             <select id="application-wizard-application-type-2" class="input" [(ngModel)]="applicationAction" (ngModelChange)="onApplicationActionChange()">
-              <option value="New">New Permit</option>
+              <option value="New">New</option>
               <option value="Renewal">Renewal</option>
               <option value="Amendment">Amendment</option>
             </select>
@@ -498,7 +543,8 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
               }
             </div>
           }
-          @if (error()) { <div class="field error">{{ error() }}</div> }
+          <!-- Only an error that belongs to no field; a field's own sits under it (design review I14). -->
+          @if (error() && !fieldErrorShown()) { <div class="field error">{{ error() }}</div> }
           <button class="btn btn-primary" [disabled]="checkingPermit()" (click)="toStep(2)">
             {{ checkingPermit() ? 'Checking permit…' : 'Continue' }}
           </button>
@@ -534,8 +580,10 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
           -->
           <div class="docs-head">
             <div>
-              <div class="card-title">Required documents</div>
+              <div class="card-title">Documents</div>
               <p class="small muted">Upload a PDF, JPG or PNG for each one, or use a file already in My Documents.</p>
+              <!-- Said once here, as the requirements window does; a document needing paper carries its own chip (design review I13). -->
+              <p class="small req-online-note">{{ onlineOnlyNote }}</p>
             </div>
             @if (requiredCount() > 0) {
               <div class="docs-progress">
@@ -594,13 +642,16 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
                   <div class="req-title"><strong>{{ d.label }}</strong></div>
                   @if (d.description) { <div class="req-desc">{{ d.description }}</div> }
                   <!--
-                    Whether paper copies are needed too (ebpco-api 071): none unless the LGU asks; the BFP asks one.
-                    The portal's muted document sub-line (.doc-sub), with the office's note under it.
+                    Paper copies (ebpco-api 071): a "Hard copies: n" chip only on a
+                    document that needs them (the BFP's), with the LGU's note under
+                    it word for word; "online only" is said once above the list.
                   -->
-                  <div>
-                    <div class="doc-sub req-copies">{{ hardCopiesText(d.hardCopies) }}</div>
-                    @if (d.hardCopyNote) { <div class="doc-sub req-copies">{{ d.hardCopyNote }}</div> }
-                  </div>
+                  @if (hardCopiesText(d.hardCopies); as copies) {
+                    <div class="req-copies">
+                      <span class="badge badge-amber">{{ copies }}</span>
+                      @if (d.hardCopyNote) { <div class="doc-sub">{{ d.hardCopyNote }}</div> }
+                    </div>
+                  }
                   <!-- A document that IS a form to sign on paper: the blank one, to print, sign and upload here. -->
                   @if (blankFormFor(d.id, d.label); as form) {
                     <div class="blank-form-link">
@@ -735,7 +786,7 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
             <button type="button" class="link-button" (click)="step.set(1)">Edit</button>
           </div>
           <dl class="kv">
-            <div><dt>Applying as</dt><dd>{{ applyingAs === 'residential' ? 'Residential / Private Individual' : 'Business' }}</dd></div>
+            <div><dt>Applying as</dt><dd>{{ applyingAs === 'residential' ? privateIndividual : 'Business' }}</dd></div>
             @if (applyingAs === 'business') {
               <div><dt>Business</dt><dd>{{ selectedBusinessName() }}</dd></div>
             }
@@ -915,6 +966,16 @@ export class ApplicationWizardPage {
 
   readonly step = signal<Step>(1);
   readonly error = signal<string | null>(null);
+  /**
+   * Which step-1 field the current `error` belongs to (design review I14).
+   * Its message then shows under that field, the control points at it with
+   * aria-describedby, and the step banner stays for errors no field holds
+   * (the server's). Kept apart from `error` so every `error.set(...)` stays as
+   * it was: a field shows the message only while `error` still is it.
+   */
+  private readonly fieldErrorState = signal<{ field: WizardField; message: string } | null>(null);
+  protected readonly privateIndividual = PRIVATE_INDIVIDUAL;
+  private readonly domDocument = inject(DOCUMENT);
 
   /** The real server id, once this application exists there as a Draft — set by the first autosave, or by resumeDraft(). */
   protected readonly draftId = signal<string | null>(null);
@@ -1037,8 +1098,34 @@ export class ApplicationWizardPage {
   protected readonly occupancyOtherMax = OCCUPANCY_OTHER_MAX;
   protected readonly occupancyOtherMin = OCCUPANCY_OTHER_MIN;
   protected readonly hardCopiesText = hardCopiesText;
+  protected readonly onlineOnlyNote = ONLINE_ONLY_NOTE;
 
   /** Whether this application asks the use or character of occupancy: a Building Permit or a Certificate of Occupancy. */
+  /** The message under `field`, while the step's error is that field's; null otherwise. */
+  protected fieldError(field: WizardField): string | null {
+    const state = this.fieldErrorState();
+    const message = this.error();
+    return state !== null && state.field === field && message === state.message ? message : null;
+  }
+
+  /** The step's error is shown under a field (so not in the banner). */
+  protected fieldErrorShown(): boolean {
+    const state = this.fieldErrorState();
+    return state !== null && this.error() === state.message;
+  }
+
+  /** Refuses Continue for one field: its message under it, and focus on it, so a phone user sees both. */
+  private failField(field: WizardField, message: string): void {
+    this.error.set(message);
+    this.fieldErrorState.set({ field, message });
+    setTimeout(() => {
+      const target = field === 'applyingAs'
+        ? this.domDocument.querySelector<HTMLElement>('input[name="application-wizard-applying-as"]:not([disabled])')
+        : this.domDocument.getElementById(WIZARD_FIELD_IDS[field]);
+      target?.focus();
+    });
+  }
+
   protected asksOccupancy(): boolean {
     return !this.isGeneric && asksOccupancy(this.permitType);
   }
@@ -1981,12 +2068,12 @@ export class ApplicationWizardPage {
     // Residential or Business, chosen on every application (owner request,
     // 2026-10-21). Only a Business application needs a business.
     if (next === 2 && this.applyingAs === null) {
-      this.error.set('Please choose whether you are applying as Residential / Private Individual or as a Business.');
+      this.failField('applyingAs', 'Please choose whether you are applying as a private individual or as a business.');
       return;
     }
     // Not accepted for this type (migration 068); the server refuses it at filing too.
     if (next === 2 && this.applyingAs !== null && !this.isKindOpen(this.applyingAs)) {
-      this.error.set(this.kindNotOpenMessage(this.applyingAs));
+      this.failField('applyingAs', this.kindNotOpenMessage(this.applyingAs));
       return;
     }
     // The use or character of occupancy, asked right after "Applying as" of a
@@ -1995,12 +2082,12 @@ export class ApplicationWizardPage {
     if (next === 2 && this.asksOccupancy()) {
       const problem = occupancyProblem(this.occupancyGroup, this.occupancyOther);
       if (problem !== null) {
-        this.error.set(problem);
+        this.failField(this.occupancyGroup === null ? 'occupancy' : 'occupancyOther', problem);
         return;
       }
     }
     if (next === 2 && this.applyingAs === 'business' && !this.businessId) {
-      this.error.set('Please select a business.');
+      this.failField('business', 'Please select a business.');
       return;
     }
     // The dropdown already excludes an inactive business — this only
@@ -2009,7 +2096,7 @@ export class ApplicationWizardPage {
     // dropdown at all.
     if (next === 2 && this.applyingAs === 'business' && this.businessId
       && this.businesses.businessById(this.businessId)?.status !== 'Active') {
-      this.error.set('This business is inactive. Reactivate it before applying for a permit.');
+      this.failField('business', 'This business is inactive. Reactivate it before applying for a permit.');
       return;
     }
     // A Renewal or Amendment that names no permit is not a lesser application,
