@@ -1,5 +1,7 @@
-// Mirrors the Admin Portal's core/domain/payment.model.ts.
-export type PaymentMethod = 'Bank Transfer' | 'Onsite';
+// Mirrors the Admin Portal's core/domain/payment.model.ts. 'GCash' since
+// ebpco-api 071: paid through its checkout (test mode until the LGU has a
+// merchant account), then verified by the Cashier like any other payment.
+export type PaymentMethod = 'Bank Transfer' | 'Onsite' | 'GCash';
 export type PaymentTransactionStatus = 'Pending Verification' | 'Verified' | 'Rejected' | 'Voided';
 export type CollectingAgency = 'OBO/LGU' | 'BFP';
 

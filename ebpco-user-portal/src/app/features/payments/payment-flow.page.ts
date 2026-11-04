@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -8,11 +8,31 @@ import { MUNICIPAL_ENGINEER, MUNICIPAL_HALL_ADDRESS } from '../../core/domain/lg
 import { pesos } from '../../core/domain/assessment.model';
 import { ToastService } from '../../shared/ui/toast.service';
 import { CitizenApiClient } from '../../core/api/citizen-api.client';
-import { ApplicationSummary } from '../../core/api/citizen-api.models';
+import { ApplicationSummary, PaymentMethodOption } from '../../core/api/citizen-api.models';
 import { UploadLimitsService } from '../../core/api/upload-limits.service';
 import { toBase64 } from '../../core/api/document-resubmission.service';
 import { ApiError, duplicateOf } from '../../core/api/problem';
 import { BackLinkComponent } from '../../shared/ui/back-link.component';
+
+const KNOWN_METHODS: readonly PaymentMethod[] = ['Bank Transfer', 'GCash', 'Onsite'];
+
+const ONSITE: PaymentMethodOption = { method: 'Onsite', label: 'Onsite', instructions: '' };
+
+/** What this screen offered before the server listed methods: Onsite, and Bank Transfer once an account is published. */
+const LOCAL_METHODS: readonly PaymentMethodOption[] = DEFAULT_BANK_INFO
+  ? [{ method: 'Bank Transfer', label: 'Bank Transfer', instructions: '' }, ONSITE]
+  : [ONSITE];
+
+const METHOD_TITLE: Partial<Record<string, string>> = {
+  'Bank Transfer': 'Bank Transfer',
+  GCash: 'GCash',
+  Onsite: 'Onsite Payment',
+};
+
+/** Bank Transfer first once it is offered (as before), else Onsite, else what there is. */
+function defaultMethod(offered: readonly PaymentMethodOption[]): PaymentMethod {
+  return (offered.find((m) => m.method === 'Bank Transfer') ?? offered.find((m) => m.method === 'Onsite') ?? offered[0]).method;
+}
 
 @Component({
   selector: 'app-payment-flow',
@@ -53,23 +73,49 @@ import { BackLinkComponent } from '../../shared/ui/back-link.component';
           <div class="card">
             <div class="card-title">Payment method</div>
             <!--
-              Bank Transfer is offered only once the Municipality publishes a
+              The methods the LGU accepts right now (GET /payment-methods,
+              ebpco-api 071; Onsite alone when that cannot be read). Bank
+              Transfer is offered only once the Municipality publishes a
               deposit account (DEFAULT_BANK_INFO). Until then it opened first
               on a "not available yet" notice and the citizen had to switch
               (QA TC-25, 2026-10-03): Onsite is the method, shown as such.
             -->
-            @if (bank) {
-              <div style="display:flex; gap:10px; margin-bottom:14px;">
-                <button class="btn btn-sm" [class.btn-primary]="method() === 'Bank Transfer'" [class.btn-secondary]="method() !== 'Bank Transfer'" (click)="method.set('Bank Transfer')">Bank Transfer</button>
-                <button class="btn btn-sm" [class.btn-primary]="method() === 'Onsite'" [class.btn-secondary]="method() !== 'Onsite'" (click)="method.set('Onsite')">Onsite Payment</button>
-              </div>
-            } @else {
+            @if (methods().length > 1) {
+              <fieldset class="choice-cards choice-cards--row">
+                <legend>Choose how to pay</legend>
+                @for (m of methods(); track m.method) {
+                  <label class="choice-card" [class.selected]="method() === m.method">
+                    <input type="radio" name="payment-flow-method" [value]="m.method"
+                      [checked]="method() === m.method" (change)="chooseMethod(m.method)" />
+                    <span class="choice-card-text">
+                      <strong>{{ methodTitle(m) }}</strong>
+                      <span>{{ methodBlurb(m) }}</span>
+                    </span>
+                  </label>
+                }
+              </fieldset>
+            } @else if (method() === 'Onsite') {
               <p class="small muted" style="margin:0 0 12px;">
                 Pay onsite at the Municipal Hall. Bank transfer will be offered here once the Municipality publishes its deposit account.
               </p>
             }
 
-            @if (method() === 'Bank Transfer') {
+            @if (method() === 'GCash') {
+              <!--
+                GCash (ebpco-api 071): the checkout opens on its own page. Test
+                mode until the LGU has a GCash merchant account: no money moves,
+                and the page says so. Verified by the Cashier like any payment.
+              -->
+              <div class="card" style="background:var(--secondary-50);">
+                <p class="small" style="margin:0;">
+                  You go to the checkout page to pay {{ pesos(asmt.totalCentavos) }}. Once paid, the Cashier verifies the
+                  payment and issues your official receipt.
+                </p>
+                @if (gcashTestMode()) {
+                  <p class="small" style="margin:6px 0 0;"><strong>Test mode:</strong> no real money is charged.</p>
+                }
+              </div>
+            } @else if (method() === 'Bank Transfer') {
               @if (bank; as b) {
                 <div class="card" style="background:var(--secondary-50);">
                   <div class="small"><strong>Bank:</strong> {{ b.bankName }}</div>
@@ -128,6 +174,10 @@ import { BackLinkComponent } from '../../shared/ui/back-link.component';
                   <button class="btn btn-secondary btn-sm" [disabled]="submitting()" (click)="confirmingOnsite.set(false)">Not yet</button>
                 </div>
               </div>
+            } @else if (method() === 'GCash') {
+              <button class="btn btn-primary btn-block" style="margin-top:14px;" [disabled]="submitting()" (click)="payWithGcash(a.id)">
+                {{ submitting() ? 'Opening the checkout…' : 'Pay with GCash' }}
+              </button>
             } @else if (method() !== 'Bank Transfer' || bank) {
               <button class="btn btn-primary btn-block" style="margin-top:14px;" [disabled]="submitting()" (click)="onPay(a.id)">
                 {{ submitting() ? 'Sending…' : (method() === 'Bank Transfer' ? 'Submit Payment' : 'Mark as Paid') }}
@@ -160,8 +210,17 @@ export class PaymentFlowPage {
   protected readonly engineer = MUNICIPAL_ENGINEER;
   protected readonly hallAddress = MUNICIPAL_HALL_ADDRESS;
   protected readonly pesos = pesos;
+  /**
+   * The methods offered, in the server's order (GET /payment-methods,
+   * ebpco-api 071). Until that answers, and in the demo build, the ones this
+   * screen always had; Onsite alone when it cannot be read. Bank Transfer
+   * only once the Municipality has published a deposit account.
+   */
+  readonly methods = signal<readonly PaymentMethodOption[]>(LOCAL_METHODS);
   // Onsite unless the Municipality has published a deposit account (QA TC-25).
   readonly method = signal<PaymentMethod>(DEFAULT_BANK_INFO ? 'Bank Transfer' : 'Onsite');
+  /** The GCash provider is the test one: no real money moves (the server says so with `mode: 'test'`). */
+  protected readonly gcashTestMode = computed(() => this.methods().some((m) => m.method === 'GCash' && m.mode === 'test'));
   /** Asking "have you paid?" before an onsite payment is declared (QA TC-27). */
   readonly confirmingOnsite = signal(false);
   readonly error = signal<string | null>(null);
@@ -196,6 +255,10 @@ export class PaymentFlowPage {
 
   constructor() {
     if (this.api.configured) {
+      this.api.getPaymentMethods().subscribe({
+        next: (list) => this.useMethods(Array.isArray(list) ? list : []),
+        error: () => this.useMethods([]),
+      });
       this.api.getApplication(this.id()).subscribe({
         next: (summary) => {
           this.realOrderOfPayment.set(summary.payment.orderOfPayment ?? null);
@@ -211,6 +274,82 @@ export class PaymentFlowPage {
 
   private id(): string {
     return this.route.snapshot.paramMap.get('applicationId')!;
+  }
+
+  /**
+   * What the server listed, less what this screen cannot offer: a method it
+   * does not know, and Bank Transfer while no deposit account is published.
+   * Nothing left (or nothing read) is Onsite, as before the list existed.
+   */
+  private useMethods(list: readonly PaymentMethodOption[]): void {
+    const usable = list.filter((m) => KNOWN_METHODS.includes(m.method) && (m.method !== 'Bank Transfer' || this.bank !== null));
+    const offered = usable.length > 0 ? usable : [ONSITE];
+    this.methods.set(offered);
+    if (!offered.some((m) => m.method === this.method())) this.method.set(defaultMethod(offered));
+  }
+
+  protected chooseMethod(method: PaymentMethod): void {
+    this.method.set(method);
+    this.error.set(null);
+    this.confirmingOnsite.set(false);
+  }
+
+  protected methodTitle(m: PaymentMethodOption): string {
+    return METHOD_TITLE[m.method] ?? m.label;
+  }
+
+  protected methodBlurb(m: PaymentMethodOption): string {
+    if (m.method === 'GCash') return m.mode === 'test' ? 'Pay online. Test mode: no real money is charged.' : 'Pay online with GCash.';
+    if (m.method === 'Bank Transfer') return "Deposit to the Municipality's account, then upload the proof.";
+    return 'Pay at the Municipal Hall, then mark it paid here.';
+  }
+
+  /**
+   * Opens a GCash checkout for the Order of Payment in force (`POST
+   * /applications/{id}/payments/gcash`) and goes to it. The server names
+   * the amount; nothing here is sent but the application. Its refusal (not
+   * waiting for payment, a payment already with the Cashier, GCash closed)
+   * is shown in its own words.
+   */
+  async payWithGcash(applicationId: string): Promise<void> {
+    this.error.set(null);
+    this.submitting.set(true);
+    try {
+      const checkout = await firstValueFrom(this.api.startGcashPayment(applicationId));
+      this.openCheckout(checkout.checkoutUrl);
+    } catch (error) {
+      this.error.set(
+        error instanceof ApiError ? error.citizenMessage : 'The GCash checkout could not be opened. Please try again.',
+      );
+    } finally {
+      this.submitting.set(false);
+    }
+  }
+
+  /**
+   * The checkout is this portal's own `/pay/gcash/{id}?t=…` page, on the
+   * same origin in production: opened in place, keeping the session. On
+   * another origin (a local build against another portal's API), a full
+   * page load there.
+   */
+  private openCheckout(checkoutUrl: string): void {
+    let target: URL;
+    try {
+      target = new URL(checkoutUrl, window.location.origin);
+    } catch {
+      this.error.set('The GCash checkout could not be opened. Please try again.');
+      return;
+    }
+    if (target.origin === window.location.origin) {
+      void this.router.navigateByUrl(`${target.pathname}${target.search}${target.hash}`);
+    } else {
+      this.leaveTo(target.toString());
+    }
+  }
+
+  /** A full page load elsewhere; its own method so a test can see it without leaving the page. */
+  protected leaveTo(url: string): void {
+    window.location.assign(url);
   }
 
   app() {
@@ -243,6 +382,10 @@ export class PaymentFlowPage {
 
   /** Onsite asks first; a bank transfer carries its own proof and goes straight through. */
   onPay(applicationId: string): void {
+    if (this.method() === 'GCash') {
+      void this.payWithGcash(applicationId);
+      return;
+    }
     if (this.method() === 'Onsite') {
       this.error.set(null);
       this.confirmingOnsite.set(true);

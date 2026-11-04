@@ -10,6 +10,7 @@ import { fullName } from '../../core/domain/user.model';
 import { applyingAsLabel } from '../../core/domain/application.model';
 import { Assessment, pesos } from '../../core/domain/assessment.model';
 import { formatDate } from '../../core/utils/ids';
+import { occupancyLabelOf } from '../../core/domain/occupancy';
 import { MUNICIPAL_ENGINEER } from '../../core/domain/lgu-contact';
 import { CitizenApiClient } from '../../core/api/citizen-api.client';
 import { BackLinkComponent } from '../../shared/ui/back-link.component';
@@ -151,6 +152,13 @@ interface QrCell {
                   <dt>Date Applied</dt>
                   <dd>{{ a.dateSubmitted ? formatDate(a.dateSubmitted) : 'Pending' }}</dd>
                 </div>
+                <!-- As filed (ebpco-api 071): a Building Permit or Certificate of Occupancy; left out when absent. -->
+                @if (occupancy(); as use) {
+                  <div style="grid-column: 1 / -1;">
+                    <dt>Use or character of occupancy</dt>
+                    <dd>{{ use }}</dd>
+                  </div>
+                }
                 @if (scope(); as sc) {
                   <div style="grid-column: 1 / -1;">
                     <dt>Scope</dt>
@@ -337,6 +345,8 @@ export class PermitDocumentPage {
   protected readonly permit = computed(() => this.store.permitFor(this.id()));
   /** What the Building Official wrote the permit covers when generating it. */
   protected readonly scope = computed(() => this.store.permitScopeFor(this.id()));
+  /** "Group A — Residential, Dwellings", from the application's own form; null when none was given. */
+  protected readonly occupancy = computed(() => occupancyLabelOf(this.app()?.form));
   private readonly demoAssessment = computed(() => this.store.assessmentFor(this.id()));
   /**
    * `assessedAmountCentavos`/`paymentStatus` on `app()` are already real for

@@ -24,6 +24,7 @@ import { duplicateOf } from '../../core/api/problem';
 import { BackLinkComponent } from '../../shared/ui/back-link.component';
 import { StepperComponent } from '../../shared/ui/stepper.component';
 import { ApplicationRecord, applyingAsLabel, propertyOwnerOf } from '../../core/domain/application.model';
+import { OCCUPANCY_FIELD_LABEL, occupancyLabelOf } from '../../core/domain/occupancy';
 
 /** Same extension-sniffing fallback as my-documents.page.ts / application-wizard.page.ts. */
 function fileTypeFromName(name: string): SavedDocumentFileType {
@@ -393,7 +394,7 @@ const STAGE_OF: Partial<Record<ApplicationLifecycleStatus, number>> = {
                             <div class="doc-sub">Not sent yet</div>
                           }
                         </div>
-                        <span class="tag">{{ req.required ? 'Required' : 'Optional' }}</span>
+                        <span class="tag">{{ req.required ? 'Required' : 'If applicable' }}</span>
                         <div class="doc-actions">
                           <input
                             type="file"
@@ -787,6 +788,8 @@ export class ApplicationDetailsPage {
       ? `${owner.name.trim()}${owner.relationship ? ` (${owner.relationship.trim()})` : ''}`
       : '';
     const rows = [
+      // Building Permit and Certificate of Occupancy (ebpco-api 071); absent on older filings and other types.
+      { label: OCCUPANCY_FIELD_LABEL, value: occupancyLabelOf(form) ?? '', wide: false },
       { label: 'Property owner', value: ownerText, wide: false },
       { label: 'Project / property address', value: (a.location ?? '').trim(), wide: false },
       { label: 'Scope of work / purpose', value: text('scopeOfWork'), wide: true },

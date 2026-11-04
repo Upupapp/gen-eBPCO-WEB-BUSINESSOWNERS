@@ -21,6 +21,7 @@ interface Testable {
   applicationAction: string;
   permitNumberInput: string;
   paperPermit: boolean;
+  occupancyGroup: string | null;
   step(): number;
   permitNumberError(): string | null;
   toStep(next: 1 | 2 | 3 | 4): void;
@@ -72,6 +73,8 @@ function open(query: Record<string, string>) {
   // Signed out here, so "Applying as" has no sign-up choice to open on.
   page.applyingAs = 'business';
   page.businessId = 'biz-1';
+  // A Building Permit asks the use or character of occupancy (ebpco-api 071).
+  page.occupancyGroup = 'A';
   fixture.detectChanges();
   return { http, fixture, page, el: fixture.nativeElement as HTMLElement, requirementsUrl };
 }

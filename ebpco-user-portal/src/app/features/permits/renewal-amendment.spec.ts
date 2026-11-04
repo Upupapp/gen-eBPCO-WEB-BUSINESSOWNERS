@@ -102,6 +102,8 @@ describe('A Renewal or Amendment names the permit it acts on', () => {
     const fixture = TestBed.createComponent(ApplicationWizardPage);
     const page = fixture.componentInstance;
     page.businessId = 'biz-1';
+    // "Applying as" no longer opens on the sign-up answer (4 Nov 2026): chosen here.
+    page.applyingAs = 'business';
     // A known type, not the bare generic flow — otherwise the automatic
     // claim path asks for a permit TYPE first (see the "switches to the
     // claim path automatically" tests below), which is a different,
@@ -123,6 +125,8 @@ describe('A Renewal or Amendment names the permit it acts on', () => {
     const fixture = TestBed.createComponent(ApplicationWizardPage);
     const page = fixture.componentInstance;
     page.businessId = 'biz-1';
+    // "Applying as" no longer opens on the sign-up answer (4 Nov 2026): chosen here.
+    page.applyingAs = 'business';
     page.applicationAction = 'Renewal';
     page.relatedPermitNumber = 'BP-2025-00042';
 
@@ -179,6 +183,8 @@ describe('a Renewal/Amendment claiming a permit eBPCO has no record of', () => {
     const fixture = TestBed.createComponent(ApplicationWizardPage);
     const page = fixture.componentInstance;
     page.businessId = 'biz-1';
+    // "Applying as" no longer opens on the sign-up answer (4 Nov 2026): chosen here.
+    page.applyingAs = 'business';
     page.applicationAction = 'Renewal';
     page.relatedPermitNumber = null;
     page.priorPermitClaim = 'OLD-BP-1998-042';
@@ -243,6 +249,8 @@ describe('a Renewal/Amendment claiming a permit eBPCO has no record of', () => {
     const fixture = TestBed.createComponent(ApplicationWizardPage);
     const page = fixture.componentInstance;
     page.businessId = 'biz-1';
+    // "Applying as" no longer opens on the sign-up answer (4 Nov 2026): chosen here.
+    page.applyingAs = 'business';
     page.applicationAction = 'Renewal';
     page.priorPermitClaim = 'OLD-BP-1998-042';
     page.documents = [{ id: 'prior-permit-proof', label: 'Copy of your existing/prior permit', required: false }];

@@ -16,7 +16,9 @@ import {
 import { ApplicationDocument, DocumentStatus, SavedDocumentFileType } from '../domain/document.model';
 import { Assessment, AssessmentLineItem, ILLUSTRATIVE_FEE_BASIS } from '../domain/assessment.model';
 import { PaymentMethod, PaymentTransaction } from '../domain/payment.model';
-import { GENERIC_APPLICATION_DOCUMENTS, RequirementDocument, documentsFor, requirementsFor } from '../domain/requirements-catalog';
+import {
+  GENERIC_APPLICATION_DOCUMENTS, RequirementDocument, documentsFor, requirementFromApi, requirementsFor,
+} from '../domain/requirements-catalog';
 import { nextId, todayIso } from '../utils/ids';
 import { MUNICIPAL_ENGINEER } from '../domain/lgu-contact';
 import { CitizenApiClient, newIdempotencyKey } from '../api/citizen-api.client';
@@ -647,12 +649,7 @@ export class ApplicationStore {
     if (key in this.realRequiredDocuments()) return;
     this.api.getRequirementsForPermitType(this.permitTypeFor(permitType), applicationAction).subscribe({
       next: (result) => {
-        const docs: RequirementDocument[] = result.documents.map((d) => ({
-          id: d.code,
-          label: d.label,
-          required: d.required,
-          description: d.description || undefined,
-        }));
+        const docs: RequirementDocument[] = result.documents.map(requirementFromApi);
         this.realRequiredDocuments.update((m) => ({ ...m, [key]: docs.length > 0 ? docs : null }));
       },
       // A local demo permit type, or a deployment that can't answer this

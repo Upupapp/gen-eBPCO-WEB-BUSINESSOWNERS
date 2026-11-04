@@ -17,7 +17,11 @@ import {
   ExportContentResult,
   ExportRequestResult,
   ExportStatusResult,
+  GcashCheckoutStart,
+  GcashCheckoutView,
+  GcashSimulateResult,
   LimitsResponse,
+  PaymentMethodOption,
   DocumentHistoryEntry,
   InstructionLetter,
   PublicPermitRecord,
@@ -231,7 +235,10 @@ export class CitizenApiClient {
    * non-compliant because the LGU later changed what it asks for.
    */
   getRequirements(applicationId: string): Observable<RequirementsChecklistResponse> {
-    return this.get<RequirementsChecklistResponse>(`/applications/${encodeURIComponent(applicationId)}/requirements`);
+    return this.get<RequirementsChecklistResponse>(`/applications/${encodeURIComponent(applicationId)}/requirements`)
+      .pipe(map((result) => (Array.isArray(result?.requirements)
+        ? { ...result, requirements: result.requirements.map(withHardCopies) }
+        : result)));
   }
 
   /**
@@ -259,7 +266,59 @@ export class CitizenApiClient {
     ].filter((part): part is string => part !== null).join('&');
     return this.get<PermitRequirementsResponse>(
       `/requirements/${encodeURIComponent(permitType)}${query === '' ? '' : `?${query}`}`,
+    ).pipe(map((result) => (Array.isArray(result?.documents)
+      ? { ...result, documents: result.documents.map(withHardCopies) }
+      : result)));
+  }
+
+  /**
+   * `GET /payment-methods` (ebpco-api 071) — the methods the LGU accepts
+   * right now, a bare array. GCash is in it only while its provider is on.
+   */
+  getPaymentMethods(): Observable<PaymentMethodOption[]> {
+    return this.get<PaymentMethodOption[]>('/payment-methods');
+  }
+
+  /**
+   * `POST /applications/{id}/payments/gcash` — opens a GCash checkout for the
+   * Order of Payment in force (201). No body and no Idempotency-Key: each
+   * call opens a new checkout, and an unused one simply expires after 30
+   * minutes. 422/409 carry the citizen's reason in `detail`.
+   */
+  startGcashPayment(applicationId: string): Observable<GcashCheckoutStart> {
+    if (this.baseUrl === null) return throwError(() => new ApiNotConfiguredError());
+    return this.http
+      .post<GcashCheckoutStart>(`${this.baseUrl}/applications/${encodeURIComponent(applicationId)}/payments/gcash`, {})
+      .pipe(catchError((e) => throwError(() => this.toApiError(e))));
+  }
+
+  /**
+   * `GET /payments/gcash/checkouts/{id}?t=` — PUBLIC, checked against the
+   * link's own secret `t`. 404 for a missing checkout or a wrong secret alike.
+   */
+  getGcashCheckout(checkoutId: string, token: string): Observable<GcashCheckoutView> {
+    return this.get<GcashCheckoutView>(
+      `/payments/gcash/checkouts/${encodeURIComponent(checkoutId)}?t=${encodeURIComponent(token)}`,
     );
+  }
+
+  /**
+   * `POST /payments/gcash/checkouts/{id}/simulate?t=` — PUBLIC, test mode
+   * only: what the gateway would report. 'paid' lodges the payment the same
+   * way a citizen payment is (Pending Verification, for the Cashier); the
+   * same outcome again returns the same result (`replayed`). 409 says why
+   * not (expired, already settled, the Order of Payment changed).
+   */
+  simulateGcashCheckout(
+    checkoutId: string, token: string, outcome: 'paid' | 'failed' | 'cancelled',
+  ): Observable<GcashSimulateResult> {
+    if (this.baseUrl === null) return throwError(() => new ApiNotConfiguredError());
+    return this.http
+      .post<GcashSimulateResult>(
+        `${this.baseUrl}/payments/gcash/checkouts/${encodeURIComponent(checkoutId)}/simulate?t=${encodeURIComponent(token)}`,
+        { outcome },
+      )
+      .pipe(catchError((e) => throwError(() => this.toApiError(e))));
   }
 
   /**
@@ -685,6 +744,21 @@ export class CitizenApiClient {
     if (e instanceof HttpErrorResponse) return problemFrom(e.error, e.status);
     return e;
   }
+}
+
+/**
+ * A requirement row with `hardCopies`/`hardCopyNote` (ebpco-api 071) as every
+ * one carries them now. An older server sent neither, which reads as 071's
+ * own default: online only, no note. Anything that is not a whole number of
+ * copies reads the same way rather than printing a count nobody set.
+ */
+function withHardCopies<T extends object>(row: T): T & { hardCopies: number; hardCopyNote: string | null } {
+  const raw = row as { hardCopies?: unknown; hardCopyNote?: unknown };
+  const copies = typeof raw.hardCopies === 'number' && Number.isInteger(raw.hardCopies) && raw.hardCopies > 0
+    ? raw.hardCopies
+    : 0;
+  const note = typeof raw.hardCopyNote === 'string' && raw.hardCopyNote.trim() !== '' ? raw.hardCopyNote.trim() : null;
+  return { ...row, hardCopies: copies, hardCopyNote: note };
 }
 
 /**

@@ -7,7 +7,11 @@ import { DraftProgress, resumeStep } from '../../core/domain/draft-resume';
 import {
   ApplicationAction, FILEABLE_PERMIT_TYPES, PermitType, RETIRED_PERMIT_TYPES, isValidPermitType,
 } from '../../core/domain/permit.model';
-import { RequirementDocument } from '../../core/domain/requirements-catalog';
+import { RequirementDocument, hardCopiesText, requirementFromApi } from '../../core/domain/requirements-catalog';
+import {
+  OCCUPANCY_FIELD_LABEL, OCCUPANCY_GROUPS, OCCUPANCY_HINT, OCCUPANCY_OTHER_MAX, OccupancyGroup, asksOccupancy,
+  occupancyForm, occupancyFromForm, occupancyLabel, occupancyProblem,
+} from '../../core/domain/occupancy';
 import {
   ApplyingAs,
   actionNeedsExistingPermit,
@@ -182,6 +186,8 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
     .req-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
     .req-title strong { font-size: 15px; line-height: 1.35; color: var(--gray-900); }
     .req-desc { font-size: 13px; line-height: 1.45; color: var(--gray-500); }
+    .req-copies { font-size: 12px; line-height: 1.45; font-weight: 600; color: var(--gray-600); }
+    .req-copies-note { font-weight: 400; color: var(--gray-500); }
     .req-file-input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; }
     .req-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
     .req-action { display: inline-flex; align-items: center; gap: 7px; }
@@ -235,7 +241,8 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
     <div class="page page-narrow">
       <div class="page-header">
         <div>
-          <h1>{{ isGeneric ? 'New Business Permit Application' : permitType }}</h1>
+          <!-- "New <permit type> application" (LGU, 4 Nov 2026); it could read "New Business Permit Application". -->
+          <h1>New {{ !isGeneric && permitType ? permitType : 'permit' }} application</h1>
           <div class="subtitle">{{ isGeneric ? 'Generic application flow' : reviewingOffice() }}</div>
         </div>
         @if (api.configured && step() < 4) {
@@ -297,6 +304,32 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
           <!-- Who usually applies, for the few types where that helps (guidance only, never a restriction). -->
           @if (usualUse(); as note) {
             <p class="small muted" style="margin:-4px 0 12px;">{{ note }}</p>
+          }
+
+          <!--
+            The use or character of occupancy (LGU, 4 Nov 2026: "no option for
+            residential, institutional"): the National Building Code's Groups
+            A to J, asked of a Building Permit and a Certificate of Occupancy
+            only, and required to file one (ebpco-api 071).
+          -->
+          @if (asksOccupancy()) {
+            <div class="field">
+              <label for="application-wizard-occupancy">{{ occupancyFieldLabel }}<span class="required">*</span></label>
+              <select id="application-wizard-occupancy" class="input" aria-describedby="application-wizard-occupancy-hint"
+                [(ngModel)]="occupancyGroup" (ngModelChange)="error.set(null)">
+                <option [ngValue]="null" disabled>Select the building's use</option>
+                @for (o of occupancyGroups; track o.value) { <option [ngValue]="o.value">{{ o.label }}</option> }
+              </select>
+              <div id="application-wizard-occupancy-hint" class="hint">{{ occupancyHint }}</div>
+            </div>
+            @if (occupancyGroup === 'other') {
+              <div class="field">
+                <label for="application-wizard-occupancy-other">Specify the use<span class="required">*</span></label>
+                <input id="application-wizard-occupancy-other" class="input" [(ngModel)]="occupancyOther"
+                  (ngModelChange)="error.set(null)" [attr.maxlength]="occupancyOtherMax"
+                  placeholder="e.g. Chapel, water refilling station" />
+              </div>
+            }
           }
 
           @if (applyingAs === 'business') {
@@ -535,8 +568,9 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
             </div>
           }
           @for (group of documentGroups(); track group.required) {
+          <!-- "If applicable", not "Optional" (LGU, 4 Nov 2026): needed when the project includes that work. -->
           <div class="req-group">
-            <span class="req-group-title">{{ group.required ? 'Required' : 'Optional' }}</span>
+            <span class="req-group-title">{{ group.required ? 'Required' : 'If applicable' }}</span>
             <span class="req-group-hint">
               {{ group.required ? 'Needed before you can submit.' : 'Attach only if your project includes this work.' }}
             </span>
@@ -554,6 +588,9 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
                 <div class="req-body">
                   <div class="req-title"><strong>{{ d.label }}</strong></div>
                   @if (d.description) { <div class="req-desc">{{ d.description }}</div> }
+                  <!-- Whether paper copies are needed too (ebpco-api 071): none unless the LGU asks; the BFP asks one. -->
+                  <div class="req-copies">{{ hardCopiesText(d.hardCopies) }}</div>
+                  @if (d.hardCopyNote) { <div class="req-copies req-copies-note">{{ d.hardCopyNote }}</div> }
                   <!-- A document that IS a form to sign on paper: the blank one, to print, sign and upload here. -->
                   @if (blankFormFor(d.id, d.label); as form) {
                     <div class="blank-form-link">
@@ -693,6 +730,9 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
               <div><dt>Business</dt><dd>{{ selectedBusinessName() }}</dd></div>
             }
             <div><dt>Permit type</dt><dd>{{ isGeneric ? 'New Business Permit (Generic)' : permitType }}</dd></div>
+            @if (asksOccupancy() && occupancyGroup !== null) {
+              <div><dt>{{ occupancyFieldLabel }}</dt><dd>{{ occupancyText() }}</dd></div>
+            }
             <div><dt>Application type</dt><dd>{{ applicationAction }}</dd></div>
             @if (needsExistingPermit() && relatedPermitNumber) {
               <div><dt>{{ existingPermitPrompt(applicationAction) }}</dt><dd>{{ relatedPermitNumber }}</dd></div>
@@ -924,13 +964,7 @@ export class ApplicationWizardPage {
 
   private useRealDocuments(documents: PermitRequirementsResponse['documents']): void {
     const previousDocs = this.documents;
-    const nextDocs: RequirementDocument[] = documents.map((d) => ({
-      id: d.code,
-      label: d.label,
-      required: d.required,
-      description: d.description || undefined,
-      ...(d.applicantKind ? { applicantKind: d.applicantKind } : {}),
-    }));
+    const nextDocs: RequirementDocument[] = documents.map(requirementFromApi);
     // Re-key anything already attached/reused under the static
     // catalog's id, by label, so swapping in the real ids doesn't drop
     // a file the citizen already picked. Both catalogs were seeded
@@ -961,6 +995,31 @@ export class ApplicationWizardPage {
    * constructor for what it opens on. Sent as `form.applyingAs`.
    */
   applyingAs: ApplyingAs | null = null;
+
+  /**
+   * The use or character of occupancy (LGU, 4 Nov 2026; ebpco-api 071),
+   * asked of a Building Permit and a Certificate of Occupancy only
+   * (`asksOccupancy()`). Sent as `form.occupancyGroup`, with
+   * `form.occupancyOther` for "Others (specify)"; see `occupancyForm`.
+   */
+  occupancyGroup: OccupancyGroup | null = null;
+  occupancyOther = '';
+  protected readonly occupancyGroups = OCCUPANCY_GROUPS;
+  protected readonly occupancyFieldLabel = OCCUPANCY_FIELD_LABEL;
+  protected readonly occupancyHint = OCCUPANCY_HINT;
+  protected readonly occupancyOtherMax = OCCUPANCY_OTHER_MAX;
+  protected readonly hardCopiesText = hardCopiesText;
+
+  /** Whether this application asks the use or character of occupancy: a Building Permit or a Certificate of Occupancy. */
+  protected asksOccupancy(): boolean {
+    return !this.isGeneric && asksOccupancy(this.permitType);
+  }
+
+  /** The choice as the review shows it. */
+  protected occupancyText(): string {
+    return this.occupancyGroup === null ? '' : occupancyLabel(this.occupancyGroup, this.occupancyOther);
+  }
+
   /**
    * The business, for a Business application only. Kept while the citizen
    * switches to Residential and back, but never sent for a Residential one
@@ -1426,6 +1485,10 @@ export class ApplicationWizardPage {
     this.scopeOfWork = typeof form['scopeOfWork'] === 'string' ? form['scopeOfWork'] : '';
     this.professionalName = typeof form['professionalName'] === 'string' ? form['professionalName'] : '';
     this.prcNumber = typeof form['prcNumber'] === 'string' ? form['prcNumber'] : '';
+    // As saved; a draft saved before it was asked (ebpco-api 071) reopens with nothing chosen, on step 1.
+    const occupancy = occupancyFromForm(form);
+    this.occupancyGroup = occupancy.group;
+    this.occupancyOther = occupancy.other;
 
     // 'Business Permit' is the one value the generic flow's own submit
     // always sends and the claim picker's PermitType list never offers
@@ -1537,6 +1600,7 @@ export class ApplicationWizardPage {
       applicantDone: (this.applyingAs === 'business'
           ? this.businessId !== null && (business === undefined || business.status === 'Active')
           : this.applyingAs === 'residential')
+        && (!this.asksOccupancy() || occupancyProblem(this.occupancyGroup, this.occupancyOther) === null)
         && actionReferenceIsComplete(this.applicationAction, this.relatedPermitNumber, this.priorPermitClaim)
         && (!proof || !!this.attached[proof.id]),
       detailsDone: !!this.projectAddress.trim() && !!this.scopeOfWork.trim(),
@@ -1884,6 +1948,16 @@ export class ApplicationWizardPage {
       this.error.set(this.kindNotOpenMessage(this.applyingAs));
       return;
     }
+    // The use or character of occupancy, asked right after "Applying as" of a
+    // Building Permit or Certificate of Occupancy: the server refuses to file
+    // one without it (ebpco-api 071), in these same words.
+    if (next === 2 && this.asksOccupancy()) {
+      const problem = occupancyProblem(this.occupancyGroup, this.occupancyOther);
+      if (problem !== null) {
+        this.error.set(problem);
+        return;
+      }
+    }
     if (next === 2 && this.applyingAs === 'business' && !this.businessId) {
       this.error.set('Please select a business.');
       return;
@@ -1989,6 +2063,8 @@ export class ApplicationWizardPage {
         // Migration 067. Left out until chosen/answered rather than sent as
         // null: the server reads an absent applyingAs from the business.
         ...(this.applyingAs !== null ? { applyingAs: this.applyingAs } : {}),
+        // ebpco-api 071, for the two types that ask it. Left out until chosen.
+        ...(this.asksOccupancy() ? occupancyForm(this.occupancyGroup, this.occupancyOther) : {}),
       },
     };
   }

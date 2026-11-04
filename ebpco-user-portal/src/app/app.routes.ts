@@ -24,6 +24,13 @@ export const routes: Routes = [
   // every generated permit points to.
   { path: 'verify/:permitNumber', loadComponent: () => import('./features/verify/verify-permit.page').then((m) => m.VerifyPermitPage) },
   { path: 'verify', loadComponent: () => import('./features/verify/verify-permit.page').then((m) => m.VerifyPermitPage) },
+  // Public, no-login GCash TEST checkout (ebpco-api 071): the `checkoutUrl`
+  // "Pay with GCash" opens, here and from the app, like a gateway's hosted
+  // page. The link's own secret (?t=) is what the server checks.
+  {
+    path: 'pay/gcash/:checkoutId',
+    loadComponent: () => import('./features/payments/gcash-checkout.page').then((m) => m.GcashCheckoutPage),
+  },
   {
     path: 'login',
     canActivate: [guestGuard],

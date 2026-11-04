@@ -5,7 +5,9 @@ import { CitizenApiClient, isOverResubmitLimit, newIdempotencyKey } from './citi
 import { API_BASE_URL, ApiNotConfiguredError, RESUBMIT_MAX_FILE_BYTES } from './api-config';
 import { ApiError } from './problem';
 import { CONTRACT_SAMPLES } from './contract-samples.fixture';
-import { PermitTypesResponse } from './citizen-api.models';
+import {
+  GcashCheckoutStart, PaymentMethodOption, PermitRequirementsResponse, PermitTypesResponse, RequirementsChecklistResponse,
+} from './citizen-api.models';
 
 const BASE = 'https://api.example.gov.ph';
 const APP = '00000000-0000-4000-8000-000000000000';
@@ -125,6 +127,101 @@ describe('CitizenApiClient: who may apply for each permit type (migration 068)',
       .flush({ permitType: 'Sign Permit', documents: [] });
     api.getRequirementsForPermitType('Sign Permit').subscribe();
     http.expectOne(`${BASE}/requirements/Sign%20Permit`).flush({ permitType: 'Sign Permit', documents: [] });
+  });
+});
+
+describe('CitizenApiClient — hard copies, payment methods and the GCash checkout (ebpco-api 071)', () => {
+  let api: CitizenApiClient;
+  let http: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting(), { provide: API_BASE_URL, useValue: BASE }],
+    });
+    api = TestBed.inject(CitizenApiClient);
+    http = TestBed.inject(HttpTestingController);
+  });
+  afterEach(() => { http.verify(); TestBed.resetTestingModule(); });
+
+  const BFP_NOTE = 'The BFP requires a hard copy. Submit it at the Castilla Fire Station.';
+
+  it('keeps each document\'s hard copies, and reads an older server\'s silence as online only', () => {
+    let got: PermitRequirementsResponse | undefined;
+    api.getRequirementsForPermitType('Building Permit', 'New').subscribe((r) => (got = r));
+    http.expectOne(`${BASE}/requirements/Building%20Permit?applicationAction=New`).flush({
+      permitType: 'Building Permit',
+      documents: [
+        { code: 'bpnc-fire-safety-clearance', label: 'FSEC', description: '', required: true, hardCopies: 1, hardCopyNote: BFP_NOTE },
+        { code: 'bpnc-survey-plan', label: 'Survey Plan', description: '', required: true },
+        { code: 'bpnc-road-clearance', label: 'Road Clearance', description: '', required: false, hardCopies: 0, hardCopyNote: '  ' },
+      ],
+    });
+    expect(got?.documents.map((d) => [d.code, d.hardCopies, d.hardCopyNote])).toEqual([
+      ['bpnc-fire-safety-clearance', 1, BFP_NOTE],
+      ['bpnc-survey-plan', 0, null],
+      ['bpnc-road-clearance', 0, null],
+    ]);
+  });
+
+  it('does the same for an application\'s own checklist', () => {
+    let got: RequirementsChecklistResponse | undefined;
+    api.getRequirements(APP).subscribe((r) => (got = r));
+    http.expectOne(`${BASE}/applications/${APP}/requirements`).flush({
+      requirements: [
+        { code: 'coo-fsic', label: 'FSIC', description: '', required: true, documentIds: [], status: 'not-provided', hardCopies: 1, hardCopyNote: BFP_NOTE },
+        { code: 'coo-asbuilt', label: 'As-Built Plans', description: '', required: true, documentIds: [], status: 'not-provided' },
+      ],
+      unattributedDocuments: 0,
+      attributionComplete: true,
+    });
+    expect(got?.requirements.map((r) => [r.hardCopies, r.hardCopyNote])).toEqual([[1, BFP_NOTE], [0, null]]);
+  });
+
+  it('reads GET /payment-methods as a bare array', () => {
+    let got: PaymentMethodOption[] | undefined;
+    api.getPaymentMethods().subscribe((r) => (got = r));
+    const methods: PaymentMethodOption[] = [
+      { method: 'GCash', label: 'GCash', instructions: 'Pay online with GCash. You are sent to the GCash checkout.', mode: 'test' },
+      { method: 'Onsite', label: 'Onsite', instructions: 'Pay at the Municipal Hall.' },
+    ];
+    http.expectOne(`${BASE}/payment-methods`).flush(methods);
+    expect(got).toEqual(methods);
+  });
+
+  it('opens a GCash checkout with no body to speak of and no Idempotency-Key', () => {
+    let got: GcashCheckoutStart | undefined;
+    api.startGcashPayment(APP).subscribe((r) => (got = r));
+    const req = http.expectOne(`${BASE}/applications/${APP}/payments/gcash`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({});
+    expect(req.request.headers.has('Idempotency-Key')).toBe(false);
+    req.flush({
+      checkoutId: 'chk-1', reference: 'GC-TEST-AB12CD34EF', amount: 6820.5, amountCentavos: 682050,
+      expiresAt: '2026-11-04T08:30:00.000Z', mode: 'test', checkoutUrl: 'https://citizen.example/pay/gcash/chk-1?t=abc',
+    }, { status: 201, statusText: 'Created' });
+    expect(got?.checkoutUrl).toBe('https://citizen.example/pay/gcash/chk-1?t=abc');
+  });
+
+  it('reads and settles a checkout with the link\'s own secret, encoded', () => {
+    api.getGcashCheckout('chk-1', 'a+b/c=').subscribe();
+    http.expectOne(`${BASE}/payments/gcash/checkouts/chk-1?t=a%2Bb%2Fc%3D`).flush({});
+
+    api.simulateGcashCheckout('chk-1', 'a+b/c=', 'failed').subscribe();
+    const req = http.expectOne(`${BASE}/payments/gcash/checkouts/chk-1/simulate?t=a%2Bb%2Fc%3D`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ outcome: 'failed' });
+    req.flush({});
+  });
+
+  it('hands a refusal over as the server\'s own sentence', () => {
+    let error: unknown;
+    api.startGcashPayment(APP).subscribe({ error: (e) => (error = e) });
+    http.expectOne(`${BASE}/applications/${APP}/payments/gcash`).flush(
+      { type: '/problems/unprocessable', title: 'A precondition is unmet', status: 422, detail: 'This application is not waiting for payment.' },
+      { status: 422, statusText: 'Unprocessable Entity' },
+    );
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).citizenMessage).toBe('This application is not waiting for payment.');
   });
 });
 

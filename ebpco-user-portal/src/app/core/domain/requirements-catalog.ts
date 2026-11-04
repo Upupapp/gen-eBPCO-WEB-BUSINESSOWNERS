@@ -16,6 +16,38 @@ export interface RequirementDocument {
    * business's optional signing authority. Absent means everyone.
    */
   applicantKind?: 'residential' | 'business';
+  /**
+   * How many paper copies to bring (ebpco-api 071). Hard copies are up to the
+   * LGU, which may do away with them, so 0 (online only) is the default; the
+   * BFP requires one. Absent reads as 0. Shown through `hardCopiesText`.
+   */
+  hardCopies?: number;
+  /** Where or why, under the count (the BFP's: where to submit it). Null or absent when there is none. */
+  hardCopyNote?: string | null;
+}
+
+/** The line under a document saying whether paper copies are needed. */
+export function hardCopiesText(hardCopies: number | undefined): string {
+  return hardCopies !== undefined && hardCopies > 0 ? `Hard copies: ${hardCopies}` : 'Online only, no hard copy';
+}
+
+/**
+ * One row of the server's checklist (`GET /requirements/{permitType}`, as
+ * `CitizenApiClient` hands it over) as this portal's own document shape.
+ */
+export function requirementFromApi(row: {
+  code: string; label: string; description: string; required: boolean;
+  applicantKind?: 'residential' | 'business'; hardCopies: number; hardCopyNote: string | null;
+}): RequirementDocument {
+  return {
+    id: row.code,
+    label: row.label,
+    required: row.required,
+    description: row.description || undefined,
+    ...(row.applicantKind ? { applicantKind: row.applicantKind } : {}),
+    hardCopies: row.hardCopies,
+    hardCopyNote: row.hardCopyNote,
+  };
 }
 
 export type SourceVerificationStatus = 'CASTILLA_OFFICIAL_FORM_VERIFIED' | 'PENDING_CASTILLA_VERIFICATION';
@@ -41,8 +73,19 @@ export interface ApplicationTypeRequirements {
 }
 
 function doc(id: string, label: string, required: boolean, description?: string): RequirementDocument {
-  return { id, label, required, description };
+  return { id, label, required, description, hardCopies: 0, hardCopyNote: null };
 }
+
+/** The BFP's note on every document it checks (stage 'Fire Safety' on the server, 071). */
+const BFP_HARD_COPY_NOTE = 'The BFP requires a hard copy. Submit it at the Castilla Fire Station.';
+
+/** A document the BFP checks: one hard copy, as 071 sets for the Fire Safety stage. */
+function bfp(d: RequirementDocument): RequirementDocument {
+  return { ...d, hardCopies: 1, hardCopyNote: BFP_HARD_COPY_NOTE };
+}
+
+const FSEC_DESCRIPTION =
+  'Issued by the Bureau of Fire Protection, not by the Municipality. Apply online at BFP-FSIS (fsis.e-bfp.com) or at the Castilla Fire Station, then upload the FSEC you receive here.';
 
 const COMMON_DOCS: RequirementDocument[] = [
   doc('land-title', 'Land Title or Tax Declaration of the property', true),
@@ -64,7 +107,7 @@ const PENDING_NOTE =
 // live, staff-published checklist already does.
 const RENOVATION_ALTERATION_DOCS: RequirementDocument[] = [
   ...COMMON_DOCS,
-  doc('fsec', 'Fire Safety Evaluation Clearance (FSEC)', true, 'Issued by the Bureau of Fire Protection, not by the Municipality. Apply online at BFP-FSIS (fsis.e-bfp.com) or at the Castilla Fire Station, then upload the FSEC you receive here.'),
+  bfp(doc('fsec', 'Fire Safety Evaluation Clearance (FSEC)', true, FSEC_DESCRIPTION)),
   doc('renovation-plan', 'Renovation/Alteration Plans (signed and sealed)', true),
   doc('prior-permit-proof', 'Copy of your existing/prior permit', false),
   doc('renovation-bom', 'Bill of Materials and Specifications', true),
@@ -73,10 +116,11 @@ const RENOVATION_ALTERATION_DOCS: RequirementDocument[] = [
 
 const ADDITION_EXTENSION_DOCS: RequirementDocument[] = [
   ...COMMON_DOCS,
-  doc('fsec', 'Fire Safety Evaluation Clearance (FSEC)', true, 'Issued by the Bureau of Fire Protection, not by the Municipality. Apply online at BFP-FSIS (fsis.e-bfp.com) or at the Castilla Fire Station, then upload the FSEC you receive here.'),
+  bfp(doc('fsec', 'Fire Safety Evaluation Clearance (FSEC)', true, FSEC_DESCRIPTION)),
   doc('addition-plan', 'Addition / Extension Plans (signed and sealed)', true),
   doc('prior-permit-proof', 'Copy of your existing/prior permit', false),
-  doc('addition-struct-plan', 'Structural Analysis for the added load (signed and sealed)', true),
+  // If applicable since 071, with the server's own description.
+  doc('addition-struct-plan', 'Structural Analysis for the added load (signed and sealed)', false, 'Only if applicable: when the added load needs structural computations, as the Office of the Building Official advises.'),
   doc('addition-bom', 'Bill of Materials and Specifications', true),
   doc('addition-prc', 'PRC License and PTR of Engineer/Architect of Record', true),
 ];
@@ -105,14 +149,16 @@ export const REQUIREMENTS_CATALOG: Record<PermitType, ApplicationTypeRequirement
       doc('bpnc-ancillary-electronics', 'Electronics Permit (ancillary application form)', false, 'If the project scope includes electronics/communications installation.'),
       doc('bpnc-cost-estimate', 'Cost Estimate (duly signed and sealed)', true),
       doc('bpnc-technical-specs', 'Technical Specifications (duly signed and sealed)', true),
-      doc('bpnc-structural-design-analysis', 'Structural Design and Analysis', true),
-      doc('bpnc-soil-analysis', 'Soil Analysis / Plate Load Test / Seismic Analysis', true),
+      // The four "if applicable" documents (LGU, 4 Nov 2026; ebpco-api 071):
+      // not asked of every project, with the server's own descriptions.
+      doc('bpnc-structural-design-analysis', 'Structural Design and Analysis', false, 'Only if applicable: for structures that need structural computations, as the Office of the Building Official advises.'),
+      doc('bpnc-soil-analysis', 'Soil Analysis / Plate Load Test / Seismic Analysis', false, 'Only if applicable: when the structural design or the Building Official calls for it.'),
       doc('bpnc-professional-licenses', 'Valid Licenses (PRC) of all involved professionals', true),
       doc('bpnc-valid-id', 'Valid ID of Applicant and Owner of Lot', true),
       doc('bpnc-zoning-locational', 'Zoning / Locational Clearance', true, 'Issued by MPDC.'),
-      doc('bpnc-fire-safety-clearance', 'Fire Safety Evaluation Clearance', true, 'Issued by the Bureau of Fire Protection, not by the Municipality. Apply online at BFP-FSIS (fsis.e-bfp.com) or at the Castilla Fire Station, then upload the FSEC you receive here.'),
-      doc('bpnc-construction-safety-health', 'Approved Construction Safety and Health Program', true, 'Issued by DOLE.'),
-      doc('bpnc-road-clearance', 'Road Clearance', true, 'Issued by DPWH/PEO.'),
+      bfp(doc('bpnc-fire-safety-clearance', 'Fire Safety Evaluation Clearance', true, FSEC_DESCRIPTION)),
+      doc('bpnc-construction-safety-health', 'Approved Construction Safety and Health Program', false, 'Not required for the building permit since NBCDO Memorandum Circular No. 02, s. 2026. Your contractor files the CSHP with DOLE before construction starts; attach the approved CSHP here only if you already have it.'),
+      doc('bpnc-road-clearance', 'Road Clearance', false, 'Issued by DPWH or the Provincial Engineering Office. Only if the project is along, or opens onto, a national or provincial road.'),
     ],
     // 047 mapped New Construction -> 'New', Renovation/Alteration -> 'Renewal',
     // Addition/Extension -> 'Amendment', in the order the product owner gave
@@ -326,10 +372,10 @@ export const REQUIREMENTS_CATALOG: Record<PermitType, ApplicationTypeRequirement
     sourceNote: 'Transcribed directly from the actual BFP Castilla Fire Station FSEC application form (BFP-QSF-FSED-001). An authorized representative must present an authorization letter and a copy of the owner\'s ID.',
     documents: [
       ...COMMON_DOCS,
-      doc('fsec-plan-set', 'Three (3) complete sets of proposed plans: Architectural, Civil/Structural, Electrical, Mechanical, Plumbing, Electronics, Sanitary, and Fire Protection documents', true),
-      doc('fsec-fscr', 'Fire Safety Compliance Report (FSCR), one (1) set (if necessary)', false),
-      doc('fsec-cost-estimate', 'Cost Estimate of the building, including labor cost, signed, sealed, and notarized, one (1) set', true),
-      doc('fsec-hotworks-clearance', 'Fire Safety Clearance for Welding, Cutting, and other Hot Work Operations (if required)', false),
+      bfp(doc('fsec-plan-set', 'Three (3) complete sets of proposed plans: Architectural, Civil/Structural, Electrical, Mechanical, Plumbing, Electronics, Sanitary, and Fire Protection documents', true)),
+      bfp(doc('fsec-fscr', 'Fire Safety Compliance Report (FSCR), one (1) set (if necessary)', false)),
+      bfp(doc('fsec-cost-estimate', 'Cost Estimate of the building, including labor cost, signed, sealed, and notarized, one (1) set', true)),
+      bfp(doc('fsec-hotworks-clearance', 'Fire Safety Clearance for Welding, Cutting, and other Hot Work Operations (if required)', false)),
     ],
   },
   'Certificate of Occupancy': {
@@ -344,7 +390,7 @@ export const REQUIREMENTS_CATALOG: Record<PermitType, ApplicationTypeRequirement
       ...COMMON_DOCS,
       doc('coo-asbuilt', 'As-Built Plans', true),
       doc('coo-completion', 'Certificate of Completion', true),
-      doc('coo-fsic', 'Fire Safety Inspection Certificate (final)', true, 'Issued by the Bureau of Fire Protection after it inspects the finished building. Apply online at BFP-FSIS (fsis.e-bfp.com) or at the Castilla Fire Station, then upload the FSIC you receive here.'),
+      bfp(doc('coo-fsic', 'Fire Safety Inspection Certificate (final)', true, 'Issued by the Bureau of Fire Protection after it inspects the finished building. Apply online at BFP-FSIS (fsis.e-bfp.com) or at the Castilla Fire Station, then upload the FSIC you receive here.')),
       doc('coo-electrical-final', 'Certificate of Final Electrical Inspection', true),
     ],
   },
@@ -358,11 +404,11 @@ export const REQUIREMENTS_CATALOG: Record<PermitType, ApplicationTypeRequirement
     sourceNote: 'Transcribed directly from the actual BFP Castilla Fire Station FSIC application form (BFP-QSF-FSED-002), "FSIC FOR CERTIFICATE OF OCCUPANCY" section.',
     documents: [
       ...COMMON_DOCS,
-      doc('fsic-asbuilt', 'As-Built Plan (if necessary)', false),
-      doc('fsic-obo-endorsement', 'Endorsement from the Office of the Building Official (OBO)', true),
-      doc('fsic-completion-cert', 'Certificate of Completion', true),
-      doc('fsic-assessment-copy', 'Certified True Copy of the Assessment Fee for securing the Certificate of Occupancy from OBO', true),
-      doc('fsic-fsccr', 'Fire Safety Compliance and Commissioning Report (FSCCR), one (1) set (if necessary)', false),
+      bfp(doc('fsic-asbuilt', 'As-Built Plan (if necessary)', false)),
+      bfp(doc('fsic-obo-endorsement', 'Endorsement from the Office of the Building Official (OBO)', true)),
+      bfp(doc('fsic-completion-cert', 'Certificate of Completion', true)),
+      bfp(doc('fsic-assessment-copy', 'Certified True Copy of the Assessment Fee for securing the Certificate of Occupancy from OBO', true)),
+      bfp(doc('fsic-fsccr', 'Fire Safety Compliance and Commissioning Report (FSCCR), one (1) set (if necessary)', false)),
     ],
   },
 };

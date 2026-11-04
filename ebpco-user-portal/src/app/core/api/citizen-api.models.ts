@@ -381,7 +381,8 @@ export interface ErasureReceipt {
  */
 export interface SubmitPaymentRequest {
   referenceNumber: string;
-  method: 'Bank Transfer' | 'Onsite';
+  /** 'GCash' is accepted too (ebpco-api 071), but a GCash payment is lodged by its checkout, never through here. */
+  method: 'Bank Transfer' | 'Onsite' | 'GCash';
   /** YYYY-MM-DD. */
   paidOn: string;
   amountCentavos: number;
@@ -459,8 +460,9 @@ export interface TimelineEntryResponse {
  */
 export interface PaymentHistoryEntry {
   id: string;
+  /** For a GCash payment, the checkout's own reference (`GC-TEST-…` in test mode). */
   referenceNumber: string;
-  method: 'Bank Transfer' | 'Onsite';
+  method: 'Bank Transfer' | 'Onsite' | 'GCash';
   amountCentavos: number;
   /** The real server vocabulary — no 'Rejected' value exists; a rejection resets this to 'Not Yet Available' and is told apart by `rejectionReason` below, not by status. */
   status: 'Not Yet Available' | 'Pending Verification' | 'Paid' | 'Overdue' | 'Voided' | 'Reversed' | 'Refunded';
@@ -519,6 +521,9 @@ export interface RequirementsChecklistResponse {
     label: string;
     description: string;
     required: boolean;
+    /** Paper copies to bring (ebpco-api 071); 0 when the server sent none (an older one). See `CitizenApiClient`. */
+    hardCopies: number;
+    hardCopyNote: string | null;
     documentIds: string[];
     status: 'provided' | 'not-provided';
   }>;
@@ -565,7 +570,71 @@ export interface PermitRequirementsResponse {
      * when `applyingAs` names that kind.
      */
     applicantKind?: 'residential' | 'business';
+    /**
+     * How many paper copies to bring (ebpco-api 071): 0 is online only, the
+     * BFP's documents ask for 1. `CitizenApiClient` reads an absent value (an
+     * older server) as 0 and an absent note as null.
+     */
+    hardCopies: number;
+    hardCopyNote: string | null;
   }>;
+}
+
+/**
+ * `GET /payment-methods` (ebpco-api 071) — a BARE ARRAY of the methods the
+ * LGU accepts right now, ordered by name. GCash is listed only while its
+ * provider is on, with `mode: 'test'` while that provider is the test one.
+ */
+export interface PaymentMethodOption {
+  method: 'Bank Transfer' | 'Onsite' | 'GCash';
+  label: string;
+  instructions: string;
+  mode?: 'test';
+}
+
+/** `POST /applications/{id}/payments/gcash` (201) — a new checkout for the Order of Payment in force. */
+export interface GcashCheckoutStart {
+  checkoutId: string;
+  reference: string;
+  /** PESOS, for display only (e.g. 6820.5); `amountCentavos` is the exact amount. */
+  amount: number;
+  amountCentavos: number;
+  expiresAt: string;
+  mode: 'test';
+  /** The portal's own `/pay/gcash/{checkoutId}?t=…` page; the link's secret is in `t`. */
+  checkoutUrl: string;
+}
+
+export type GcashCheckoutStatus = 'Pending' | 'Paid' | 'Failed' | 'Cancelled' | 'Expired';
+
+/**
+ * `GET /payments/gcash/checkouts/{id}?t=` — PUBLIC, token-checked, like a
+ * gateway's hosted page: the amount, the reference and which application it
+ * is for, and nothing about the person. A Pending checkout past `expiresAt`
+ * reads as Expired.
+ */
+export interface GcashCheckoutView {
+  checkoutId: string;
+  reference: string;
+  amount: number;
+  amountCentavos: number;
+  status: GcashCheckoutStatus;
+  mode: 'test';
+  merchant: string;
+  /** For "Back to my application". */
+  applicationId: string;
+  applicationReference: string;
+  permitType: string;
+  expiresAt: string;
+  completedAt: string | null;
+}
+
+/** `POST /payments/gcash/checkouts/{id}/simulate?t=` (200): the checkout as it now stands. */
+export interface GcashSimulateResult extends GcashCheckoutView {
+  /** The payment a 'paid' outcome lodged (Pending Verification); null otherwise. */
+  paymentId: string | null;
+  /** True when this outcome had already been recorded: the same result, not a second payment. */
+  replayed: boolean;
 }
 
 /** `GET /permit-types` (migration 068) — who may apply for each active permit type. */

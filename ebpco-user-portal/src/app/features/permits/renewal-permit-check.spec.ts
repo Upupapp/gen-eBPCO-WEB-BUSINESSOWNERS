@@ -29,6 +29,7 @@ interface Testable {
   priorPermitClaim: string | null;
   permitNumberInput: string;
   paperPermit: boolean;
+  occupancyGroup: string | null;
   step(): number;
   error(): string | null;
   permitNumberError(): string | null;
@@ -120,6 +121,8 @@ describe('ApplicationWizardPage — a Renewal/Amendment permit number is checked
     // Signed out here, so "Applying as" has no sign-up choice to open on.
     page.applyingAs = 'business';
     page.businessId = 'biz-1';
+    // A Building Permit asks the use or character of occupancy (ebpco-api 071).
+    page.occupancyGroup = 'A';
     page.isGeneric = false;
     page.permitType = 'Building Permit';
     page.applicationAction = 'Renewal';

@@ -1,7 +1,9 @@
 import { DOCUMENT } from '@angular/common';
 import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, computed, inject, input, output, signal } from '@angular/core';
 import { ApplicationAction, PermitType } from '../../core/domain/permit.model';
-import { RequirementDocument, documentsFor, requirementsFor } from '../../core/domain/requirements-catalog';
+import {
+  RequirementDocument, documentsFor, hardCopiesText, requirementFromApi, requirementsFor,
+} from '../../core/domain/requirements-catalog';
 import { CitizenApiClient } from '../../core/api/citizen-api.client';
 
 const ACTIONS: readonly ApplicationAction[] = ['New', 'Renewal', 'Amendment'];
@@ -77,11 +79,18 @@ const ACTION_LABEL: Record<ApplicationAction, string> = {
           }
           <ul class="req-modal-list">
             @for (d of documents(); track d.id) {
+              <!--
+                "If applicable", not "Optional" (LGU, 4 Nov 2026): such a
+                document is needed when the project includes that work. Each
+                says whether paper copies are needed (ebpco-api 071).
+              -->
               <li class="small">
-                <span class="tag" [class.tag-strong]="d.required">{{ d.required ? 'Required' : 'Optional' }}</span>
+                <span class="tag" [class.tag-strong]="d.required">{{ d.required ? 'Required' : 'If applicable' }}</span>
                 <span>
                   {{ d.label }}
                   @if (d.description) { <span class="muted"> — {{ d.description }}</span> }
+                  <span class="req-modal-copies">{{ hardCopiesText(d.hardCopies) }}</span>
+                  @if (d.hardCopyNote) { <span class="req-modal-copies req-modal-copies-note">{{ d.hardCopyNote }}</span> }
                 </span>
               </li>
             }
@@ -137,7 +146,9 @@ const ACTION_LABEL: Record<ApplicationAction, string> = {
       padding-left: 0; margin: 0 0 18px;
     }
     .req-modal-list li { display: flex; align-items: flex-start; gap: 8px; }
-    .req-modal-list .tag { flex-shrink: 0; min-width: 64px; justify-content: center; }
+    .req-modal-list .tag { flex-shrink: 0; min-width: 88px; justify-content: center; white-space: nowrap; }
+    .req-modal-copies { display: block; margin-top: 2px; font-size: 12px; color: var(--gray-600, #4b5563); }
+    .req-modal-copies-note { margin-top: 0; color: var(--gray-500, #667085); }
 
     .req-modal-form-link { display: inline-block; }
 
@@ -150,6 +161,7 @@ export class RequirementsModalComponent implements OnInit, AfterViewInit, OnDest
   readonly close = output<void>();
 
   protected readonly actions = ACTIONS;
+  protected readonly hardCopiesText = hardCopiesText;
   protected readonly action = signal<ApplicationAction>('New');
   protected readonly loading = signal(false);
 
@@ -192,9 +204,7 @@ export class RequirementsModalComponent implements OnInit, AfterViewInit, OnDest
     this.api.getRequirementsForPermitType(this.permitType(), action).subscribe({
       next: (result) => {
         if (result.documents.length === 0) { this.loading.set(false); return; }
-        const docs: RequirementDocument[] = result.documents.map((d) => ({
-          id: d.code, label: d.label, required: d.required, description: d.description || undefined,
-        }));
+        const docs: RequirementDocument[] = result.documents.map(requirementFromApi);
         this.real.update((m) => ({ ...m, [action]: docs }));
         this.loading.set(false);
       },
