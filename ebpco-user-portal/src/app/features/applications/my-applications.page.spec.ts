@@ -60,6 +60,27 @@ describe('MyApplicationsPage filters', () => {
     expect(page.filtered()).toHaveLength(ROWS.length);
   });
 
+  // A new account (2026-11-04 demo) read "No applications match this filter / Choose another status".
+  it('says there are no applications yet when the account has none, not that the filter matches nothing', () => {
+    TestBed.configureTestingModule({
+      imports: [MyApplicationsPage],
+      providers: [provideRouter([]), { provide: ApplicationStore, useValue: { myApplications: () => [] } }, ...earlierRecords()],
+    });
+    const fixture = TestBed.createComponent(MyApplicationsPage);
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('No applications yet');
+    expect(text).not.toContain('match this filter');
+  });
+
+  it('still says the filter matches nothing when the account has applications in other tabs', () => {
+    const fixture = render();
+    fixture.componentInstance.filter.set('Rejected');
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('No applications match this filter');
+  });
+
   it('hides Expired until an application has expired', () => {
     const text = (render().nativeElement as HTMLElement).textContent ?? '';
     expect(text).not.toContain('Expired');

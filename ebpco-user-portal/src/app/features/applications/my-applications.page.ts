@@ -59,7 +59,13 @@ const FILTERS: readonly ApplicationFilter[] = [
         }
       </div>
 
-      @if (filtered().length === 0) {
+      @if (store.myApplications().length === 0) {
+        <!-- No application at all: not "no match for this filter" (found 2026-11-04 on a new account). -->
+        <div class="card empty-state">
+          <span class="empty-state-title">No applications yet</span>
+          <p>Choose Apply for a permit to start one; you can follow it here.</p>
+        </div>
+      } @else if (filtered().length === 0) {
         <div class="card empty-state empty-state--search">
           <span class="empty-state-title">No applications match this filter</span>
           <p>Choose another status to see the rest.</p>
@@ -107,7 +113,7 @@ const FILTERS: readonly ApplicationFilter[] = [
   `,
 })
 export class MyApplicationsPage {
-  private readonly store = inject(ApplicationStore);
+  protected readonly store = inject(ApplicationStore);
   protected readonly formatDate = formatDate;
   protected readonly applicantStatusOf = applicantStatusOf;
   protected readonly applicantStatusLabel = applicantStatusLabel;
