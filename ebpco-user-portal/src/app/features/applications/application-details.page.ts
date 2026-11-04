@@ -25,6 +25,7 @@ import { BackLinkComponent } from '../../shared/ui/back-link.component';
 import { StepperComponent } from '../../shared/ui/stepper.component';
 import { ApplicationRecord, applyingAsLabel, propertyOwnerOf } from '../../core/domain/application.model';
 import { OCCUPANCY_FIELD_LABEL, occupancyLabelOf } from '../../core/domain/occupancy';
+import { NOT_RECORDED, permitValidityText } from '../../core/domain/permit-validity';
 
 /** Same extension-sniffing fallback as my-documents.page.ts / application-wizard.page.ts. */
 function fileTypeFromName(name: string): SavedDocumentFileType {
@@ -394,7 +395,7 @@ const STAGE_OF: Partial<Record<ApplicationLifecycleStatus, number>> = {
                             <div class="doc-sub">Not sent yet</div>
                           }
                         </div>
-                        <span class="tag">{{ req.required ? 'Required' : 'If applicable' }}</span>
+                        <span class="tag" [class.tag-strong]="req.required">{{ req.required ? 'Required' : 'If applicable' }}</span>
                         <div class="doc-actions">
                           <input
                             type="file"
@@ -482,8 +483,8 @@ const STAGE_OF: Partial<Record<ApplicationLifecycleStatus, number>> = {
                   @if (permit(); as p) {
                     @if (!permitLoading()) {
                       <dl class="kv permit-facts">
-                        <div><dt>Valid until</dt><dd>{{ p.expiryDate ? formatDate(p.expiryDate) : 'Not recorded by the office' }}</dd></div>
-                        <div><dt>Approving office</dt><dd>{{ p.approvingOffice ?? 'Not on file' }}</dd></div>
+                        <div><dt>Valid until</dt><dd>{{ validUntil(a.permitType, p.expiryDate) }}</dd></div>
+                        <div><dt>Approving office</dt><dd>{{ p.approvingOffice ?? notRecorded }}</dd></div>
                       </dl>
                       <div class="card-actions">
                         <a class="btn btn-primary btn-sm" [routerLink]="['/applications', a.id, 'permit']">Preview permit</a>
@@ -560,6 +561,12 @@ export class ApplicationDetailsPage {
   protected readonly applyingAsLabel = applyingAsLabel;
   protected readonly formatDate = formatDate;
   protected readonly formatDateTime = formatDateTime;
+  protected readonly notRecorded = NOT_RECORDED;
+
+  /** "Valid until": the date; a Certificate of Occupancy's "No fixed expiry (…)"; otherwise "Not recorded". */
+  protected validUntil(permitType: string | null | undefined, expiryDate: string | null | undefined): string {
+    return permitValidityText(permitType, expiryDate, (date) => formatDate(date));
+  }
   protected readonly pesos = pesos;
 
   private id(): string {

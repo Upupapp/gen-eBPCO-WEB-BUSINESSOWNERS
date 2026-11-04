@@ -9,7 +9,7 @@ import {
 } from '../../core/domain/permit.model';
 import { RequirementDocument, hardCopiesText, requirementFromApi } from '../../core/domain/requirements-catalog';
 import {
-  OCCUPANCY_FIELD_LABEL, OCCUPANCY_GROUPS, OCCUPANCY_HINT, OCCUPANCY_OTHER_MAX, OccupancyGroup, asksOccupancy,
+  OCCUPANCY_FIELD_LABEL, OCCUPANCY_GROUPS, OCCUPANCY_HINT, OCCUPANCY_OTHER_MAX, OCCUPANCY_OTHER_MIN, OccupancyGroup, asksOccupancy,
   occupancyForm, occupancyFromForm, occupancyLabel, occupancyProblem,
 } from '../../core/domain/occupancy';
 import {
@@ -166,9 +166,7 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
     .docs-progress strong { color: var(--gray-900); }
     .docs-progress-bar { height: 6px; margin-top: 6px; border-radius: 99px; background: var(--gray-100); overflow: hidden; }
     .docs-progress-bar span { display: block; height: 100%; border-radius: 99px; background: var(--success-500); transition: width .25s ease; }
-    .req-group { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 22px 0 0; }
-    .req-group-title { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gray-700); }
-    .req-group-hint { font-size: 13px; color: var(--gray-500); }
+    .req-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 22px 0 0; }
     .req-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
     .req {
       display: flex; gap: 14px; padding: 16px;
@@ -186,8 +184,6 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
     .req-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
     .req-title strong { font-size: 15px; line-height: 1.35; color: var(--gray-900); }
     .req-desc { font-size: 13px; line-height: 1.45; color: var(--gray-500); }
-    .req-copies { font-size: 12px; line-height: 1.45; font-weight: 600; color: var(--gray-600); }
-    .req-copies-note { font-weight: 400; color: var(--gray-500); }
     .req-file-input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; }
     .req-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
     .req-action { display: inline-flex; align-items: center; gap: 7px; }
@@ -315,7 +311,9 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
           @if (asksOccupancy()) {
             <div class="field">
               <label for="application-wizard-occupancy">{{ occupancyFieldLabel }}<span class="required">*</span></label>
+              <!-- Marked invalid like the permit-number field when Continue is refused for it; the message is the step's own .field.error below. -->
               <select id="application-wizard-occupancy" class="input" aria-describedby="application-wizard-occupancy-hint"
+                [class.invalid]="occupancyInvalid('group')" [attr.aria-invalid]="occupancyInvalid('group')"
                 [(ngModel)]="occupancyGroup" (ngModelChange)="error.set(null)">
                 <option [ngValue]="null" disabled>Select the building's use</option>
                 @for (o of occupancyGroups; track o.value) { <option [ngValue]="o.value">{{ o.label }}</option> }
@@ -325,9 +323,11 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
             @if (occupancyGroup === 'other') {
               <div class="field">
                 <label for="application-wizard-occupancy-other">Specify the use<span class="required">*</span></label>
-                <input id="application-wizard-occupancy-other" class="input" [(ngModel)]="occupancyOther"
-                  (ngModelChange)="error.set(null)" [attr.maxlength]="occupancyOtherMax"
-                  placeholder="e.g. Chapel, water refilling station" />
+                <input id="application-wizard-occupancy-other" class="input" aria-describedby="application-wizard-occupancy-other-hint"
+                  [class.invalid]="occupancyInvalid('other')" [attr.aria-invalid]="occupancyInvalid('other')"
+                  [(ngModel)]="occupancyOther" (ngModelChange)="error.set(null)" [attr.maxlength]="occupancyOtherMax"
+                  placeholder="e.g. Chapel, water refilling station" autocomplete="off" />
+                <div id="application-wizard-occupancy-other-hint" class="hint">{{ occupancyOtherMin }} to {{ occupancyOtherMax }} characters.</div>
               </div>
             }
           }
@@ -568,10 +568,15 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
             </div>
           }
           @for (group of documentGroups(); track group.required) {
-          <!-- "If applicable", not "Optional" (LGU, 4 Nov 2026): needed when the project includes that work. -->
+          <!--
+            "If applicable", not "Optional" (LGU, 4 Nov 2026): needed when the
+            project includes that work. The group's name is the portal's
+            category chip (.tag; .tag-strong for Required), as the requirements
+            window shows it.
+          -->
           <div class="req-group">
-            <span class="req-group-title">{{ group.required ? 'Required' : 'If applicable' }}</span>
-            <span class="req-group-hint">
+            <span class="tag req-group-title" [class.tag-strong]="group.required">{{ group.required ? 'Required' : 'If applicable' }}</span>
+            <span class="small muted">
               {{ group.required ? 'Needed before you can submit.' : 'Attach only if your project includes this work.' }}
             </span>
           </div>
@@ -588,9 +593,14 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
                 <div class="req-body">
                   <div class="req-title"><strong>{{ d.label }}</strong></div>
                   @if (d.description) { <div class="req-desc">{{ d.description }}</div> }
-                  <!-- Whether paper copies are needed too (ebpco-api 071): none unless the LGU asks; the BFP asks one. -->
-                  <div class="req-copies">{{ hardCopiesText(d.hardCopies) }}</div>
-                  @if (d.hardCopyNote) { <div class="req-copies req-copies-note">{{ d.hardCopyNote }}</div> }
+                  <!--
+                    Whether paper copies are needed too (ebpco-api 071): none unless the LGU asks; the BFP asks one.
+                    The portal's muted document sub-line (.doc-sub), with the office's note under it.
+                  -->
+                  <div>
+                    <div class="doc-sub req-copies">{{ hardCopiesText(d.hardCopies) }}</div>
+                    @if (d.hardCopyNote) { <div class="doc-sub req-copies">{{ d.hardCopyNote }}</div> }
+                  </div>
                   <!-- A document that IS a form to sign on paper: the blank one, to print, sign and upload here. -->
                   @if (blankFormFor(d.id, d.label); as form) {
                     <div class="blank-form-link">
@@ -743,7 +753,24 @@ function fileTypeFromName(name: string): SavedDocumentFileType {
                 <dd>{{ priorPermitClaim }} <span class="small muted" style="font-weight:400;">(not on file in eBPCO — unverified)</span></dd>
               </div>
             }
-            <div><dt>Documents attached</dt><dd>{{ attachedCount() }} of {{ documents.length }}</dd></div>
+            <!--
+              Required documents only, as the Documents step counts them: an
+              if-applicable one never holds the application back, so counting
+              it read "10 of 22 attached" on a complete application (4 Nov 2026).
+            -->
+            <div>
+              <dt>Documents attached</dt>
+              <dd>
+                <span class="review-docs-count">
+                  {{ requiredCount() > 0 ? requiredAttachedCount() + ' of ' + requiredCount() + ' required attached' : 'None required' }}
+                </span>
+                @if (optionalAttachedCount() > 0) {
+                  <span class="small muted review-docs-extra" style="display:block; font-weight:400;">
+                    and {{ optionalAttachedCount() }} if applicable
+                  </span>
+                }
+              </dd>
+            </div>
           </dl>
           <!--
             What the citizen typed in Details, to check before submitting (QA
@@ -1008,11 +1035,24 @@ export class ApplicationWizardPage {
   protected readonly occupancyFieldLabel = OCCUPANCY_FIELD_LABEL;
   protected readonly occupancyHint = OCCUPANCY_HINT;
   protected readonly occupancyOtherMax = OCCUPANCY_OTHER_MAX;
+  protected readonly occupancyOtherMin = OCCUPANCY_OTHER_MIN;
   protected readonly hardCopiesText = hardCopiesText;
 
   /** Whether this application asks the use or character of occupancy: a Building Permit or a Certificate of Occupancy. */
   protected asksOccupancy(): boolean {
     return !this.isGeneric && asksOccupancy(this.permitType);
+  }
+
+  /**
+   * Whether the step's error is about this occupancy control: the group not
+   * chosen, or the use for "Others" not specified. Marks that control invalid
+   * (red border, aria-invalid), as the permit-number field is.
+   */
+  protected occupancyInvalid(part: 'group' | 'other'): boolean {
+    const message = this.error();
+    if (message === null || !this.asksOccupancy()) return false;
+    if (occupancyProblem(this.occupancyGroup, this.occupancyOther) !== message) return false;
+    return part === 'group' ? this.occupancyGroup === null : this.occupancyGroup === 'other';
   }
 
   /** The choice as the review shows it. */
@@ -1626,10 +1666,6 @@ export class ApplicationWizardPage {
     return submitBlockedMessage(this.auth.currentUser()?.verification);
   }
 
-  attachedCount(): number {
-    return Object.keys(this.attached).length;
-  }
-
   /** Required documents first, then optional ones, each under its own heading; an empty group is left out. */
   protected documentGroups(): { required: boolean; documents: RequirementDocument[] }[] {
     return [true, false]
@@ -1644,6 +1680,11 @@ export class ApplicationWizardPage {
 
   protected requiredAttachedCount(): number {
     return this.documents.filter((d) => this.isRequired(d) && !!this.attached[d.id]).length;
+  }
+
+  /** If-applicable documents attached: a muted aside on the review, never part of the main count. */
+  protected optionalAttachedCount(): number {
+    return this.documents.filter((d) => !this.isRequired(d) && !!this.attached[d.id]).length;
   }
 
   /** Which document's "Choose from My Documents" list is open, if any — one at a time. */

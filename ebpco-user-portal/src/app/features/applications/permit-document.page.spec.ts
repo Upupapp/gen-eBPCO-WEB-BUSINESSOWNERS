@@ -79,6 +79,51 @@ describe('PermitDocumentPage (F-2: demo permits cannot print clean)', () => {
   });
 });
 
+/**
+ * The Property block is the application's own project / property address
+ * (`location`, typed in the wizard's Details step), not the business's: a
+ * Residential application names no business, so it printed "Not on file" for
+ * Barangay, City, Street and Province (4 Nov 2026).
+ */
+describe('PermitDocumentPage (Property is where the project is)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  /** The Property section's rows, as [label, value]. */
+  const propertyRows = (el: HTMLElement) =>
+    Array.from(
+      Array.from(el.querySelectorAll('.doc-generated-section'))
+        .find((s) => s.querySelector('h2')?.textContent?.trim() === 'Property')
+        ?.querySelectorAll('.doc-generated-fields > div') ?? [],
+    ).map((row) => [row.querySelector('dt')?.textContent?.trim(), row.querySelector('dd')?.textContent?.trim()]);
+
+  it("shows the address the applicant gave, even for a Residential application with no business", () => {
+    const fixture = renderFor('app-seed-2');
+    const store = TestBed.inject(ApplicationStore) as unknown as {
+      applications: { update(f: (list: Record<string, unknown>[]) => Record<string, unknown>[]): void };
+    };
+    store.applications.update((list) => list.map((a) => (a['id'] === 'app-seed-2'
+      ? { ...a, businessId: null, businessName: null, applyingAs: 'residential', location: '12 Rizal St., Poblacion, Castilla' }
+      : a)));
+    fixture.detectChanges();
+
+    // The address as filed, and the one Castilla barangay it names; nothing "Not on file".
+    expect(propertyRows(fixture.nativeElement as HTMLElement)).toEqual([
+      ['Barangay', 'Poblacion'],
+      ['Street / Location', '12 Rizal St., Poblacion, Castilla'],
+    ]);
+  });
+
+  it("falls back to the business's address when the application has no location", () => {
+    // app-seed-2 is Juan's Eatery (biz-2, 45 National Highway, San Isidro) and carries no location.
+    expect(propertyRows(renderFor('app-seed-2').nativeElement as HTMLElement)).toEqual([
+      ['Barangay', 'San Isidro'],
+      ['City / Municipality', 'Castilla'],
+      ['Street / Location', '45 National Highway'],
+      ['Province', 'Sorsogon'],
+    ]);
+  });
+});
+
 describe('PermitDocumentPage (task 22: conditions come from the office, in full)', () => {
   afterEach(() => TestBed.resetTestingModule());
 

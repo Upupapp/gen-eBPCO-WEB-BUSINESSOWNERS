@@ -64,7 +64,8 @@ function render(options: {
   const radios = () => Array.from(el.querySelectorAll<HTMLInputElement>('input[name="payment-flow-method"]'));
   const cards = () => Array.from(el.querySelectorAll<HTMLElement>('.choice-card')).map((c) => [
     c.querySelector('strong')?.textContent?.trim(),
-    c.querySelector('.choice-card-text > span')?.textContent?.trim(),
+    c.querySelector('.choice-card-blurb')?.textContent?.trim(),
+    c.querySelector('.badge')?.textContent?.trim() ?? null,
   ]);
   const button = (text: string) => Array.from(el.querySelectorAll('button')).find((b) => b.textContent?.includes(text));
   const choose = (method: string) => {
@@ -89,8 +90,9 @@ describe('PaymentFlowPage — payment methods, and GCash', () => {
     const { radios, cards, page } = render({ methods: () => of([BANK, GCASH, ONSITE]) });
     expect(radios().map((r) => r.value)).toEqual(['GCash', 'Onsite']);
     expect(cards()).toEqual([
-      ['GCash', 'Pay online. Test mode: no real money is charged.'],
-      ['Onsite Payment', 'Pay at the Municipal Hall, then mark it paid here.'],
+      // The radio card every method uses; GCash in test mode carries the "Test mode" chip.
+      ['GCash', 'Pay online. No real money is charged.', 'Test mode'],
+      ['Onsite Payment', 'Pay at the Municipal Hall, then mark it paid here.', null],
     ]);
     // Onsite stays the starting choice, as before.
     expect(page.method()).toBe('Onsite');

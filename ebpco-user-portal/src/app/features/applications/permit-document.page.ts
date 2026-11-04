@@ -3,6 +3,8 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import qrcodegen from 'qrcode-generator';
 import { ApplicationStore } from '../../core/stores/application.store';
 import { BusinessStore } from '../../core/stores/business.store';
+import { NOT_RECORDED, permitValidityText } from '../../core/domain/permit-validity';
+import { propertyRows } from '../../core/domain/property-address';
 import { AuthService } from '../../core/session/auth.service';
 import { requirementsFor } from '../../core/domain/requirements-catalog';
 import { agencyHeaderFor, documentTitleFor } from '../../core/domain/generated-document.helpers';
@@ -80,7 +82,7 @@ interface QrCell {
               <div class="num-dates">
                 <span>Application No.: <strong>{{ a.applicationNumber }}</strong></span>
                 <span>Date Issued: <strong>{{ permit()?.issuedDate ? formatDate(permit()!.issuedDate) : 'Not yet assigned' }}</strong></span>
-                <span>Valid Until: <strong>{{ permit()?.expiryDate ? formatDate(permit()!.expiryDate!) : (permit() ? 'Not recorded by the office' : 'Not yet assigned') }}</strong></span>
+                <span>Valid until: <strong data-testid="permit-valid-until">{{ permit() ? validUntil(a.permitType, permit()!.expiryDate) : 'Not yet assigned' }}</strong></span>
               </div>
             </div>
 
@@ -121,23 +123,21 @@ interface QrCell {
 
             <section class="doc-generated-section">
               <h2>Property</h2>
+              <!--
+                The application's own project / property address, as the
+                applicant gave it in Details (location), with its barangay when
+                it names one. It read the business's address, so a Residential
+                application, which names no business, printed "Not on file"
+                four times (4 Nov 2026). The business's address only when the
+                application has none. See core/domain/property-address.ts.
+              -->
               <dl class="doc-generated-fields">
-                <div>
-                  <dt>Barangay</dt>
-                  <dd>{{ business()?.barangay ?? 'Not on file' }}</dd>
-                </div>
-                <div>
-                  <dt>City / Municipality</dt>
-                  <dd>{{ business()?.city ?? 'Not on file' }}</dd>
-                </div>
-                <div>
-                  <dt>Street / Location</dt>
-                  <dd>{{ business()?.street ?? 'Not on file' }}</dd>
-                </div>
-                <div>
-                  <dt>Province</dt>
-                  <dd>{{ business()?.province ?? 'Not on file' }}</dd>
-                </div>
+                @for (row of propertyFields(); track row.label) {
+                  <div [style.grid-column]="row.wide ? '1 / -1' : null">
+                    <dt>{{ row.label }}</dt>
+                    <dd>{{ row.value }}</dd>
+                  </div>
+                }
               </dl>
             </section>
 
@@ -255,8 +255,8 @@ interface QrCell {
               <h2>Approval</h2>
               <div class="sig-pending">Pending Authorized Signature</div>
               <div class="sig-line"></div>
-              <div class="sig-name">{{ permit()?.approvingOfficial ?? 'Not on file' }}</div>
-              <div class="sig-position">{{ permit()?.approvingOffice ?? requirements()?.reviewingOffice ?? 'Not on file' }}</div>
+              <div class="sig-name">{{ permit()?.approvingOfficial ?? notRecorded }}</div>
+              <div class="sig-position">{{ permit()?.approvingOffice ?? requirements()?.reviewingOffice ?? notRecorded }}</div>
             </section>
 
             <div class="doc-generated-qr">
@@ -317,6 +317,12 @@ export class PermitDocumentPage {
   }
 
   protected readonly formatDate = formatDate;
+  protected readonly notRecorded = NOT_RECORDED;
+
+  /** "Valid until": the date; a Certificate of Occupancy's "No fixed expiry (…)"; otherwise "Not recorded". */
+  protected validUntil(permitType: string | null | undefined, expiryDate: string | null | undefined): string {
+    return permitValidityText(permitType, expiryDate, (date) => formatDate(date));
+  }
   protected readonly pesos = pesos;
   /** "Residential", or the business's name, under Business / Project (migration 067). */
   protected readonly applyingAsLabel = applyingAsLabel;
@@ -342,6 +348,8 @@ export class PermitDocumentPage {
     const a = this.app();
     return a ? this.businessStore.businessById(a.businessId) : undefined;
   });
+  /** The Property rows: the address the applicant gave (`location`), else the business's (core/domain/property-address.ts). */
+  protected readonly propertyFields = computed(() => propertyRows(this.app()?.location, this.business()));
   protected readonly permit = computed(() => this.store.permitFor(this.id()));
   /** What the Building Official wrote the permit covers when generating it. */
   protected readonly scope = computed(() => this.store.permitScopeFor(this.id()));

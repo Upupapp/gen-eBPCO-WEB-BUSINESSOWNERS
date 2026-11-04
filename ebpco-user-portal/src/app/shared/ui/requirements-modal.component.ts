@@ -82,16 +82,18 @@ const ACTION_LABEL: Record<ApplicationAction, string> = {
               <!--
                 "If applicable", not "Optional" (LGU, 4 Nov 2026): such a
                 document is needed when the project includes that work. Each
-                says whether paper copies are needed (ebpco-api 071).
+                says whether paper copies are needed (ebpco-api 071), in the
+                portal's muted document sub-line (.doc-sub), as the wizard's
+                Documents step does.
               -->
               <li class="small">
                 <span class="tag" [class.tag-strong]="d.required">{{ d.required ? 'Required' : 'If applicable' }}</span>
-                <span>
+                <div class="req-modal-doc">
                   {{ d.label }}
                   @if (d.description) { <span class="muted"> — {{ d.description }}</span> }
-                  <span class="req-modal-copies">{{ hardCopiesText(d.hardCopies) }}</span>
-                  @if (d.hardCopyNote) { <span class="req-modal-copies req-modal-copies-note">{{ d.hardCopyNote }}</span> }
-                </span>
+                  <div class="doc-sub req-modal-copies">{{ hardCopiesText(d.hardCopies) }}</div>
+                  @if (d.hardCopyNote) { <div class="doc-sub req-modal-copies">{{ d.hardCopyNote }}</div> }
+                </div>
               </li>
             }
           </ul>
@@ -147,8 +149,8 @@ const ACTION_LABEL: Record<ApplicationAction, string> = {
     }
     .req-modal-list li { display: flex; align-items: flex-start; gap: 8px; }
     .req-modal-list .tag { flex-shrink: 0; min-width: 88px; justify-content: center; white-space: nowrap; }
-    .req-modal-copies { display: block; margin-top: 2px; font-size: 12px; color: var(--gray-600, #4b5563); }
-    .req-modal-copies-note { margin-top: 0; color: var(--gray-500, #667085); }
+    /* The text's first line level with the 24px chip beside it. */
+    .req-modal-doc { flex: 1; min-width: 0; padding-top: 3px; }
 
     .req-modal-form-link { display: inline-block; }
 

@@ -129,3 +129,57 @@ describe('PaymentReceiptPage (task 11: cleared is earned, not inherited)', () =>
     expect(gate(true).gateCleared()).toBe(false);
   });
 });
+
+/**
+ * The receipt's Property block is the application's own project / property
+ * address (`location`), not the business's: a Residential application names
+ * no business, so it printed "Not on file" for Barangay, City, Street and
+ * Province (4 Nov 2026). The business's address only when there is no location.
+ */
+describe('PaymentReceiptPage — Property is where the project is', () => {
+  function render(app: Record<string, unknown>) {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [PaymentReceiptPage],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: CitizenIdentityApi, useClass: FakeCitizenIdentityApi },
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ applicationId: 'app-x' }) } } },
+        { provide: ApplicationStore, useValue: {
+            applicationById: () => ({ id: 'app-x', permitType: 'Building Permit', applicationNumber: 'BP-1', ...app }),
+            assessmentFor: () => undefined,
+            paymentsFor: () => [{ id: 'p1', applicationId: 'app-x', status: 'Verified', orNumber: null,
+              amountCentavos: 1000, method: 'Onsite', submittedAt: '', verifiedAt: '' }],
+          } },
+      ],
+    });
+    const fixture = TestBed.createComponent(PaymentReceiptPage);
+    fixture.detectChanges();
+    const section = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.doc-generated-section'))
+      .find((s) => s.querySelector('h2')?.textContent?.trim() === 'Property');
+    // The rows as [label, value].
+    return Array.from(section?.querySelectorAll('.doc-generated-fields > div') ?? [])
+      .map((row) => [row.querySelector('dt')?.textContent?.trim(), row.querySelector('dd')?.textContent?.trim()]);
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it("a Residential application: the address the applicant gave, not four 'Not on file'", () => {
+    expect(render({ businessId: null, businessName: null, applyingAs: 'residential', location: '12 Rizal St., Poblacion, Castilla' }))
+      .toEqual([
+        ['Barangay', 'Poblacion'],
+        ['Street / Location', '12 Rizal St., Poblacion, Castilla'],
+      ]);
+  });
+
+  it("no location on the application: the business's address, as before", () => {
+    // biz-1 is the seeded Dela Cruz Hardware & Construction Supply.
+    expect(render({ businessId: 'biz-1', businessName: 'T', location: null })).toEqual([
+      ['Barangay', 'Poblacion'],
+      ['City / Municipality', 'Castilla'],
+      ['Street / Location', '123 Rizal Street'],
+      ['Province', 'Sorsogon'],
+    ]);
+  });
+});

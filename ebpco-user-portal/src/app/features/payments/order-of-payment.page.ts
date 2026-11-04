@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApplicationStore } from '../../core/stores/application.store';
 import { BusinessStore } from '../../core/stores/business.store';
+import { propertyLine } from '../../core/domain/property-address';
 import { AuthService } from '../../core/session/auth.service';
 import { CitizenApiClient } from '../../core/api/citizen-api.client';
 import { ApplicationSummary } from '../../core/api/citizen-api.models';
@@ -81,9 +82,10 @@ const FEE_LINES: ReadonlyArray<{ code: keyof Order['fees']; name: string }> = [
                 <div><dt>Name</dt><dd>{{ applicantName() }}</dd></div>
                 <div><dt>Business / Project</dt><dd>{{ applyingAsLabel(a) || 'Not provided' }}</dd></div>
                 <div><dt>Transaction</dt><dd>{{ a.applicationAction }}</dd></div>
+                <!-- The application's own project / property address; the business's only when it has none (core/domain/property-address.ts). -->
                 <div>
                   <dt>Property</dt>
-                  <dd>{{ business() ? (business()!.street + ', ' + business()!.barangay + ', ' + business()!.city) : 'Not on file' }}</dd>
+                  <dd>{{ propertyText() }}</dd>
                 </div>
               </dl>
             </section>
@@ -182,6 +184,8 @@ export class OrderOfPaymentPage {
     const a = this.app();
     return a ? this.businessStore.businessById(a.businessId) : undefined;
   });
+  /** The address the applicant gave (`location`), else the business's: a Residential application names no business. */
+  protected readonly propertyText = computed(() => propertyLine(this.app()?.location, this.business()));
 
   protected readonly header = computed(() => {
     const a = this.app();

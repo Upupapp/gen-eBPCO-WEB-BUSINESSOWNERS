@@ -72,8 +72,11 @@ describe('GcashCheckoutPage', () => {
 
     expect(getGcashCheckout).toHaveBeenCalledWith('chk-1', 'secret');
     expect(el.querySelector('h2')?.textContent?.trim()).toBe('GCash test checkout');
-    expect(text()).toContain('Test mode');
-    expect(text()).toContain('TEST MODE — a simulation of the GCash payment step, for testing. No money is charged.');
+    // The test-mode banner: the portal's warning callout, with its title.
+    expect(el.querySelector('.callout-warning .callout-title')?.textContent?.trim()).toBe('Test mode — no money is charged');
+    expect(text()).toContain('This page simulates the GCash payment step, for testing. It is not GCash.');
+    // The amount is the total row, under the references.
+    expect(el.querySelector('.checkout-total dd')?.textContent?.trim()).toBe('₱6,820.50');
     expect(text()).toContain('Municipality of Castilla — eBPCO');
     expect(text()).toContain('₱6,820.50');
     expect(text()).toContain('GC-TEST-AB12CD34EF');

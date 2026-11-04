@@ -27,52 +27,80 @@ type Outcome = 'paid' | 'failed' | 'cancelled';
  *
  * The server shows the amount, the references and the permit type, nothing
  * about the person; a wrong or missing secret is a plain 404.
+ *
+ * Layout: the portal's standalone public page (.auth-screen / .auth-card /
+ * .auth-head with the logo, as sign-in and permit verification), one card, a
+ * .callout-warning test-mode banner, the facts as label / value rows with the
+ * amount as a right-aligned total. Built for a phone browser (the app opens
+ * it): full-width stacked buttons, no fixed widths, tighter page padding at
+ * 480px and below.
  */
 @Component({
   selector: 'app-gcash-checkout',
   imports: [RouterLink],
   styles: [`
-    .checkout-card { max-width: 460px; }
-    .checkout-head { text-align: center; margin-bottom: 14px; }
-    .checkout-head h2 { margin: 0 0 6px; }
-    .checkout-facts { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
+    /* Label / value rows: the label left, the value right, amounts in tabular figures. */
+    .checkout-facts { margin: 16px 0 0; }
     .checkout-facts > div {
-      display: flex; justify-content: space-between; gap: 12px;
-      border-bottom: 1px solid var(--border-light); padding-bottom: 6px;
+      display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 16px;
+      padding: 10px 0;
     }
-    .checkout-facts dt { font-size: 13px; color: var(--gray-500); }
-    .checkout-facts dd { margin: 0; font-size: 14px; font-weight: 600; text-align: right; overflow-wrap: anywhere; }
-    .checkout-amount dd { font-size: 18px; font-weight: 700; }
-    .checkout-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
-    .checkout-result { text-align: center; margin-top: 8px; }
-    .checkout-result h3 { margin: 0 0 6px; }
+    .checkout-facts > div + div { border-top: 1px solid var(--border-light); }
+    .checkout-facts dt { font-size: 13px; line-height: 1.45; color: var(--gray-500); }
+    .checkout-facts dd {
+      margin: 0; font-size: 14px; font-weight: 600; line-height: 1.45; color: var(--gray-900);
+      text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums;
+    }
+    /* The total: under a stronger line, the one large figure on the page. */
+    .checkout-facts > .checkout-total { border-top-color: var(--border-medium); padding-top: 14px; }
+    .checkout-total dt { font-size: 14px; font-weight: 600; color: var(--gray-800); }
+    .checkout-total dd { font-size: 20px; font-weight: 700; white-space: nowrap; }
+
+    .checkout-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 20px; }
+    .checkout-actions .field.error { margin: 0 0 4px; }
+
+    /* An ended (or unreadable) checkout: a tone icon, a title, one sentence. */
+    .checkout-result { text-align: center; margin-top: 20px; }
+    .checkout-result-icon { width: 40px; height: 40px; border-radius: 50%; margin: 0 auto 10px; display: grid; }
+    .checkout-result-icon--clock { --tile-icon: var(--icon-clock); }
+    .checkout-result h3 { margin: 0 0 6px; font-size: 16px; color: var(--gray-900); }
     .checkout-result p { margin: 0 0 8px; }
+    .checkout-result .btn { margin-top: 8px; }
+    .checkout-back { margin-top: 16px; text-align: center; }
+
+    @media (max-width: 480px) {
+      .checkout-screen { padding: 16px 12px; }
+      .checkout-result .btn, .checkout-back .btn { width: 100%; }
+    }
   `],
   template: `
-    <div class="auth-screen" style="background:var(--bg);">
-      <div class="card auth-card checkout-card">
-        <div class="checkout-head">
+    <div class="auth-screen checkout-screen" style="background:var(--bg);">
+      <div class="card auth-card">
+        <div class="auth-head">
           <img src="logo.png" alt="" class="auth-logo" />
           <h2>GCash test checkout</h2>
-          <span class="badge badge-amber">Test mode</span>
+          <p class="small muted">eBPCO · Municipality of Castilla, Sorsogon</p>
         </div>
 
         <div class="callout callout-warning" role="note">
-          <p><strong>TEST MODE</strong> — a simulation of the GCash payment step, for testing. No money is charged.</p>
+          <strong class="callout-title">Test mode — no money is charged</strong>
+          <p>This page simulates the GCash payment step, for testing. It is not GCash.</p>
         </div>
 
         @switch (state()) {
           @case ('loading') {
-            <p class="muted" style="text-align:center; margin-top:16px;" role="status">Opening the checkout…</p>
+            <p class="muted" style="text-align:center; margin:20px 0 0;" role="status">Opening the checkout…</p>
           }
           @case ('not-found') {
             <div class="checkout-result">
+              <span class="icon-tile icon-tile-warning checkout-result-icon" aria-hidden="true"></span>
               <h3>This checkout link is not valid</h3>
               <p class="small muted">Check that the whole link was opened, or start the GCash payment again from your application.</p>
             </div>
           }
           @case ('unavailable') {
             <div class="checkout-result">
+              <span class="icon-tile icon-tile-warning checkout-result-icon" aria-hidden="true"></span>
               <h3>The checkout could not be reached</h3>
               <p class="small muted">The Municipality's system did not answer just now. Try again in a moment.</p>
               <button type="button" class="btn btn-secondary" (click)="load()">Try Again</button>
@@ -84,47 +112,56 @@ type Outcome = 'paid' | 'failed' | 'cancelled';
                 @case ('Pending') {
                   <dl class="checkout-facts">
                     <div><dt>Merchant</dt><dd>{{ v.merchant }}</dd></div>
-                    <div class="checkout-amount"><dt>Amount</dt><dd>{{ amount(v) }}</dd></div>
-                    <div><dt>Reference</dt><dd>{{ v.reference }}</dd></div>
                     <div><dt>Application</dt><dd>{{ v.applicationReference }} · {{ v.permitType }}</dd></div>
+                    <div><dt>Reference</dt><dd>{{ v.reference }}</dd></div>
                     <div><dt>Expires</dt><dd>{{ formatDateTime(v.expiresAt) }}</dd></div>
+                    <div class="checkout-total"><dt>Amount to pay</dt><dd>{{ amount(v) }}</dd></div>
                   </dl>
-                  @if (actionError(); as message) {
-                    <div class="field error" role="alert">{{ message }}</div>
-                  }
                   <div class="checkout-actions">
+                    @if (actionError(); as message) {
+                      <div class="field error" role="alert">{{ message }}</div>
+                    }
                     <button type="button" class="btn btn-primary btn-block" [disabled]="acting() !== null" (click)="simulate('paid')">
                       {{ acting() === 'paid' ? 'Paying…' : 'Pay ' + amount(v) + ' (test)' }}
                     </button>
-                    <button type="button" class="btn btn-secondary btn-block" [disabled]="acting() !== null" (click)="simulate('failed')">
-                      {{ acting() === 'failed' ? 'Sending…' : 'Simulate a failed payment' }}
-                    </button>
-                    <button type="button" class="btn btn-ghost btn-block" [disabled]="acting() !== null" (click)="simulate('cancelled')">
+                    <button type="button" class="btn btn-secondary btn-block" [disabled]="acting() !== null" (click)="simulate('cancelled')">
                       {{ acting() === 'cancelled' ? 'Cancelling…' : 'Cancel' }}
+                    </button>
+                    <!-- Test-only: what a declined GCash payment would report. -->
+                    <button type="button" class="btn btn-ghost btn-block" [disabled]="acting() !== null" (click)="simulate('failed')">
+                      {{ acting() === 'failed' ? 'Sending…' : 'Simulate a failed payment' }}
                     </button>
                   </div>
                 }
                 @case ('Paid') {
                   <div class="checkout-result" role="status">
+                    <span class="icon-tile icon-tile-success checkout-result-icon" aria-hidden="true"></span>
                     <h3>Payment sent</h3>
-                    <p>{{ amount(v) }} · Reference <strong>{{ v.reference }}</strong></p>
                     <p class="small muted">The Cashier verifies it and issues your official receipt.</p>
                   </div>
+                  <dl class="checkout-facts">
+                    <div><dt>Application</dt><dd>{{ v.applicationReference }} · {{ v.permitType }}</dd></div>
+                    <div><dt>Reference</dt><dd>{{ v.reference }}</dd></div>
+                    <div class="checkout-total"><dt>Amount paid</dt><dd>{{ amount(v) }}</dd></div>
+                  </dl>
                 }
                 @case ('Failed') {
                   <div class="checkout-result" role="status">
+                    <span class="icon-tile icon-tile-danger checkout-result-icon" aria-hidden="true"></span>
                     <h3>Payment failed</h3>
                     <p class="small muted">Nothing was paid (a simulated failure). Start a new GCash payment from your application to try again.</p>
                   </div>
                 }
                 @case ('Cancelled') {
                   <div class="checkout-result" role="status">
+                    <span class="icon-tile checkout-result-icon" aria-hidden="true"></span>
                     <h3>Payment cancelled</h3>
                     <p class="small muted">Nothing was paid. You can start a new GCash payment from your application, or choose another way to pay.</p>
                   </div>
                 }
                 @case ('Expired') {
                   <div class="checkout-result" role="status">
+                    <span class="icon-tile icon-tile-warning checkout-result-icon checkout-result-icon--clock" aria-hidden="true"></span>
                     <h3>This checkout has expired</h3>
                     <p class="small muted">A checkout stays open for 30 minutes. Nothing was paid. Start a new GCash payment from your application.</p>
                   </div>
@@ -136,7 +173,7 @@ type Outcome = 'paid' | 'failed' | 'cancelled';
 
         <!-- Once it has ended (or the link is not valid): signed in on this browser, back to the application; else back to the app. -->
         @if (showBack()) {
-          <div class="checkout-result">
+          <div class="checkout-back">
             @if (signedIn()) {
               @if (view()?.applicationId; as applicationId) {
                 <a class="btn btn-primary" [routerLink]="['/applications', applicationId]">Back to my application</a>
@@ -144,7 +181,7 @@ type Outcome = 'paid' | 'failed' | 'cancelled';
                 <a class="btn btn-primary" routerLink="/applications">Back to my applications</a>
               }
             } @else {
-              <p class="small muted">You can close this page and return to the eBPCO app.</p>
+              <p class="small muted" style="margin:0;">You can close this page and return to the eBPCO app.</p>
             }
           </div>
         }

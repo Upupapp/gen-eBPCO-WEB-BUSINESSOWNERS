@@ -38,6 +38,9 @@ function defaultMethod(offered: readonly PaymentMethodOption[]): PaymentMethod {
   selector: 'app-payment-flow',
   imports: [FormsModule, RouterLink, BackLinkComponent],
   styles: [`
+    /* A method's name with its chip; the chip's 24px is pulled into the line so the radio stays level with the name. */
+    .choice-card-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+    .choice-card-head .badge { margin: -2px 0; }
     .confirm-pay {
       margin-top: 14px; padding: 12px 14px; border-radius: 10px;
       border: 1px solid var(--primary-100); background: var(--primary-50);
@@ -83,13 +86,21 @@ function defaultMethod(offered: readonly PaymentMethodOption[]): PaymentMethod {
             @if (methods().length > 1) {
               <fieldset class="choice-cards choice-cards--row">
                 <legend>Choose how to pay</legend>
+                <!--
+                  Every method is the same radio card (.choice-cards, as the
+                  wizard's "Applying as"); GCash in test mode carries an amber
+                  "Test mode" chip, as its checkout page opens on a test-mode banner.
+                -->
                 @for (m of methods(); track m.method) {
                   <label class="choice-card" [class.selected]="method() === m.method">
                     <input type="radio" name="payment-flow-method" [value]="m.method"
                       [checked]="method() === m.method" (change)="chooseMethod(m.method)" />
                     <span class="choice-card-text">
-                      <strong>{{ methodTitle(m) }}</strong>
-                      <span>{{ methodBlurb(m) }}</span>
+                      <span class="choice-card-head">
+                        <strong>{{ methodTitle(m) }}</strong>
+                        @if (m.method === 'GCash' && m.mode === 'test') { <span class="badge badge-amber">Test mode</span> }
+                      </span>
+                      <span class="choice-card-blurb">{{ methodBlurb(m) }}</span>
                     </span>
                   </label>
                 }
@@ -299,7 +310,8 @@ export class PaymentFlowPage {
   }
 
   protected methodBlurb(m: PaymentMethodOption): string {
-    if (m.method === 'GCash') return m.mode === 'test' ? 'Pay online. Test mode: no real money is charged.' : 'Pay online with GCash.';
+    // In test mode the card's "Test mode" chip says so; the line says what it means.
+    if (m.method === 'GCash') return m.mode === 'test' ? 'Pay online. No real money is charged.' : 'Pay online with GCash.';
     if (m.method === 'Bank Transfer') return "Deposit to the Municipality's account, then upload the proof.";
     return 'Pay at the Municipal Hall, then mark it paid here.';
   }

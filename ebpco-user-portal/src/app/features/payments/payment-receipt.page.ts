@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApplicationStore } from '../../core/stores/application.store';
 import { BusinessStore } from '../../core/stores/business.store';
+import { propertyRows } from '../../core/domain/property-address';
 import { AuthService } from '../../core/session/auth.service';
 import { CitizenApiClient } from '../../core/api/citizen-api.client';
 import { PaymentHistoryEntry, ApplicationSummary } from '../../core/api/citizen-api.models';
@@ -125,23 +126,20 @@ const FEE_LINES: ReadonlyArray<{ code: keyof NonNullable<ApplicationSummary['pay
 
             <section class="doc-generated-section">
               <h2>Property</h2>
+              <!--
+                The application's own project / property address (location),
+                as on the printed permit; the business's address only when the
+                application has none. It read the business's, so a Residential
+                application printed "Not on file" four times (4 Nov 2026).
+                See core/domain/property-address.ts.
+              -->
               <dl class="doc-generated-fields">
-                <div>
-                  <dt>Barangay</dt>
-                  <dd>{{ business()?.barangay ?? 'Not on file' }}</dd>
-                </div>
-                <div>
-                  <dt>City / Municipality</dt>
-                  <dd>{{ business()?.city ?? 'Not on file' }}</dd>
-                </div>
-                <div>
-                  <dt>Street / Location</dt>
-                  <dd>{{ business()?.street ?? 'Not on file' }}</dd>
-                </div>
-                <div>
-                  <dt>Province</dt>
-                  <dd>{{ business()?.province ?? 'Not on file' }}</dd>
-                </div>
+                @for (row of propertyFields(); track row.label) {
+                  <div [style.grid-column]="row.wide ? '1 / -1' : null">
+                    <dt>{{ row.label }}</dt>
+                    <dd>{{ row.value }}</dd>
+                  </div>
+                }
               </dl>
             </section>
 
@@ -350,6 +348,8 @@ export class PaymentReceiptPage {
     const a = this.app();
     return a ? this.businessStore.businessById(a.businessId) : undefined;
   });
+  /** The Property rows: the address the applicant gave (`location`), else the business's (core/domain/property-address.ts). */
+  protected readonly propertyFields = computed(() => propertyRows(this.app()?.location, this.business()));
 
   /**
    * The most recent payment on file. Real data prefers the latest real

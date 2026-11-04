@@ -31,6 +31,7 @@ interface Testable {
   understandRequirements: boolean;
   agreeTerms: boolean;
   documents: { id: string; required: boolean; hardCopies?: number; hardCopyNote?: string | null }[];
+  attached: Record<string, unknown>;
   step: (() => number) & { set(value: number): void };
   error(): string | null;
   toStep(next: 1 | 2 | 3 | 4): void;
@@ -335,6 +336,29 @@ describe('ApplicationWizardPage — use or character of occupancy, if-applicable
     const road = rows.find((r) => r.textContent?.includes('Road Clearance'))!;
     expect(Array.from(fire.querySelectorAll('.req-copies')).map((c) => c.textContent?.trim())).toEqual(['Hard copies: 1', BFP_NOTE]);
     expect(Array.from(road.querySelectorAll('.req-copies')).map((c) => c.textContent?.trim())).toEqual(['Online only, no hard copy']);
+    // The portal's own chip and muted sub-line, not styles of this page's own.
+    expect(Array.from(el.querySelectorAll('.req-group-title')).map((t) => [t.classList.contains('tag'), t.classList.contains('tag-strong')]))
+      .toEqual([[true, true], [true, false]]);
+    expect(Array.from(fire.querySelectorAll('.req-copies')).every((c) => c.classList.contains('doc-sub'))).toBe(true);
+  });
+
+  it('Review: counts required documents only ("n of m required attached"), if-applicable ones aside', () => {
+    const { fixture, el, page } = configure('Building Permit', {
+      permitType: 'Building Permit',
+      documents: [
+        { code: 'bpnc-fire-safety-clearance', label: 'Fire Safety Evaluation Clearance', description: '', required: true, hardCopies: 1, hardCopyNote: BFP_NOTE },
+        { code: 'bpnc-lot-plan', label: 'Lot Plan', description: '', required: true },
+        { code: 'bpnc-road-clearance', label: 'Road Clearance', description: '', required: false },
+      ],
+    });
+    page.applyingAs = 'residential';
+    // One required and the if-applicable one attached: it read "2 of 3 attached".
+    page.attached = { 'bpnc-lot-plan': { kind: 'reused' }, 'bpnc-road-clearance': { kind: 'reused' } };
+    page.step.set(4);
+    fixture.detectChanges();
+
+    expect(el.querySelector('.review-docs-count')?.textContent?.trim()).toBe('1 of 2 required attached');
+    expect(el.querySelector('.review-docs-extra')?.textContent?.trim()).toBe('and 1 if applicable');
   });
 });
 
