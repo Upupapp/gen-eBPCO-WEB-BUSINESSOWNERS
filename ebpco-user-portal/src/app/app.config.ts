@@ -37,9 +37,10 @@ export const appConfig: ApplicationConfig = {
       inject(NavigationHistory);
     }),
     // Statuses and notifications stay current while the portal is open: on
-    // every page opened, on returning to the tab, and once a minute (QA TC-20).
+    // every page opened (QA TC-20), and within a second of any change while
+    // the tab is in view (live updates, 15 Nov 2026).
     provideAppInitializer(() => {
-      inject(LiveRefresh);
+      inject(LiveRefresh).start();
     }),
   ],
 };

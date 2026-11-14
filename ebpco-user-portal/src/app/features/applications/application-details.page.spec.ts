@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import { EMPTY, Subject, of } from 'rxjs';
+import { EMPTY, Subject, of, throwError } from 'rxjs';
 import { ApplicationDetailsPage } from './application-details.page';
 import { CitizenApiClient } from '../../core/api/citizen-api.client';
 import {
@@ -9,6 +9,7 @@ import {
 import { ToastService } from '../../shared/ui/toast.service';
 import { ApplicationStore } from '../../core/stores/application.store';
 import { DELIVERY_FEE_NOTE, PermitDeliveryState } from '../../core/domain/permit-delivery';
+import { LiveChanges } from '../../core/utils/live-changes';
 
 /**
  * A citizen's own real, backend-uploaded document must actually open when they
@@ -295,6 +296,78 @@ describe('ApplicationDetailsPage — receiving the permit', () => {
     expect(text()).not.toContain('Checking your permit');
     expect(text()).toContain('FP-2026-000001');
     expect((fixture.nativeElement as HTMLElement).querySelector('.release-state strong')?.textContent).toBe('Delivery by courier');
+  });
+
+  /**
+   * Live updates (15 Nov 2026): when the office moves this application or its
+   * payment, the page reads its own timeline, documents and letters again, and
+   * the delivery once a permit exists -- quietly, without a reload.
+   */
+  describe('live updates', () => {
+    function render(api: Partial<CitizenApiClient>) {
+      TestBed.configureTestingModule({
+        imports: [ApplicationDetailsPage],
+        providers: [
+          provideRouter([]),
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: 'app-real-1' }) } } },
+          {
+            provide: CitizenApiClient,
+            useValue: {
+              configured: true,
+              listApplications: () => of({ data: [summary('Out for Delivery')], nextCursor: null }),
+              getRequirementsForPermitType: () => EMPTY,
+              getPermit: () => EMPTY,
+              ...api,
+            } as Partial<CitizenApiClient>,
+          },
+        ],
+      });
+      return TestBed.createComponent(ApplicationDetailsPage);
+    }
+
+    it('reads the timeline, documents, letters and delivery again when the application or its payment changes, not for a notification', async () => {
+      const asked: string[] = [];
+      const answer = <T>(what: string, value: T) => () => { asked.push(what); return of(value); };
+      const fixture = render({
+        listDocuments: answer('documents', []),
+        getTimeline: answer('timeline', []),
+        getInstructions: answer('letters', []),
+        getDelivery: answer('delivery', onItsWay),
+      } as Partial<CitizenApiClient>);
+      fixture.detectChanges();
+      await TestBed.inject(ApplicationStore).refreshMine();
+      fixture.detectChanges();
+      asked.length = 0;
+
+      TestBed.inject(LiveChanges).announce(new Set(['notifications']));
+      fixture.detectChanges();
+      expect(asked).toEqual([]);
+
+      TestBed.inject(LiveChanges).announce(new Set(['payments']));
+      fixture.detectChanges();
+      expect([...asked].sort()).toEqual(['delivery', 'documents', 'letters', 'timeline']);
+    });
+
+    it('keeps the timeline on screen when a live re-read fails', async () => {
+      const entry = { status: 'Out for Delivery', occurredAt: '2026-11-03T00:00:00.000Z', remarks: null };
+      let reads = 0;
+      const fixture = render({
+        listDocuments: () => of([]),
+        getInstructions: () => of([]),
+        getDelivery: () => of(onItsWay),
+        getTimeline: () => (reads++ === 0 ? of([entry]) : throwError(() => new Error('offline'))),
+      } as Partial<CitizenApiClient>);
+      fixture.detectChanges();
+      await TestBed.inject(ApplicationStore).refreshMine();
+      fixture.detectChanges();
+
+      TestBed.inject(LiveChanges).announce(new Set(['applications']));
+      fixture.detectChanges();
+
+      expect(reads).toBe(2);
+      const page = fixture.componentInstance as unknown as { realTimeline(): unknown[] | null };
+      expect(page.realTimeline()).toEqual([entry]);
+    });
   });
 });
 

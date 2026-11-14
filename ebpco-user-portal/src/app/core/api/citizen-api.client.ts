@@ -2,6 +2,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, map, throwError } from 'rxjs';
 import { API_BASE_URL, ApiNotConfiguredError, RESUBMIT_MAX_FILE_BYTES } from './api-config';
+import { keepSessionOn401 } from './keep-session';
 import { problemFrom } from './problem';
 import { ApplicationAction } from '../domain/permit.model';
 import { ApplyingAs } from '../domain/application.model';
@@ -11,6 +12,7 @@ import {
   ApplicationSummary,
   BusinessListResponse,
   BusinessSummary,
+  ChangeStampResponse,
   DraftPatchRequest,
   EarlierPermitListResponse,
   ErasureReceipt,
@@ -382,6 +384,19 @@ export class CitizenApiClient {
    */
   getMe(): Observable<MeResponse> {
     return this.get<MeResponse>('/me');
+  }
+
+  /**
+   * `GET /me/changes` — the live-update check, sent every second while the
+   * portal is in view (`LiveRefresh`). Its 401 never ends the session
+   * (`KEEP_SESSION_ON_401`): a background check is no reason to send the
+   * citizen to the sign-in page; their own next request decides that.
+   */
+  getChanges(): Observable<ChangeStampResponse> {
+    if (this.baseUrl === null) return throwError(() => new ApiNotConfiguredError());
+    return this.http
+      .get<ChangeStampResponse>(`${this.baseUrl}/me/changes`, { context: keepSessionOn401() })
+      .pipe(catchError((e) => throwError(() => this.toApiError(e))));
   }
 
   /**

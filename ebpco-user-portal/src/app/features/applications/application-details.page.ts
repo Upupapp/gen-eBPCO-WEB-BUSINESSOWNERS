@@ -1,8 +1,9 @@
 import { Component, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { blankFormFor } from '../../core/domain/permit-form-assets';
-import { firstValueFrom } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
 import { ApplicationStore } from '../../core/stores/application.store';
+import { onLiveChange } from '../../core/utils/live-changes';
 import { StatusPillComponent, statusTone } from '../../shared/ui/status-pill.component';
 import { ApplicationLifecycleStatus, applicantStatusLabel, applicantStatusOf, isTerminalStatus } from '../../core/domain/status.model';
 import { pesos } from '../../core/domain/assessment.model';
@@ -635,23 +636,52 @@ export class ApplicationDetailsPage {
     }
   }
 
-  /** Re-fetches the document list after a write that changes it (a replacement, a send-back). */
+  /**
+   * (Re-)fetches the document list: on opening, after a write that changes it
+   * (a replacement, a send-back), and on a live update. The newest request
+   * wins: one still on its way is dropped, so an older answer never lands
+   * over a newer one. A local demo application id 404s against the real
+   * backend — expected, not an error worth surfacing. Leaves realDocuments as
+   * it was (null for a demo id, so contractDocs() falls back to the local demo
+   * data below).
+   */
   private refreshDocuments(): void {
-    this.api.listDocuments(this.id()).subscribe({
+    this.documentsLoad?.unsubscribe();
+    this.documentsLoad = this.api.listDocuments(this.id()).subscribe({
       next: (docs) => this.realDocuments.set(docs),
       error: () => {},
     });
   }
 
+  private documentsLoad?: Subscription;
+  private timelineLoad?: Subscription;
+  private lettersLoad?: Subscription;
+  private deliveryLoad?: Subscription;
+
+  /**
+   * Live updates (LiveRefresh, 15 Nov 2026): when the office moves this
+   * application or its payment, the timeline, the documents and the office's
+   * letters are read again, and the delivery once a permit can exist. The
+   * status and the fee card follow the application list, which LiveRefresh
+   * reads again at the same time. Quiet: what is on screen stays until the new
+   * answer arrives (and stays if a read fails), and nothing the citizen opened
+   * or is typing is reset -- LiveRefresh waits while they type or have a
+   * dialog open.
+   */
+  private readonly followChanges = onLiveChange(['applications', 'payments'], () => this.refreshQuietly());
+
+  private refreshQuietly(): void {
+    if (!this.api.configured) return;
+    this.refreshDocuments();
+    this.refreshTimeline();
+    this.refreshLetters();
+    const status = this.app()?.lifecycleStatus;
+    if (status !== undefined && PERMIT_STATUSES.has(status) && this.closedAs(status) === null) this.refreshDelivery();
+  }
+
   constructor() {
     if (this.api.configured) {
-      this.api.listDocuments(this.id()).subscribe({
-        next: (docs) => this.realDocuments.set(docs),
-        // A local demo application id 404s against the real backend — expected,
-        // not an error worth surfacing. Leaves realDocuments null, so
-        // contractDocs() falls back to the local demo data below.
-        error: () => {},
-      });
+      this.refreshDocuments();
       this.refreshTimeline();
       this.refreshLetters();
       // The permit is asked for only once one can exist, and again when the
@@ -704,7 +734,8 @@ export class ApplicationDetailsPage {
 
   private refreshLetters(): void {
     if (!this.api.configured) return;
-    this.api.getInstructions(this.id()).subscribe({
+    this.lettersLoad?.unsubscribe();
+    this.lettersLoad = this.api.getInstructions(this.id()).subscribe({
       next: (letters) => this.letters.set(letters),
       error: () => {},
     });
@@ -778,7 +809,8 @@ export class ApplicationDetailsPage {
 
   /** Re-fetches `realTimeline` after a real write on this application (e.g. `cancel()`) — otherwise the Status Timeline kept showing its pre-write history until the next full page reload. */
   private refreshTimeline(): void {
-    this.api.getTimeline(this.id()).subscribe({
+    this.timelineLoad?.unsubscribe();
+    this.timelineLoad = this.api.getTimeline(this.id()).subscribe({
       next: (entries) => this.realTimeline.set(entries),
       error: () => {},
     });
@@ -791,7 +823,8 @@ export class ApplicationDetailsPage {
   private readonly deliveryAnswered = signal(false);
 
   private refreshDelivery(): void {
-    this.api.getDelivery(this.id()).subscribe({
+    this.deliveryLoad?.unsubscribe();
+    this.deliveryLoad = this.api.getDelivery(this.id()).subscribe({
       next: (state) => {
         this.deliveryState.set(state);
         this.deliveryAnswered.set(true);

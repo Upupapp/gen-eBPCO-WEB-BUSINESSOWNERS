@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { catchError, throwError } from 'rxjs';
 import { API_BASE_URL } from './api-config';
 import { CitizenTokenStore } from './citizen-token-store';
+import { KEEP_SESSION_ON_401 } from './keep-session';
 import { AuthService } from '../session/auth.service';
 
 /**
@@ -32,6 +33,11 @@ import { AuthService } from '../session/auth.service';
  * as a session expiring; a 401 from an unauthenticated call (wrong password
  * at `/auth/token`) is a normal refusal on that screen, not a session to
  * tear down.
+ *
+ * Nor does a request flagged `KEEP_SESSION_ON_401` (`keep-session.ts`): the
+ * live-update check the portal sends every second on its own. Its 401 goes
+ * back to the check, which ignores it; the citizen's own next request still
+ * decides whether the session has ended.
  */
 export const citizenAuthInterceptor: HttpInterceptorFn = (req, next) => {
   const base = inject(API_BASE_URL);
@@ -58,7 +64,8 @@ export const citizenAuthInterceptor: HttpInterceptorFn = (req, next) => {
       // password, discarding profile.page.ts's own "show it on the form and
       // let them retry" handling before it ever ran (found live 2026-09-25).
       const isPasswordChange = req.url.endsWith('/auth/password/change');
-      if (!isPasswordChange && token !== null && error instanceof HttpErrorResponse && error.status === 401) {
+      const isBackground = req.context.get(KEEP_SESSION_ON_401);
+      if (!isPasswordChange && !isBackground && token !== null && error instanceof HttpErrorResponse && error.status === 401) {
         // The API answers 401 for expired, revoked and disabled alike, on
         // purpose — from here they are all the same thing: this token no
         // longer works.

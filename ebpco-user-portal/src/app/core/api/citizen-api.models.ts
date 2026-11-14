@@ -336,6 +336,17 @@ export interface NotificationFeedResponse {
 }
 
 /**
+ * `GET /me/changes` — the live-update check (`LiveRefresh`). `v` is a version
+ * of everything this citizen can see: equal to the last one, nothing changed.
+ * `t` has one stamp per topic (applications, payments, notifications,
+ * account), saying what did.
+ */
+export interface ChangeStampResponse {
+  v: string;
+  t: Record<string, string>;
+}
+
+/**
  * `GET`/`PUT /notification-preferences` — a boolean per category (true means
  * NOT muted, i.e. "send me this"), plus one shared do-not-disturb window.
  * `start`/`end` are `HH:MM`, required even when `enabled` is false so
