@@ -69,7 +69,7 @@ describe('LiveRefresh — live updates', () => {
   }
 
   /** One beat, its check answered with `body`, or refused with `status`. */
-  async function beat(live: LiveRefresh, now: number, body: unknown, status = 200): Promise<void> {
+  async function beat(live: LiveRefresh, now: number, body: object | null, status = 200): Promise<void> {
     const done = live.beat(now);
     const check = http.expectOne('/me/changes');
     if (status === 200) check.flush(body);
