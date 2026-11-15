@@ -17,12 +17,13 @@ import { AuthService } from '../../core/session/auth.service';
 
         <div class="field">
           <label for="login-email-or-mobile-1">Email or mobile number</label>
-          <input id="login-email-or-mobile-1" class="input" [(ngModel)]="identifier" placeholder="you@example.com" />
+          <!-- Enter signs in from either field, as people expect; the fields sit in no <form> (live check, 15 Nov 2026). -->
+          <input id="login-email-or-mobile-1" class="input" [(ngModel)]="identifier" placeholder="you@example.com" (keydown.enter)="submit()" />
         </div>
         <div class="field">
           <label for="login-password-2">Password</label>
           <div class="password-field">
-            <input id="login-password-2" class="input" [type]="showPassword() ? 'text' : 'password'" [(ngModel)]="password" placeholder="••••••••" />
+            <input id="login-password-2" class="input" [type]="showPassword() ? 'text' : 'password'" [(ngModel)]="password" placeholder="••••••••" (keydown.enter)="submit()" />
             <button type="button" class="password-toggle" (click)="showPassword.set(!showPassword())" [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'">
               @if (showPassword()) {
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -72,6 +73,7 @@ export class LoginPage {
   readonly submitting = signal(false);
 
   async submit(): Promise<void> {
+    if (this.submitting()) return; // Enter pressed again while signing in
     if (!this.identifier && !this.password) {
       this.error.set('Please enter your email/mobile number and password.');
       return;
@@ -85,6 +87,7 @@ export class LoginPage {
       return;
     }
     this.submitting.set(true);
+    let leaving = false;
     try {
       const result = await this.auth.login(this.identifier, this.password);
       if (!result.ok) {
@@ -92,9 +95,13 @@ export class LoginPage {
         return;
       }
       this.error.set(null);
-      this.router.navigate(['/dashboard']);
+      // "Signing in" stays until the dashboard is on screen. Not waiting for
+      // it flipped the button back to "Log in" while the dashboard loaded
+      // (about 1.5 s on the live site, 15 Nov 2026), which reads as a click
+      // that did nothing.
+      leaving = await this.router.navigate(['/dashboard']);
     } finally {
-      this.submitting.set(false);
+      if (!leaving) this.submitting.set(false);
     }
   }
 }
