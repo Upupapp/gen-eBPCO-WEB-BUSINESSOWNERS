@@ -133,6 +133,45 @@ describe('ProfilePage (preferences round-trip through the real backend)', () => 
     expect(labels).toContain('Save preferences');
     http.verify();
   });
+
+  /**
+   * The words beside the switches must match what ebpco-api does since 19 Nov
+   * 2026 (notice-email.ts): six must-act notices are emailed whatever the
+   * switches say, nothing else is emailed, and quiet hours hold only phone
+   * notifications. The old lines ("Off means … does not send it", "A window
+   * nothing is sent in") became untrue the day email started.
+   */
+  it('says which notices are always emailed, what the switches do, and that quiet hours are for the phone', async () => {
+    const { fixture } = await setup();
+    const http = TestBed.inject(HttpTestingController);
+    const page = fixture.componentInstance as unknown as { selectTab(t: string): void };
+    page.selectTab('notifications');
+    http.expectOne(`${BASE}/notification-preferences`).flush(SAMPLE);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const text = (selector: string) => root.querySelector(selector)?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+
+    const email = text('.profile-prefs-email');
+    expect(email).toContain('need you to act are always emailed');
+    expect(email).toContain('whatever these switches say');
+    for (const notice of ['an Order of Payment', 'a request to revise your application',
+      'a reversed or refunded payment', 'a decision not to approve your application', 'a permit ready to claim']) {
+      expect(email).toContain(notice);
+    }
+    expect(email).toContain('Other notices are not emailed.');
+
+    expect(text('.profile-prefs-switches')).toContain('These switches are for notifications on your phone.');
+    expect(text('.profile-quiet-hours-note')).toBe(
+      'During quiet hours, notifications to your phone wait until the hours end. Emails can arrive at any hour.',
+    );
+
+    const whole = root.textContent ?? '';
+    expect(whole).not.toContain('does not send it');
+    expect(whole).not.toContain('A window nothing is sent in');
+    http.verify();
+  });
 });
 
 /**

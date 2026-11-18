@@ -278,8 +278,17 @@
           <div class="card">
             @if (preferencesError(); as err) { <div class="field error" style="margin-bottom:12px;">{{ err }}</div> }
             @if (preferences(); as prefs) {
-              <p class="small muted" style="margin-top:0;">
-                Off means the Municipality still records the notice in your feed, but does not send it.
+              <!-- Matches ebpco-api notice-email.ts (owner, 19 Nov 2026): only these
+                   must-act notices are emailed, and the switches never stop them. -->
+              <p class="small muted profile-prefs-email" style="margin-top:0;">
+                Important notices that need you to act are always emailed to your confirmed email address,
+                whatever these switches say: an Order of Payment, a request to revise your application,
+                a reversed or refunded payment, a decision not to approve your application, and a permit
+                ready to claim. Other notices are not emailed.
+              </p>
+              <p class="small muted profile-prefs-switches">
+                These switches are for notifications on your phone. Off means a notice is still kept in
+                your Notifications here, but is not sent to your phone.
               </p>
               <div class="profile-prefs-grid">
                 @for (category of categoryOrder; track category) {
@@ -297,7 +306,10 @@
               <hr class="divider" />
 
               <h4>Quiet hours</h4>
-              <p class="small muted">A window nothing is sent in, regardless of the categories above.</p>
+              <p class="small muted profile-quiet-hours-note">
+                During quiet hours, notifications to your phone wait until the hours end.
+                Emails can arrive at any hour.
+              </p>
               <label class="checkbox-row">
                 <input
                   type="checkbox"
