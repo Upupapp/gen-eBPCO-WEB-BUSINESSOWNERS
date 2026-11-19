@@ -74,11 +74,11 @@ export class LoginPage {
 
   async submit(): Promise<void> {
     if (this.submitting()) return; // Enter pressed again while signing in
-    if (!this.identifier && !this.password) {
+    if (!this.identifier.trim() && !this.password) {
       this.error.set('Please enter your email/mobile number and password.');
       return;
     }
-    if (!this.identifier) {
+    if (!this.identifier.trim()) {
       this.error.set('Please enter your email or mobile number.');
       return;
     }
@@ -89,7 +89,9 @@ export class LoginPage {
     this.submitting.set(true);
     let leaving = false;
     try {
-      const result = await this.auth.login(this.identifier, this.password);
+      // Trimmed: an email pasted from the testing sheet came with a space and
+      // was refused "validation failed" (20 Nov).
+      const result = await this.auth.login(this.identifier.trim(), this.password);
       if (!result.ok) {
         this.error.set(result.error);
         return;

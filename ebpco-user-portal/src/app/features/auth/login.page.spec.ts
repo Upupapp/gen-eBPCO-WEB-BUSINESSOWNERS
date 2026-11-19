@@ -40,6 +40,14 @@ describe('LoginPage (Enter signs in; "Signing in" lasts until the dashboard)', (
     arrive(true);
   });
 
+  it('sends an email pasted with spaces around it without them', async () => {
+    const fixture = render();
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    fixture.componentInstance.identifier = '  citizen@castilla.test ';
+    await fixture.componentInstance.submit();
+    expect(login).toHaveBeenCalledWith('citizen@castilla.test', 'a password');
+  });
+
   it('keeps "Signing in" until the dashboard has opened', async () => {
     const fixture = render();
     let arrive!: (value: boolean) => void;
